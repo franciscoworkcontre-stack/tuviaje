@@ -1,244 +1,216 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import type { PlanningInput, DayPlan, CostBreakdown, Traveler, HotelRecommendation } from "@/types/trip";
 
-export const maxDuration = 60;
-import type { Trip, PlanningInput, DayPlan, CostBreakdown, Traveler, HotelRecommendation } from "@/types/trip";
-
-const client = new Anthropic();
+// Edge runtime: no 10s Node.js limit, better streaming support
+export const runtime = "edge";
 
 const STYLE_BUDGETS = {
   mochilero:  { hotel: 20000, food: 15000, activities: 8000,  local: 3000 },
   comfort:    { hotel: 60000, food: 35000, activities: 20000, local: 6000 },
-  premium:    { hotel: 150000,food: 80000, activities: 50000, local: 12000 },
+  premium:    { hotel: 150000, food: 80000, activities: 50000, local: 12000 },
 };
 
 const TRAVELER_EMOJIS = ["🧑","👩","🧔","👱","🧕","👨‍🦱","👩‍🦰","🧒"];
 const TRAVELER_COLORS = ["#1565C0","#FF7043","#2E7D32","#7B1FA2","#F9A825","#546E7A","#E64A19","#0D47A1"];
 
+function buildFlightUrl(from: string, to: string, fromIata?: string, toIata?: string, date?: string, pax?: number): string {
+  const dateStr = (date ?? "").slice(0, 10);
+  if (fromIata && toIata && dateStr) {
+    return `https://www.google.com/travel/flights#flt=${fromIata}.${toIata}.${dateStr};c:CLP;e:${pax ?? 1};sd:1;t:f`;
+  }
+  return `https://www.google.com/travel/flights/search?q=${encodeURIComponent(`vuelos de ${from} a ${to}${dateStr ? ` el ${dateStr}` : ""}`)}&hl=es`;
+}
+
 export async function POST(req: NextRequest) {
-  try {
-    const input: PlanningInput = await req.json();
-    const { adults, travelStyle, originCity, destinationCities, startDate, endDate } = input;
+  const input: PlanningInput = await req.json();
+  const { adults, travelStyle, originCity, destinationCities, startDate, endDate } = input;
 
-    const totalDays = Math.ceil(
-      (new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)
-    );
-    const allCities = destinationCities;
-    const inputDaysPerCity = input.daysPerCity ?? [];
-    const daysPerCity = (i: number) =>
-      inputDaysPerCity[i] ?? Math.floor((totalDays - allCities.length) / allCities.length);
-    const budget = STYLE_BUDGETS[travelStyle];
+  const totalDays = Math.ceil(
+    (new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const allCities = destinationCities;
+  const inputDaysPerCity = input.daysPerCity ?? [];
+  const daysPerCity = (i: number) =>
+    inputDaysPerCity[i] ?? Math.floor((totalDays - allCities.length) / Math.max(allCities.length, 1));
+  const budget = STYLE_BUDGETS[travelStyle];
 
-    const systemPrompt = `Eres el planificador de viajes de tu[viaje]. Generas itinerarios día a día para viajeros latinoamericanos.
+  // Simplified prompt — fewer tokens, faster generation
+  const prompt = `Planifica este viaje y devuelve SOLO JSON válido, sin markdown.
 
-REGLAS:
-- Responde SOLO en JSON válido, sin markdown ni texto extra
-- Cada día tiene: morning (2-3 actividades), lunch (3 opciones), afternoon (2-3), dinner (3 opciones), eveningActivity (opcional)
-- Optimiza por proximidad geográfica: actividades del mismo barrio juntas
-- Si es primera vez: incluye los imperdibles + 1 hidden gem por día
-- Incluye tiempos realistas de traslado
-- Estima costos en CLP para ${travelStyle}
-- Los días de viaje (travel_day) tienen solo la info del transporte, sin actividades
-- Tono: amigo viajero experimentado, no guía turístico formal
-- Español chileno natural`;
-
-    const userPrompt = `Planifica este viaje:
 Origen: ${originCity}
 Ciudades: ${allCities.join(" → ")}
 Fechas: ${startDate} al ${endDate} (${totalDays} días)
-Viajeros: ${adults} adultos
-Estilo: ${travelStyle}
+Viajeros: ${adults} adultos · Estilo: ${travelStyle}
 Días por ciudad: ${allCities.map((c, i) => `${c}: ${daysPerCity(i)} días`).join(", ")}
 
-Genera el JSON completo del viaje. Estructura EXACTA (sin texto extra):
+Estructura JSON:
 {
-  "title": "...",
-  "cityIataCodes": {
-    "${originCity}": "SCL",
-    "${allCities[0]}": "EZE"
-  },
-  "transportLegs": [
-    {
-      "fromCity": "${originCity}",
-      "toCity": "${allCities[0]}",
-      "fromIata": "SCL",
-      "toIata": "EZE",
-      "date": "${startDate}"
-    }
-  ],
+  "title": "Santiago → Buenos Aires → Montevideo",
+  "transportLegs": [{"fromCity":"Santiago","toCity":"Buenos Aires","fromIata":"SCL","toIata":"EZE","date":"YYYY-MM-DD"}],
   "days": [
     {
       "dayNumber": 1,
-      "city": "...",
+      "city": "Buenos Aires",
       "date": "YYYY-MM-DD",
-      "theme": "...",
+      "theme": "Llegada y Palermo",
+      "isTravelDay": true,
+      "morning": [],
+      "lunch": {"options":[{"name":"...","cuisine":"...","priceTier":"$$","costClp":12000}],"recommended":"..."},
+      "afternoon": [],
+      "dinner": {"options":[{"name":"...","cuisine":"...","priceTier":"$$","costClp":18000}],"recommended":"..."},
+      "localTransportCostClp": 3000,
+      "dayTotalClp": 45000
+    },
+    {
+      "dayNumber": 2,
+      "city": "Buenos Aires",
+      "date": "YYYY-MM-DD",
+      "theme": "San Telmo y La Boca",
       "isTravelDay": false,
-      "morning": [{"time":"09:00","durationMin":60,"name":"...","category":"culture","description":"...","costClp":0,"address":"...","tip":"...","emoji":"🏛️","rating":4.5}],
-      "lunch": {"options":[{"name":"...","cuisine":"...","priceTier":"$$","costClp":12000,"rating":4.3}],"recommended":"..."},
-      "afternoon": [...],
-      "dinner": {"options":[...],"recommended":"..."},
-      "eveningActivity": null,
+      "morning": [{"time":"09:00","durationMin":90,"name":"Feria de San Telmo","category":"culture","costClp":0,"tip":"Llega antes de las 10 para evitar las multitudes","emoji":"🎨"}],
+      "lunch": {"options":[{"name":"...","cuisine":"argentina","priceTier":"$$","costClp":14000}],"recommended":"..."},
+      "afternoon": [{"time":"15:00","durationMin":120,"name":"Caminito","category":"culture","costClp":0,"tip":"...","emoji":"🎭"}],
+      "dinner": {"options":[{"name":"...","cuisine":"parrilla","priceTier":"$$$","costClp":22000}],"recommended":"..."},
       "localTransportCostClp": 4000,
-      "dayTotalClp": 95000
+      "dayTotalClp": 85000
     }
   ],
   "accommodations": [
-    {"city":"...","name":"...","stars":3,"rating":4.2,"pricePerNight":45000,"nights":3,"totalCost":135000,"neighborhood":"..."}
+    {"city":"Buenos Aires","name":"Hotel Boutique Palermo","stars":4,"rating":8.6,"pricePerNight":65000,"nights":4,"totalCost":260000,"neighborhood":"Palermo Soho"}
   ],
   "hotelRecommendations": {
-    "${allCities[0]}": [
-      {
-        "name": "Hotel Ejemplo",
-        "neighborhood": "Palermo Soho",
-        "stars": 4,
-        "pricePerNightClp": 85000,
-        "rating": 8.6,
-        "style": "boutique",
-        "pros": ["Excelente ubicación en el barrio más trendy", "Desayuno incluido con productos locales", "Personal súper amable y con tips de viaje"],
-        "cons": ["Los cuartos son algo pequeños", "Sin piscina ni gimnasio"]
-      }
+    "Buenos Aires": [
+      {"name":"...","neighborhood":"...","stars":4,"pricePerNightClp":70000,"rating":8.5,"style":"boutique","pros":["...","...","..."],"cons":["...","..."]}
     ]
   },
-  "savingsTip": "...",
-  "optimizerTips": ["Si viajas el jueves ahorras $18.000 en el vuelo","El museo X es gratis los miércoles"]
+  "savingsTip": "Compra la SUBE el primer día, ahorra en transporte",
+  "optimizerTips": ["El Museo Nacional de Bellas Artes es gratis","Los vuelos del martes son 20% más baratos"]
 }
 
-IMPORTANTE para hotelRecommendations:
-- Genera 5 hoteles reales y reconocidos por ciudad de destino
-- Ordenados de mejor a peor relación calidad/precio para estilo ${travelStyle}
-- pricePerNightClp acorde al estilo: mochilero 15-40k, comfort 50-120k, premium 150k+
-- pros: 3 puntos específicos y útiles (no genéricos)
-- cons: 2 puntos honestos
-- Solo ciudades de destino, no origen`;
+REGLAS:
+- morning: 2 actividades por día normal (no días de viaje)
+- afternoon: 2 actividades por día normal
+- Solo 1 opción en lunch.options y dinner.options (la mejor para el estilo ${travelStyle})
+- Días de viaje: morning=[], afternoon=[], solo lunch y dinner
+- hotelRecommendations: exactamente 3 hoteles reales por ciudad destino
+- Costos en CLP realistas para ${travelStyle}
+- IATA codes correctos para todas las ciudades
+- Español chileno natural, tips útiles y específicos`;
 
-    const message = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 10000,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    });
+  const client = new Anthropic();
 
-    const raw = (message.content[0] as { type: string; text: string }).text;
+  // Stream the Claude response directly to the client
+  const stream = await client.messages.stream({
+    model: "claude-sonnet-4-6",
+    max_tokens: 7000,
+    messages: [{ role: "user", content: prompt }],
+  });
 
-    // Strip markdown code fences if present
-    const jsonText = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
-    const generated = JSON.parse(jsonText);
+  const encoder = new TextEncoder();
 
-    // Build cost breakdown
-    const hotelTotal = (generated.accommodations as { totalCost: number }[]).reduce(
-      (sum: number, a: { totalCost: number }) => sum + a.totalCost, 0
-    );
-    const foodTotal = (generated.days as DayPlan[]).reduce((sum, d) => {
-      if (d.isTravelDay) return sum;
-      const lunchCost = d.lunch?.options?.[0]?.costClp ?? budget.food / 2;
-      const dinnerCost = d.dinner?.options?.[0]?.costClp ?? budget.food / 2;
-      return sum + lunchCost + dinnerCost;
-    }, 0) * adults;
-    const activitiesTotal = (generated.days as DayPlan[]).reduce((sum, d) => {
-      const acts = [...(d.morning ?? []), ...(d.afternoon ?? [])];
-      return sum + acts.reduce((s, a) => s + (a.costClp ?? 0), 0);
-    }, 0) * adults;
-    const localTotal = (generated.days as DayPlan[]).reduce(
-      (sum, d) => sum + (d.localTransportCostClp ?? 0), 0
-    ) * adults;
-    const transportEstimate = allCities.length * 45000 * adults; // placeholder until real APIs
-    const extras = Math.round((hotelTotal + foodTotal + activitiesTotal) * 0.06);
-    const total = transportEstimate + hotelTotal + foodTotal + activitiesTotal + localTotal + extras;
+  const readable = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const chunk of stream) {
+          if (
+            chunk.type === "content_block_delta" &&
+            chunk.delta.type === "text_delta"
+          ) {
+            controller.enqueue(encoder.encode(chunk.delta.text));
+          }
+        }
+        // After streaming the raw JSON, stream the metadata as a JSON suffix
+        // We use a separator the client can detect
+        const finalMessage = await stream.finalMessage();
+        const rawText = finalMessage.content[0].type === "text" ? finalMessage.content[0].text : "";
 
-    const costs: CostBreakdown = {
-      transport: transportEstimate,
-      accommodation: hotelTotal,
-      food: foodTotal,
-      activities: activitiesTotal,
-      localTransport: localTotal,
-      extras,
-      total,
-      perPerson: Math.round(total / adults),
-      perDayPerPerson: Math.round(total / adults / totalDays),
-      byCityClp: Object.fromEntries(allCities.map((c) => [c, Math.round(total / allCities.length)])),
-    };
+        // Parse and build trip, then send as final chunk
+        const jsonText = rawText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+        const generated = JSON.parse(jsonText);
 
-    // Build Google Flights URLs for each transport leg
-    function buildFlightUrl(from: string, to: string, fromIata: string | undefined, toIata: string | undefined, date: string, pax: number): string {
-      const dateStr = date.slice(0, 10); // YYYY-MM-DD
-      if (fromIata && toIata) {
-        // Structured Google Flights URL with IATA codes
-        return `https://www.google.com/travel/flights#flt=${fromIata}.${toIata}.${dateStr};c:CLP;e:${pax};sd:1;t:f`;
-      }
-      // Fallback: text search
-      const q = encodeURIComponent(`vuelos de ${from} a ${to} el ${dateStr}`);
-      return `https://www.google.com/travel/flights/search?q=${q}&hl=es`;
-    }
-
-    const generatedLegs = (generated.transportLegs ?? []) as Array<{ fromCity: string; toCity: string; fromIata?: string; toIata?: string; date?: string }>;
-
-    // Build traveler list from adults count
-    const travelers_list: Traveler[] = Array.from({ length: adults }, (_, i) => ({
-      id: `t-${i}`,
-      name: i === 0 ? "Tú" : `Persona ${i + 1}`,
-      emoji: TRAVELER_EMOJIS[i % TRAVELER_EMOJIS.length],
-      color: TRAVELER_COLORS[i % TRAVELER_COLORS.length],
-    }));
-
-    const trip: Trip = {
-      id: `trip-${Date.now()}`,
-      title: generated.title ?? `${originCity} → ${allCities.join(" → ")}`,
-      originCity,
-      cities: allCities.map((name, i) => ({
-        name,
-        country: "",
-        days: daysPerCity(i),
-        firstTime: true,
-        interests: [],
-      })),
-      startDate,
-      endDate,
-      totalDays,
-      travelers: { adults, children: input.children },
-      travelStyle,
-      budgetMaxClp: input.budgetMaxClp,
-      transportLegs: allCities.map((city, i) => {
-        const legData = generatedLegs.find(
-          (l) => l.toCity === city || l.toCity?.toLowerCase() === city.toLowerCase()
+        const hotelTotal = (generated.accommodations ?? []).reduce(
+          (sum: number, a: { totalCost: number }) => sum + (a.totalCost ?? 0), 0
         );
-        const fromCity = i === 0 ? originCity : allCities[i - 1];
-        // Find travel day for this leg to get the date
-        const travelDay = (generated.days as DayPlan[]).find(
-          (d) => d.isTravelDay && d.city === city
-        );
-        const legDate = legData?.date ?? travelDay?.date ?? startDate;
-        const fromIata = legData?.fromIata;
-        const toIata = legData?.toIata;
-        return {
-          fromCity,
-          toCity: city,
-          fromIata,
-          toIata,
-          date: legDate,
-          flightSearchUrl: buildFlightUrl(fromCity, city, fromIata, toIata, legDate, adults),
-          selected: undefined,
-          options: [],
+        const foodTotal = (generated.days as DayPlan[]).reduce((sum, d) => {
+          if (d.isTravelDay) return sum;
+          return sum + (d.lunch?.options?.[0]?.costClp ?? budget.food / 2) + (d.dinner?.options?.[0]?.costClp ?? budget.food / 2);
+        }, 0) * adults;
+        const activitiesTotal = (generated.days as DayPlan[]).reduce((sum, d) => {
+          return sum + [...(d.morning ?? []), ...(d.afternoon ?? [])].reduce((s: number, a: { costClp?: number }) => s + (a.costClp ?? 0), 0);
+        }, 0) * adults;
+        const localTotal = (generated.days as DayPlan[]).reduce((sum, d) => sum + (d.localTransportCostClp ?? 0), 0) * adults;
+        const transportEstimate = allCities.length * 45000 * adults;
+        const extras = Math.round((hotelTotal + foodTotal + activitiesTotal) * 0.06);
+        const total = transportEstimate + hotelTotal + foodTotal + activitiesTotal + localTotal + extras;
+
+        const costs: CostBreakdown = {
+          transport: transportEstimate, accommodation: hotelTotal, food: foodTotal,
+          activities: activitiesTotal, localTransport: localTotal, extras, total,
+          perPerson: Math.round(total / adults),
+          perDayPerPerson: Math.round(total / adults / Math.max(totalDays, 1)),
+          byCityClp: Object.fromEntries(allCities.map((c) => [c, Math.round(total / allCities.length)])),
         };
-      }),
-      accommodations: generated.accommodations ?? [],
-      hotelRecommendations: (generated.hotelRecommendations ?? {}) as Record<string, HotelRecommendation[]>,
-      days: generated.days ?? [],
-      costs,
-      travelers_list,
-      splitAssignments: [],
-      currency: "CLP",
-      createdAt: new Date().toISOString(),
-      savingsTip: generated.savingsTip,
-      optimizerTips: generated.optimizerTips ?? [],
-    } as Trip & { savingsTip?: string; optimizerTips?: string[] };
 
-    return NextResponse.json({ trip });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[itinerary] error:", message);
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    );
-  }
+        const generatedLegs = (generated.transportLegs ?? []) as Array<{ fromCity: string; toCity: string; fromIata?: string; toIata?: string; date?: string }>;
+
+        const travelers_list: Traveler[] = Array.from({ length: adults }, (_, i) => ({
+          id: `t-${i}`,
+          name: i === 0 ? "Tú" : `Persona ${i + 1}`,
+          emoji: TRAVELER_EMOJIS[i % TRAVELER_EMOJIS.length],
+          color: TRAVELER_COLORS[i % TRAVELER_COLORS.length],
+        }));
+
+        const trip = {
+          id: `trip-${Date.now()}`,
+          title: generated.title ?? `${originCity} → ${allCities.join(" → ")}`,
+          originCity,
+          cities: allCities.map((name, i) => ({ name, country: "", days: daysPerCity(i), firstTime: true, interests: [] })),
+          startDate, endDate, totalDays,
+          travelers: { adults, children: input.children ?? 0 },
+          travelStyle,
+          budgetMaxClp: input.budgetMaxClp,
+          transportLegs: allCities.map((city, i) => {
+            const legData = generatedLegs.find((l) => l.toCity?.toLowerCase() === city.toLowerCase());
+            const fromCity = i === 0 ? originCity : allCities[i - 1];
+            const travelDay = (generated.days as DayPlan[]).find((d) => d.isTravelDay && d.city === city);
+            const legDate = legData?.date ?? travelDay?.date ?? startDate;
+            return {
+              fromCity, toCity: city,
+              fromIata: legData?.fromIata, toIata: legData?.toIata, date: legDate,
+              flightSearchUrl: buildFlightUrl(fromCity, city, legData?.fromIata, legData?.toIata, legDate, adults),
+              selected: undefined, options: [],
+            };
+          }),
+          accommodations: generated.accommodations ?? [],
+          hotelRecommendations: (generated.hotelRecommendations ?? {}) as Record<string, HotelRecommendation[]>,
+          days: generated.days ?? [],
+          costs,
+          travelers_list,
+          splitAssignments: [],
+          currency: "CLP",
+          createdAt: new Date().toISOString(),
+          savingsTip: generated.savingsTip,
+          optimizerTips: generated.optimizerTips ?? [],
+        };
+
+        // Send the final trip object as a special delimiter chunk
+        const finalChunk = `\n___TRIP_JSON___${JSON.stringify({ trip })}`;
+        controller.enqueue(encoder.encode(finalChunk));
+        controller.close();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        controller.enqueue(encoder.encode(`\n___ERROR___${msg}`));
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "X-Accel-Buffering": "no", // disable nginx buffering
+      "Cache-Control": "no-cache",
+    },
+  });
 }

@@ -1,8 +1,5 @@
 {
   "functions": {
-    "app/api/itinerary/route.ts": {
-      "maxDuration": 60
-    },
     "app/api/export/pdf/route.tsx": {
       "maxDuration": 30
     }

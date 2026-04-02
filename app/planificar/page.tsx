@@ -216,22 +216,57 @@ export default function PlanificarPage() {
     setPlanningInput(input);
     setIsGenerating(true);
 
-    const apiPromise = fetch("/api/itinerary", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
-
-    for (const s of GENERATING_STEPS) {
-      setGeneratingStep(s);
-      await new Promise((r) => setTimeout(r, 2400));
-    }
-
     try {
-      const res = await apiPromise;
-      if (!res.ok) throw new Error(`Error ${res.status}`);
-      const data = await res.json();
+      const res = await fetch("/api/itinerary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+
+      if (!res.ok || !res.body) throw new Error(`Error ${res.status}`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
+      let stepIdx = 0;
+
+      // Advance steps as tokens arrive
+      const stepIntervalMs = 3000;
+      let lastStepAt = Date.now();
+      setGeneratingStep(GENERATING_STEPS[0]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        accumulated += decoder.decode(value, { stream: true });
+
+        // Advance loading step based on time
+        const now = Date.now();
+        if (now - lastStepAt > stepIntervalMs && stepIdx < GENERATING_STEPS.length - 1) {
+          stepIdx++;
+          setGeneratingStep(GENERATING_STEPS[stepIdx]);
+          lastStepAt = now;
+        }
+      }
+
+      // Extract the final trip JSON from the stream
+      const delimIdx = accumulated.indexOf("___TRIP_JSON___");
+      const errIdx = accumulated.indexOf("___ERROR___");
+
+      if (errIdx !== -1) {
+        throw new Error(accumulated.slice(errIdx + "___ERROR___".length).trim());
+      }
+      if (delimIdx === -1) {
+        throw new Error("Respuesta incompleta del servidor");
+      }
+
+      const tripJsonStr = accumulated.slice(delimIdx + "___TRIP_JSON___".length);
+      const data = JSON.parse(tripJsonStr);
+
       if (data.trip) {
+        setGeneratingStep(GENERATING_STEPS[GENERATING_STEPS.length - 1]);
+        await new Promise((r) => setTimeout(r, 400)); // brief pause on last step
         setTrip(data.trip);
         setIsGenerating(false);
         router.push(`/viaje/${data.trip.id}`);
