@@ -44,7 +44,6 @@ async function scrapeCity(
         adults,
         children: 0,
         minMaxPrice: STYLE_PRICE[travelStyle] ?? "0-999999",
-        minScore: 7,
       }),
     }
   );
