@@ -1,5 +1,6 @@
 import { LandingNav } from "@/components/landing/LandingNav";
 import { Hero } from "@/components/landing/Hero";
+import { AgentDemo } from "@/components/landing/AgentDemo";
 import { SocialProof } from "@/components/landing/SocialProof";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { ItineraryPreview } from "@/components/landing/ItineraryPreview";
@@ -13,6 +14,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-linen">
       <LandingNav />
       <Hero />
+      <AgentDemo />
       <SocialProof />
       <HowItWorks />
       <ItineraryPreview />
