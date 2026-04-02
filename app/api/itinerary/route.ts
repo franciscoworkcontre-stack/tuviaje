@@ -91,102 +91,99 @@ Reglas: IATA codes reales, precios en CLP para ${travelStyle}, 1 hotel por ciuda
     console.log("[itinerary] step3: structure parsed ok, keys:", Object.keys(structure));
     const arrivalDates = (structure.cityArrivalDates ?? {}) as Record<string, string>;
 
-    // ── Llamadas 2-N: actividades por ciudad EN PARALELO (sonnet) ─
-    console.log("[itinerary] step4: starting parallel city calls", allCities);
+    // ── Helper: date arithmetic ──────────────────────────────────
+    function addDaysStr(dateStr: string, n: number): string {
+      const d = new Date(dateStr + "T12:00:00");
+      d.setDate(d.getDate() + n);
+      return d.toISOString().split("T")[0];
+    }
+
+    // ── Helper: build prompt for one batch of days ───────────────
+    function batchPrompt(
+      city: string, prevCity: string, batchDays: number,
+      batchStartDate: string, batchOffset: number, // 0 = first batch (has travel day)
+      isFirstTime: boolean
+    ): string {
+      const isFirstBatch = batchOffset === 0;
+      const firstTimeLine = isFirstTime
+        ? `PRIMERA VISITA → incluir sitios icónicos imperdibles`
+        : `VIAJERO QUE CONOCE ${city} → mercados locales, bares de barrio, sin sitios turísticos obvios`;
+
+      const day1Block = isFirstBatch ? `
+Día 1 = día de viaje. Calcula horario PRECISO para ${prevCity}→${city}:
+- Traslado al aeropuerto de ${prevCity} (emoji 🚕, coste CLP real)
+- Vuelo ${prevCity}→${city} (emoji ✈️, durationMin = minutos reales del vuelo)
+- Llegada + inmigración/aduana si es internacional (emoji 🛬)
+- Traslado aeropuerto→hotel con opciones concretas y coste CLP (emoji 🚌)
+- Check-in (emoji 🏨)
+- Actividades de tarde solo si llegan antes de las 16:00
+isTravelDay=true, theme="Llegada a ${city}"` : `
+Todos los días de este bloque son días COMPLETOS en ${city} (no es día de viaje).
+isTravelDay=false, morning: 2 actividades, afternoon: 2 actividades`;
+
+      return `Genera exactamente ${batchDays} días del itinerario en ${city}.
+Estilo: ${travelStyle} | ${adults} viajeros | ${firstTimeLine}
+Origen vuelo: ${prevCity}→${city} | Fecha primer día del bloque: ${batchStartDate}
+SOLO JSON válido sin markdown.
+${day1Block}
+
+Formato de cada día:
+{"dayNumber":N,"city":"${city}","date":"YYYY-MM-DD","theme":"...","isTravelDay":BOOL,
+"morning":[{"time":"HH:MM","durationMin":N,"name":"Nombre real","category":"culture","costClp":N,"tip":"Tip concreto","emoji":"🏛️"}],
+"lunch":{"options":[{"name":"Restaurant real","cuisine":"...","priceTier":"$$","costClp":N}],"recommended":"..."},
+"afternoon":[...misma estructura que morning...],
+"dinner":{"options":[{"name":"Restaurant real","cuisine":"...","priceTier":"$$","costClp":N}],"recommended":"..."},
+"localTransportCostClp":N,"dayTotalClp":N}
+
+REGLAS ESTRICTAS:
+- Exactamente ${batchDays} días, dayNumber empieza en ${batchOffset + 1}, fechas desde ${batchStartDate}
+- Restaurantes y lugares REALES de ${city}
+- Tips ultra-concretos ("Metro L2 estación X · $0.9 USD", "Reserva 48h antes en su web")
+- Costos en CLP para estilo ${travelStyle}
+- dayTotalClp = suma exacta de todos los costClp del día
+- SOLO el array dentro de {"days":[...]}`;
+    }
+
+    // ── Llamadas 2-N: ciudades en PARALELO, batches de 4 días ────
+    const BATCH_SIZE = 4;
+    console.log("[itinerary] step4: parallel cities with batching", allCities);
+
     const cityDayResults = await Promise.all(allCities.map(async (city, idx) => {
       const cityDays = daysPerCity(idx);
       const arrival = arrivalDates[city] ?? startDate;
-      const isFirstTime = firstTimeCities[city] !== false; // default true
+      const isFirstTime = firstTimeCities[city] !== false;
       const prevCity = idx === 0 ? originCity : allCities[idx - 1];
 
-      const msg = await client.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 8192,
-        messages: [{
-          role: "user",
-          content: `Genera itinerario detallado para ${cityDays} días en ${city}.
-Estilo: ${travelStyle} | Fecha llegada: ${arrival} | ${adults} viajeros
-Origen del vuelo: ${prevCity} → ${city}
-¿Primera vez en ${city}?: ${isFirstTime ? "SÍ — incluir imperdibles clásicos" : "NO — lugares locales menos conocidos, joyas ocultas"}
-SOLO JSON válido, sin markdown.
+      const totalBatches = Math.ceil(cityDays / BATCH_SIZE);
+      const cityAllDays: DayPlan[] = [];
 
-ESTRUCTURA DÍA 1 — día de viaje con horario REAL y PRECISO:
-Usa tu conocimiento para calcular:
-- Hora salida típica desde ${prevCity} (vuelo mañana ~7-9am es lo más común)
-- Duración real del vuelo ${prevCity}→${city} en minutos
-- Hora llegada al aeropuerto de ${city}
-- Si es vuelo internacional: +45-60 min inmigración + aduana
-- Tiempo traslado aeropuerto→hotel en ${city} (taxi, shuttle o metro según lo que existe)
-- Hora check-in hotel (~15:00 estándar, si llegan antes dejan maletas)
-- Después del check-in: qué alcanza a hacerse
+      // Batches run sequentially within a city (dates must be contiguous)
+      for (let b = 0; b < totalBatches; b++) {
+        const batchOffset = b * BATCH_SIZE;
+        const batchCount = Math.min(BATCH_SIZE, cityDays - batchOffset);
+        const batchStartDate = addDaysStr(arrival, batchOffset);
 
-Ejemplo estructura día 1 CORRECTO (adaptar a ${prevCity}→${city}):
-{
-  "dayNumber": 1,
-  "city": "${city}",
-  "date": "${arrival}",
-  "theme": "Llegada a ${city}",
-  "isTravelDay": true,
-  "morning": [
-    {"time":"06:00","durationMin":90,"name":"Traslado al aeropuerto de ${prevCity}","category":"culture","costClp":15000,"tip":"Llega 2.5h antes si es vuelo internacional, 2h si es doméstico","emoji":"🚕"},
-    {"time":"08:30","durationMin":185,"name":"Vuelo ${prevCity} → ${city}","category":"culture","costClp":0,"tip":"Vuelo de X horas. Zona horaria: indica si hay diferencia horaria","emoji":"✈️"},
-    {"time":"12:15","durationMin":60,"name":"Llegada al aeropuerto — Inmigración y aduana","category":"culture","costClp":0,"tip":"Ten el pasaporte y declaración lista. Para ciudadanos CL → [ciudad] generalmente sin visa","emoji":"🛬"}
-  ],
-  "afternoon": [
-    {"time":"13:30","durationMin":60,"name":"Traslado aeropuerto → hotel en [barrio]","category":"culture","costClp":18000,"tip":"[Opción concreta: ej. Shuttle EzeiBus $6 USD / Taxi oficial ~$30 USD / Metro línea X $1.2 USD]","emoji":"🚌"},
-    {"time":"15:00","durationMin":30,"name":"Check-in en el hotel","category":"culture","costClp":0,"tip":"Si la habitación no está lista, deja el equipaje en consigna y sal a explorar","emoji":"🏨"},
-    {"time":"15:30","durationMin":90,"name":"Primer paseo: [barrio específico de ${city}]","category":"culture","costClp":0,"tip":"[Tip concreto del barrio]","emoji":"🚶"},
-    {"time":"17:00","durationMin":60,"name":"[Actividad liviana real en ${city}]","category":"culture","costClp":5000,"tip":"[Tip]","emoji":"☕"}
-  ],
-  "lunch": {"options":[{"name":"[Restaurant real en ruta aeropuerto→hotel]","cuisine":"...","priceTier":"$","costClp":8000}],"recommended":"Algo rápido y local cerca del aeropuerto o en el camino"},
-  "dinner": {"options":[{"name":"[Restaurant real en barrio del hotel]","cuisine":"...","priceTier":"$$","costClp":18000}],"recommended":"Primera cena local cerca del hotel"},
-  "localTransportCostClp": 18000,
-  "dayTotalClp": 60000
-}
+        console.log(`[itinerary] ${city} batch ${b + 1}/${totalBatches}: days ${batchOffset + 1}-${batchOffset + batchCount} from ${batchStartDate}`);
 
-Días normales (2+):
-{
-  "dayNumber": 2,
-  "city": "${city}",
-  "date": "YYYY-MM-DD",
-  "theme": "Tema específico",
-  "isTravelDay": false,
-  "morning": [
-    {"time":"09:00","durationMin":90,"name":"[Lugar real]","category":"culture","costClp":0,"tip":"[Tip concreto]","emoji":"🏛️"},
-    {"time":"11:00","durationMin":60,"name":"[Lugar real]","category":"culture","costClp":5000,"tip":"[Tip]","emoji":"🎨"}
-  ],
-  "lunch": {"options":[{"name":"[Restaurant real]","cuisine":"...","priceTier":"$$","costClp":14000}],"recommended":"..."},
-  "afternoon": [
-    {"time":"15:00","durationMin":120,"name":"[Lugar real]","category":"culture","costClp":8000,"tip":"[Tip]","emoji":"🎭"},
-    {"time":"17:30","durationMin":60,"name":"[Lugar real]","category":"food","costClp":0,"tip":"[Tip]","emoji":"🍷"}
-  ],
-  "dinner": {"options":[{"name":"[Restaurant real]","cuisine":"...","priceTier":"$$$","costClp":22000}],"recommended":"..."},
-  "localTransportCostClp": 4000,
-  "dayTotalClp": 85000
-}
+        const msg = await client.messages.create({
+          model: "claude-sonnet-4-6",
+          max_tokens: 8192,
+          messages: [{ role: "user", content: batchPrompt(city, prevCity, batchCount, batchStartDate, batchOffset, isFirstTime) }],
+        });
 
-REGLAS:
-- Exactamente ${cityDays} días, fechas consecutivas desde ${arrival}
-- Día 1: isTravelDay=true, horarios REALES y PRECISOS del vuelo ${prevCity}→${city}
-  * Calcula las horas exactas basado en vuelos típicos en esa ruta
-  * Incluye SIEMPRE: traslado al aeropuerto, vuelo, llegada+aduana, traslado al hotel, check-in
-  * Indica el costo REAL del traslado aeropuerto→hotel en CLP
-  * Agrega actividades de tarde SOLO si el tiempo lo permite (llegar antes de las 16:00)
-- Días normales: 2 actividades morning, 2 afternoon
-- ${isFirstTime ? "PRIMERA VISITA: incluir los sitios icónicos imperdibles de " + city : "VIAJERO QUE YA CONOCE " + city + ": EVITAR sitios turísticos típicos, priorizar: mercados locales, bares de barrio, rutas menos conocidas, experiencias auténticas"}
-- Restaurantes y lugares REALES y específicos de ${city} (nombres reales que existan hoy)
-- Tips hiper-concretos y útiles ("Metro línea D, estación Facultad de Medicina, $200 ARS", "Reserva online con al menos 3 días de anticipación")
-- Costos en CLP realistas para estilo ${travelStyle}
-- 1 opción en lunch y dinner
-- dayTotalClp = suma de todos los costos del día`
-        }],
-      });
+        const raw = (msg.content[0] as { type: string; text: string }).text;
+        console.log(`[itinerary] ${city} batch ${b + 1} raw length:`, raw.length);
 
-      const cityRaw = (msg.content[0] as { type: string; text: string }).text;
-      console.log(`[itinerary] city ${city} raw length:`, cityRaw.length, "preview:", cityRaw.slice(0, 150));
-      const result = safeParseJson(cityRaw) as { days: DayPlan[] };
-      console.log(`[itinerary] city ${city} parsed ok, days:`, result.days?.length);
-      return result.days ?? [];
+        try {
+          const parsed = safeParseJson(raw) as { days: DayPlan[] };
+          cityAllDays.push(...(parsed.days ?? []));
+        } catch (e) {
+          console.error(`[itinerary] ${city} batch ${b + 1} parse error:`, e instanceof Error ? e.message : e, raw.slice(0, 200));
+        }
+      }
+
+      console.log(`[itinerary] ${city} total days collected: ${cityAllDays.length}`);
+      return cityAllDays;
     }));
 
     // ── Ensamblar ────────────────────────────────────────────────
