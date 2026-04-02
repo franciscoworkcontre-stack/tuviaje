@@ -216,16 +216,26 @@ export default function PlanificarPage() {
     setPlanningInput(input);
     setIsGenerating(true);
 
-    // Animate steps while waiting for the API
+    // Start API immediately
     const apiPromise = fetch("/api/itinerary", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
 
+    // Animate all steps (always completes the full sequence)
+    let done = false;
+    apiPromise.finally(() => { done = true; });
+
     for (const s of GENERATING_STEPS) {
       setGeneratingStep(s);
-      await new Promise((r) => setTimeout(r, 2800));
+      await new Promise((r) => setTimeout(r, 2600));
+    }
+
+    // If API is still running, keep showing last step until it's done
+    while (!done) {
+      setGeneratingStep("✨ Preparando tu plan...");
+      await new Promise((r) => setTimeout(r, 800));
     }
 
     try {

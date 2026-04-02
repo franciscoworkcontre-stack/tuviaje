@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { PlanningInput, DayPlan, CostBreakdown, Traveler, HotelRecommendation } from "@/types/trip";
 
 export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
 const STYLE_BUDGETS = {
   mochilero:  { hotel: 20000, food: 15000, activities: 8000,  local: 3000 },
