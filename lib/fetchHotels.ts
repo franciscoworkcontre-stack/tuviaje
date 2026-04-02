@@ -81,7 +81,7 @@ async function scrapeCity(
     type?: string;
   }>;
 
-  return items
+  const mapped = items
     .filter(h => h.name && h.price)
     .map(h => {
       const priceUsd = h.price ?? 0;
@@ -109,13 +109,35 @@ async function scrapeCity(
         neighborhood,
         stars,
         pricePerNightClp: priceClp,
-        rating: h.rating,
+        rating: h.rating ?? 0,
         style,
         pros,
         cons,
         bookingSearchUrl: h.url ?? `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(h.name! + " " + city)}&lang=es&checkin=${checkIn}&checkout=${checkOut}&group_adults=${adults}`,
       } satisfies HotelRecommendation;
     });
+
+  // Filter to rating >= 7 if we have enough options, then sort by best value (rating/price)
+  const goodOnes = mapped.filter(h => (h.rating ?? 0) >= 7);
+  const pool = goodOnes.length >= 2 ? goodOnes : mapped;
+
+  // Score: higher rating = better, higher price = worse. Normalize price to 0-1 range.
+  const prices = pool.map(h => h.pricePerNightClp);
+  const minP = Math.min(...prices), maxP = Math.max(...prices);
+  const range = maxP - minP || 1;
+
+  pool.sort((a, b) => {
+    const scoreA = (a.rating ?? 7) - ((a.pricePerNightClp - minP) / range) * 2;
+    const scoreB = (b.rating ?? 7) - ((b.pricePerNightClp - minP) / range) * 2;
+    return scoreB - scoreA;
+  });
+
+  // Mark the top pick
+  if (pool[0]) {
+    pool[0].pros = ["⭐ Mejor relación calidad/precio", ...pool[0].pros];
+  }
+
+  return pool;
 }
 
 export async function fetchHotelsForCities(

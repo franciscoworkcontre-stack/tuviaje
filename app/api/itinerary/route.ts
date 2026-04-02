@@ -237,18 +237,33 @@ REGLAS ESTRICTAS:
       startDate, endDate, totalDays,
       travelers: { adults, children: input.children ?? 0 },
       travelStyle, budgetMaxClp: input.budgetMaxClp,
-      transportLegs: allCities.map((city, i) => {
-        const leg = legs.find(l => l.toCity?.toLowerCase() === city.toLowerCase());
-        const fromCity = i === 0 ? originCity : allCities[i - 1];
-        const tDay = allDays.find(d => d.isTravelDay && d.city === city);
-        const legDate = leg?.date ?? tDay?.date ?? startDate;
-        return {
-          fromCity, toCity: city,
-          fromIata: leg?.fromIata, toIata: leg?.toIata, date: legDate,
-          flightSearchUrl: buildFlightUrl(fromCity, city, leg?.fromIata, leg?.toIata, legDate, adults),
+      transportLegs: (() => {
+        const outbound = allCities.map((city, i) => {
+          const leg = legs.find(l => l.toCity?.toLowerCase() === city.toLowerCase());
+          const fromCity = i === 0 ? originCity : allCities[i - 1];
+          const tDay = allDays.find(d => d.isTravelDay && d.city === city);
+          const legDate = leg?.date ?? tDay?.date ?? startDate;
+          return {
+            fromCity, toCity: city,
+            fromIata: leg?.fromIata, toIata: leg?.toIata, date: legDate,
+            flightSearchUrl: buildFlightUrl(fromCity, city, leg?.fromIata, leg?.toIata, legDate, adults),
+            selected: undefined, options: [],
+          };
+        });
+        // Return leg: last destination → origin city
+        const lastCity = allCities[allCities.length - 1];
+        const firstLeg = legs.find(l => l.fromCity?.toLowerCase() === originCity.toLowerCase());
+        const lastLeg = legs.find(l => l.toCity?.toLowerCase() === lastCity.toLowerCase());
+        const returnFromIata = lastLeg?.toIata;
+        const returnToIata = firstLeg?.fromIata;
+        outbound.push({
+          fromCity: lastCity, toCity: originCity,
+          fromIata: returnFromIata, toIata: returnToIata, date: endDate,
+          flightSearchUrl: buildFlightUrl(lastCity, originCity, returnFromIata, returnToIata, endDate, adults),
           selected: undefined, options: [],
-        };
-      }),
+        });
+        return outbound;
+      })(),
       accommodations: accs,
       hotelRecommendations,
       days: allDays, costs, travelers_list,

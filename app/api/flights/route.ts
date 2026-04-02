@@ -206,7 +206,21 @@ async function fetchLegFlights(
 
   if (allPrices.length === 0) return [];
 
-  return buildFlightOptions(allGroups, fromIata, toIata, date, adults, allPrices);
+  const options = buildFlightOptions(allGroups, fromIata, toIata, date, adults, allPrices);
+
+  // Sort: cheapest + fastest first. Score = price + 25% per stop + 8 CLP/min of duration
+  options.sort((a, b) => {
+    const scoreA = a.priceClp * (1 + a.stops * 0.25) + a.durationMin * 8;
+    const scoreB = b.priceClp * (1 + b.stops * 0.25) + b.durationMin * 8;
+    return scoreA - scoreB;
+  });
+
+  // Mark the top option
+  if (options[0]) {
+    options[0].pros = ["⭐ Mejor opción: más barato y rápido", ...options[0].pros];
+  }
+
+  return options;
 }
 
 export async function POST(req: NextRequest) {
