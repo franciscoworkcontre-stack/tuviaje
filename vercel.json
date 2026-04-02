@@ -5,6 +5,9 @@
     },
     "app/api/export/pdf/route.tsx": {
       "maxDuration": 60
+    },
+    "app/api/flights/route.ts": {
+      "maxDuration": 120
     }
   }
 }
