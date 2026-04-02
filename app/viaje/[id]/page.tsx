@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { motion, useScroll, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import {
   ArrowLeftIcon as ArrowLeft,
@@ -265,6 +266,8 @@ type ExportTab = "itinerary" | "hotels" | "split" | "optimize";
 export default function TripPage() {
   const { trip, selectFlight, displayCurrency } = useTripStore();
   const [activeTab, setActiveTab] = useState<ExportTab>("hotels");
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [tabPositions, setTabPositions] = useState<Record<string, { left: number; width: number }>>({});
   const [downloading, setDownloading] = useState<"sheet" | "pdf" | null>(null);
   const [hotelRecs, setHotelRecs] = useState<Record<string, HotelRecommendation[]>>(
     () => trip?.hotelRecommendations ?? {}
@@ -334,6 +337,28 @@ export default function TripPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip?.id]);
 
+  // ── Scroll shadow ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const onScroll = () => setIsScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // ── Tab indicator positions ──────────────────────────────────────────────────
+  useEffect(() => {
+    const update = () => {
+      const positions: Record<string, { left: number; width: number }> = {};
+      (["hotels", "itinerary", "optimize", "split"] as ExportTab[]).forEach((id) => {
+        const el = document.getElementById(`tab-${id}`);
+        if (el) positions[id] = { left: el.offsetLeft, width: el.offsetWidth };
+      });
+      setTabPositions(positions);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
   if (!trip) {
     return (
       <div className="min-h-screen bg-linen flex items-center justify-center">
@@ -389,7 +414,15 @@ export default function TripPage() {
   return (
     <div className="min-h-screen bg-linen">
       {/* ─── Header ──────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-[#E0D5C5] sticky top-0 z-40">
+      <motion.header
+        className="bg-[#FAF8F4] sticky top-0 z-40 border-b border-[#E0D5C5]"
+        animate={{
+          boxShadow: isScrolled
+            ? "0 4px 20px -2px rgba(26,35,50,0.12)"
+            : "0 1px 0px 0 rgba(0,0,0,0)",
+        }}
+        transition={{ duration: 0.2 }}
+      >
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <Link href="/planificar" className="text-[#78909C] hover:text-ocean transition-colors shrink-0">
@@ -407,8 +440,8 @@ export default function TripPage() {
             {/* Currency selector */}
             <CurrencySelector />
             {/* Total pill */}
-            <div className="hidden sm:block bg-sunset-lighter border border-sunset/20 rounded-full px-3 py-1">
-              <span className="text-[13px] font-bold text-sunset tabular-nums">
+            <div className="hidden sm:block bg-[#1565C0] rounded-full px-3 py-1 shadow-sm">
+              <span className="text-[13px] font-bold text-white tabular-nums">
                 {fmtCurrency(trip.costs.total, displayCurrency)}
               </span>
             </div>
@@ -425,7 +458,7 @@ export default function TripPage() {
             <button
               onClick={downloadPDF}
               disabled={!!downloading}
-              className="btn btn-accent text-[13px] min-h-[38px] px-4 gap-1.5"
+              className="bg-[#1565C0] hover:bg-[#1976D2] text-white text-[13px] font-semibold min-h-[38px] px-4 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-50"
             >
               <Download size={15} />
               <span className="hidden sm:inline">{downloading === "pdf" ? "Generando..." : "PDF"}</span>
@@ -433,28 +466,61 @@ export default function TripPage() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="max-w-6xl mx-auto px-6 flex border-t border-[#E0D5C5]">
-          {([
-            { id: "hotels",    label: "✈️ Vuelos & Hoteles" },
-            { id: "itinerary", label: "📅 Itinerario" },
-            { id: "optimize",  label: "✨ Optimizar" },
-            { id: "split",     label: "👥 Dividir costos" },
-          ] as { id: ExportTab; label: string }[]).map(({ id, label }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`px-5 py-2.5 text-[13px] font-semibold border-b-2 transition-colors ${
-                activeTab === id
-                  ? "border-ocean text-ocean"
-                  : "border-transparent text-[#78909C] hover:text-[#37474F]"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+        {/* Tabs with animated sliding indicator */}
+        <div className="max-w-6xl mx-auto px-6 border-t border-[#E0D5C5]">
+          <div className="relative flex">
+            {/* Sliding indicator */}
+            {tabPositions[activeTab] && (
+              <motion.div
+                className="absolute bottom-0 h-[2px] bg-[#1565C0] rounded-full"
+                initial={false}
+                animate={{
+                  left: tabPositions[activeTab].left,
+                  width: tabPositions[activeTab].width,
+                }}
+                transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              />
+            )}
+            {([
+              { id: "hotels",    label: "✈️ Vuelos & Hoteles" },
+              { id: "itinerary", label: "📅 Itinerario" },
+              { id: "optimize",  label: "✨ Optimizar" },
+              { id: "split",     label: "👥 Dividir costos" },
+            ] as { id: ExportTab; label: string }[]).map(({ id, label }) => (
+              <button
+                key={id}
+                id={`tab-${id}`}
+                onClick={() => {
+                  setActiveTab(id);
+                  // Update indicator immediately after click
+                  setTimeout(() => {
+                    const positions: Record<string, { left: number; width: number }> = {};
+                    (["hotels", "itinerary", "optimize", "split"] as ExportTab[]).forEach((tid) => {
+                      const el = document.getElementById(`tab-${tid}`);
+                      if (el) positions[tid] = { left: el.offsetLeft, width: el.offsetWidth };
+                    });
+                    setTabPositions(positions);
+                  }, 0);
+                }}
+                className={`relative px-5 py-2.5 text-[13px] font-semibold transition-colors ${
+                  activeTab === id
+                    ? "text-[#1565C0]"
+                    : "text-[#78909C] hover:text-[#37474F]"
+                }`}
+              >
+                {label}
+                {activeTab === id && (
+                  <motion.div
+                    layoutId="activeTabBg"
+                    className="absolute inset-0 bg-[#1565C0]/6 rounded-lg -z-10"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      </motion.header>
 
       {/* ─── Content ─────────────────────────────────────────────── */}
       <div className="max-w-6xl mx-auto px-6 py-6">
