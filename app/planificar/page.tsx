@@ -41,7 +41,7 @@ export default function PlanificarPage() {
   const router = useRouter();
   const { setPlanningInput, setTrip, setIsGenerating, setGeneratingStep } = useTripStore();
 
-  const [step, setStep] = useState<"input" | "dates" | "confirm" | "generating" | "error">("input");
+  const [step, setStep] = useState<"input" | "clarify" | "dates" | "confirm" | "generating" | "error">("input");
   const [errorMsg, setErrorMsg] = useState("");
   const [rawText, setRawText] = useState("");
   const [parsing, setParsing] = useState(false);
@@ -50,6 +50,10 @@ export default function PlanificarPage() {
   const [suggestions, setSuggestions] = useState<DateSuggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [flexibleContext, setFlexibleContext] = useState<{month: string; year: number; duration: number} | null>(null);
+
+  // Clarification
+  const [clarificationQuestion, setClarificationQuestion] = useState("");
+  const [clarificationAnswer, setClarificationAnswer] = useState("");
 
   // Route state
   const [origin] = useState("Santiago");
@@ -83,14 +87,28 @@ export default function PlanificarPage() {
     "✨ Preparando tu plan...",
   ];
 
+  async function handleClarify() {
+    if (!clarificationAnswer.trim()) return;
+    const combined = `${rawText}. ${clarificationAnswer}`;
+    setRawText(combined);
+    setClarificationAnswer("");
+    setParsing(true);
+    setStep("input"); // temporarily show nothing while re-parsing
+    await runParse(combined);
+  }
+
   async function handleParse() {
     if (!rawText.trim()) return;
     setParsing(true);
+    await runParse(rawText);
+  }
+
+  async function runParse(text: string) {
     try {
       const res = await fetch("/api/parse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: rawText }),
+        body: JSON.stringify({ text }),
       });
       const p = await res.json();
       const cities: string[] = p.destinationCities ?? ["Buenos Aires"];
@@ -98,6 +116,19 @@ export default function PlanificarPage() {
       setCityRows(cities.map((name: string, i: number) => ({ name, days: days[i] ?? 4 })));
       setAdults(p.adults ?? 2);
       setStyle(p.travelStyle ?? "comfort");
+
+      // Needs clarification?
+      if (p.needsClarification && p.clarificationQuestion) {
+        setClarificationQuestion(p.clarificationQuestion);
+        const cities: string[] = p.destinationCities ?? [];
+        const days: number[] = p.daysPerCity ?? cities.map(() => 4);
+        setCityRows(cities.map((name: string, i: number) => ({ name, days: days[i] ?? 4 })));
+        setAdults(p.adults ?? 2);
+        setStyle(p.travelStyle ?? "comfort");
+        setParsing(false);
+        setStep("clarify");
+        return;
+      }
 
       // Fallback: if no departure date but has a month, treat as flexible
       const isFlexible = p.flexible ||
@@ -145,9 +176,8 @@ export default function PlanificarPage() {
       }
     } catch {
       setCityRows([{ name: "Buenos Aires", days: 4 }]);
-      setStep("confirm");
-    } finally {
       setParsing(false);
+      setStep("confirm");
     }
   }
 
@@ -239,6 +269,54 @@ export default function PlanificarPage() {
   }
 
   if (step === "generating") return <GeneratingScreen />;
+
+  if (step === "clarify") {
+    return (
+      <div className="min-h-screen bg-[#0D1F3C] flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-lg" style={{ animation: "scaleIn 0.35s ease-out both" }}>
+          <div className="text-center mb-8">
+            <p className="font-serif text-[26px] font-bold text-white mb-1">
+              tu<span className="text-ocean-light">[viaje]</span>
+            </p>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+            <p className="text-white/40 text-[11px] font-semibold uppercase tracking-widest mb-3">Una pregunta rápida</p>
+            <p className="text-white text-[18px] font-semibold leading-snug mb-6">
+              {clarificationQuestion}
+            </p>
+            <textarea
+              value={clarificationAnswer}
+              onChange={(e) => setClarificationAnswer(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && e.metaKey && handleClarify()}
+              placeholder="Escribe aquí..."
+              rows={3}
+              className="w-full bg-white/8 border border-white/15 rounded-xl px-4 py-3 text-white placeholder-white/25 text-[15px] resize-none focus:outline-none focus:border-ocean-light/50 transition-colors mb-4"
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setStep("input")}
+                className="flex-1 py-3 rounded-xl border border-white/15 text-white/50 hover:text-white/75 text-[14px] transition-colors"
+              >
+                ← Volver
+              </button>
+              <button
+                onClick={handleClarify}
+                disabled={!clarificationAnswer.trim() || parsing}
+                className="flex-[2] btn btn-accent min-h-[48px] text-[14px] disabled:opacity-40"
+              >
+                {parsing
+                  ? <><Loader2 size={14} className="animate-spin" /> Procesando...</>
+                  : <>Continuar <ArrowRight size={14} /></>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (step === "dates") {
     return (

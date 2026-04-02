@@ -5,62 +5,105 @@ const client = new Anthropic();
 
 export async function POST(req: NextRequest) {
   const { text } = await req.json();
-  if (!text?.trim()) {
-    return NextResponse.json({ error: "No text" }, { status: 400 });
-  }
+  if (!text?.trim()) return NextResponse.json({ error: "No text" }, { status: 400 });
 
   const today = new Date().toISOString().split("T")[0];
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth(); // 0-indexed
 
   const message = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 512,
+    max_tokens: 700,
     messages: [{
       role: "user",
-      content: `Extrae la información de este plan de viaje. Devuelve SOLO JSON, sin texto extra.
+      content: `Eres el parser de tuviaje.com. Extrae info de este texto de viaje y devuelve SOLO JSON.
 
 Texto: "${text}"
-Hoy: ${today}
-Origen asumido: Santiago
+Hoy: ${today} (mes actual: ${currentMonth + 1}, año: ${currentYear})
 
-JSON a devolver:
+═══ ALIASES DE CIUDADES ═══
+BA / BsAs / Baires / Buenos → Buenos Aires
+Mvd / Monte → Montevideo
+SP / Sampa / Sao Paulo → São Paulo
+Rio / RJ → Río de Janeiro
+CDMX / DF / México (país) → Ciudad de México
+Medallo → Medellín
+Barna / BCN → Barcelona
+NY / Nueva York → Nueva York
+Cusco / Machu Picchu → [Lima, Cusco]
+
+═══ PAÍS → CIUDADES DEFAULT ═══
+Argentina (sin ciudad) → [Buenos Aires]
+Brasil (sin ciudad) → [São Paulo, Río de Janeiro]
+Perú (sin ciudad) → [Lima, Cusco]
+Colombia (sin ciudad) → [Bogotá, Cartagena]
+México (sin ciudad) → [Ciudad de México]
+Patagonia → [Bariloche, El Calafate]
+
+═══ FERIADOS CHILENOS → FECHAS ═══
+semana santa / pascua → abril (flexible)
+vacaciones de invierno / vacaciones julio → julio (flexible)
+fiestas patrias / 18 de septiembre / dieciocho → septiembre 15-20
+año nuevo / fin de año → diciembre 28 - enero 5
+verano / vacaciones de verano → enero-febrero (flexible)
+
+═══ VIAJEROS ═══
+solo / sola / yo solo → adults: 1
+mi esposa/marido/pareja/pololo/novia y yo → adults: 2
+en pareja / nosotros dos → adults: 2
+luna de miel / honeymoon → adults: 2, travelStyle: "premium"
+con mis papás / con mis padres → adults: 3 (o preguntar)
+familia / con mis hijos → needs clarification sobre cantidad
+somos N / vamos N / grupo de N → adults: N
+
+═══ ESTILO ═══
+mochilero / mochila / backpacker / económico / barato / hostales → "mochilero"
+lujo / lujoso / 5 estrellas / lo mejor / sin mirar precio / business / luna de miel → "premium"
+default → "comfort"
+
+═══ FLEXIBLE vs EXACTO ═══
+flexible=TRUE: solo menciona el mes o período SIN día específico
+  Ejemplos: "en julio", "2 semanas en agosto", "para semana santa", "en el verano"
+flexible=FALSE: da días exactos
+  Ejemplos: "del 10 al 24 julio", "saliendo el 15 de agosto", "el 3 de octubre"
+
+═══ NECESITA CLARIFICACIÓN ═══
+needsClarification=true cuando:
+- No hay ciudades detectables Y no hay país inferible ("quiero viajar", "necesito salir de Santiago")
+- País muy genérico: "Europa", "Asia", "el Caribe" (múltiples países)
+- No hay fechas NI duración ("quiero ir a BA" sin ninguna referencia de tiempo)
+- Pregunta abierta: "¿a dónde me recomiendas ir?"
+
+En estos casos pon la pregunta más corta posible en clarificationQuestion.
+
+═══ JSON a devolver ═══
 {
   "originCity": "Santiago",
   "destinationCities": ["Buenos Aires", "Montevideo"],
-  "daysPerCity": [4, 3],
+  "daysPerCity": [7, 7],
   "departureDate": null,
   "adults": 2,
   "travelStyle": "comfort",
   "flexible": true,
   "flexibleMonth": "julio",
-  "flexibleYear": 2026,
-  "flexibleDurationDays": 14
+  "flexibleYear": ${currentYear},
+  "flexibleDurationDays": 14,
+  "needsClarification": false,
+  "clarificationQuestion": null
 }
 
-REGLA MÁS IMPORTANTE — flexible vs exacto:
-- flexible=TRUE cuando el usuario dice solo el MES sin día específico: "en julio", "2 semanas en julio", "agosto", "vacaciones de invierno", "en verano". NO sabe qué días exactos dentro del mes.
-- flexible=FALSE solo cuando el usuario da días EXACTOS: "del 10 al 24 de julio", "el 15 de agosto", "saliendo el 3 de julio". Sabe exactamente qué días.
-
-Ejemplos:
-- "2 semanas en julio" → flexible=true, flexibleMonth="julio", flexibleDurationDays=14, departureDate=null
-- "en agosto, 10 días" → flexible=true, flexibleMonth="agosto", flexibleDurationDays=10, departureDate=null
-- "del 10 al 24 de julio" → flexible=false, departureDate="2026-07-10"
-- "saliendo el 15 de julio" → flexible=false, departureDate="2026-07-15"
-
-Otras reglas:
-- flexibleYear: año futuro más cercano para ese mes desde hoy (${today})
-- daysPerCity: si dice "2 semanas" para 2 ciudades → [7, 7]. Si dice "4 días en BA y 3 en Montevideo" → [4, 3]. Default: 4 días por ciudad.
-- adults: "mi esposa y yo"/"nosotros dos"/"somos 2" → 2, "somos 3" → 3. Default: 2.
-- travelStyle: "mochilero" si dice mochilero/hostal/económico. "premium" si dice lujo/5 estrellas. Default: "comfort".
-- destinationCities: nombres correctamente capitalizados. Máximo 5.`
-    }],
+Reglas finales:
+- flexibleYear: si el mes ya pasó este año, usa ${currentYear + 1}
+- daysPerCity: distribuye los días totales entre ciudades. "2 semanas en BA y Montevideo" → [7,7]. "4 días BA y 3 Mvd" → [4,3]. Default 4 días c/u.
+- Si hay needsClarification=true, igual intenta llenar todo lo que puedas con lo que hay.`
+    }]
   });
 
   const raw = (message.content[0] as { type: string; text: string }).text.trim();
   const jsonText = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
 
   try {
-    const parsed = JSON.parse(jsonText);
-    return NextResponse.json(parsed);
+    return NextResponse.json(JSON.parse(jsonText));
   } catch {
     return NextResponse.json({ error: "Parse failed" }, { status: 500 });
   }
