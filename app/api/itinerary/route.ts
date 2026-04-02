@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
     const client = new Anthropic();
 
     // ── Llamada 1: estructura (rápida, haiku) ────────────────────
+    console.log("[itinerary] step1: calling structure haiku", { allCities, totalDays, travelStyle });
     const structureMsg = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 1200,
@@ -83,10 +84,14 @@ Reglas: IATA codes reales, precios en CLP para ${travelStyle}, 1 hotel por ciuda
       }],
     });
 
-    const structure = safeParseJson((structureMsg.content[0] as { type: string; text: string }).text) as Record<string, unknown>;
+    const structureRaw = (structureMsg.content[0] as { type: string; text: string }).text;
+    console.log("[itinerary] step2: structure raw length", structureRaw.length, "preview:", structureRaw.slice(0, 200));
+    const structure = safeParseJson(structureRaw) as Record<string, unknown>;
+    console.log("[itinerary] step3: structure parsed ok, keys:", Object.keys(structure));
     const arrivalDates = (structure.cityArrivalDates ?? {}) as Record<string, string>;
 
     // ── Llamadas 2-N: actividades por ciudad EN PARALELO (sonnet) ─
+    console.log("[itinerary] step4: starting parallel city calls", allCities);
     const cityDayResults = await Promise.all(allCities.map(async (city, idx) => {
       const cityDays = daysPerCity(idx);
       const arrival = arrivalDates[city] ?? startDate;
@@ -150,7 +155,10 @@ REGLAS IMPORTANTES:
         }],
       });
 
-      const result = safeParseJson((msg.content[0] as { type: string; text: string }).text) as { days: DayPlan[] };
+      const cityRaw = (msg.content[0] as { type: string; text: string }).text;
+      console.log(`[itinerary] city ${city} raw length:`, cityRaw.length, "preview:", cityRaw.slice(0, 150));
+      const result = safeParseJson(cityRaw) as { days: DayPlan[] };
+      console.log(`[itinerary] city ${city} parsed ok, days:`, result.days?.length);
       return result.days ?? [];
     }));
 
@@ -221,7 +229,8 @@ REGLAS IMPORTANTES:
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[itinerary]", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error("[itinerary]", msg, stack);
+    return NextResponse.json({ error: msg, stack }, { status: 500 });
   }
 }
