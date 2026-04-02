@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
   try {
     const input: PlanningInput = await req.json();
     const { adults, travelStyle, originCity, destinationCities, startDate, endDate } = input;
+    const roundTrip = input.roundTrip !== false; // default true
     const firstTimeCities = input.firstTimeCities ?? {};
 
     const totalDays = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000);
@@ -250,18 +251,20 @@ REGLAS ESTRICTAS:
             selected: undefined, options: [],
           };
         });
-        // Return leg: last destination → origin city
-        const lastCity = allCities[allCities.length - 1];
-        const firstLeg = legs.find(l => l.fromCity?.toLowerCase() === originCity.toLowerCase());
-        const lastLeg = legs.find(l => l.toCity?.toLowerCase() === lastCity.toLowerCase());
-        const returnFromIata = lastLeg?.toIata;
-        const returnToIata = firstLeg?.fromIata;
-        outbound.push({
-          fromCity: lastCity, toCity: originCity,
-          fromIata: returnFromIata, toIata: returnToIata, date: endDate,
-          flightSearchUrl: buildFlightUrl(lastCity, originCity, returnFromIata, returnToIata, endDate, adults),
-          selected: undefined, options: [],
-        });
+        // Return leg: only if roundTrip
+        if (roundTrip) {
+          const lastCity = allCities[allCities.length - 1];
+          const firstLeg = legs.find(l => l.fromCity?.toLowerCase() === originCity.toLowerCase());
+          const lastLeg = legs.find(l => l.toCity?.toLowerCase() === lastCity.toLowerCase());
+          const returnFromIata = lastLeg?.toIata;
+          const returnToIata = firstLeg?.fromIata;
+          outbound.push({
+            fromCity: lastCity, toCity: originCity,
+            fromIata: returnFromIata, toIata: returnToIata, date: endDate,
+            flightSearchUrl: buildFlightUrl(lastCity, originCity, returnFromIata, returnToIata, endDate, adults),
+            selected: undefined, options: [],
+          });
+        }
         return outbound;
       })(),
       accommodations: accs,

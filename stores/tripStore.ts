@@ -64,6 +64,7 @@ const defaultPlanningInput: PlanningInput = {
   children: 0,
   travelStyle: "comfort",
   flexibleDates: false,
+  roundTrip: true,
   confirmed: false,
 };
 

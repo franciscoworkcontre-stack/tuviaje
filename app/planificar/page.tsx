@@ -62,6 +62,7 @@ export default function PlanificarPage() {
   const [adults, setAdults] = useState(2);
   const [style, setStyle] = useState<TravelStyle>("comfort");
   const [newCity, setNewCity] = useState("");
+  const [roundTrip, setRoundTrip] = useState(true);
 
   // Computed: arrival/departure date per city
   const cityDates = useCallback(() => {
@@ -231,6 +232,7 @@ export default function PlanificarPage() {
       children: 0,
       travelStyle: style,
       flexibleDates: false,
+      roundTrip,
       confirmed: true,
     };
     setPlanningInput(input);
@@ -678,7 +680,7 @@ export default function PlanificarPage() {
               ))}
 
               {/* Return row */}
-              {cityRows.length > 0 && endDate && (
+              {roundTrip && cityRows.length > 0 && endDate && (
                 <div className="border-t border-white/8">
                   <div className="flex items-center gap-2 px-4 py-1.5 bg-white/2">
                     <div className="w-8 flex justify-center">
@@ -772,6 +774,29 @@ export default function PlanificarPage() {
                 ))}
               </div>
             </div>
+
+            {/* Round trip toggle */}
+            <button
+              onClick={() => setRoundTrip(r => !r)}
+              className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl border transition-all ${
+                roundTrip
+                  ? "border-ocean-light/40 bg-ocean/15 text-white"
+                  : "border-white/10 bg-white/4 text-white/50 hover:text-white/70"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-[18px]">🔄</span>
+                <div className="text-left">
+                  <p className="text-[13px] font-semibold">Vuelo de regreso a {origin}</p>
+                  <p className="text-[11px] opacity-50 mt-0.5">
+                    {roundTrip ? `Incluye vuelo de vuelta el ${endDate ? fmtDate(endDate) : "último día"}` : "Solo ida, sin vuelta incluida"}
+                  </p>
+                </div>
+              </div>
+              <div className={`w-10 h-6 rounded-full transition-all relative shrink-0 ${roundTrip ? "bg-ocean" : "bg-white/15"}`}>
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${roundTrip ? "left-5" : "left-1"}`} />
+              </div>
+            </button>
 
             {/* CTA */}
             <button

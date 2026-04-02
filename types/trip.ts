@@ -225,5 +225,6 @@ export interface PlanningInput {
   travelStyle: TravelStyle;
   budgetMaxClp?: number;
   flexibleDates: boolean;
+  roundTrip: boolean;
   confirmed: boolean;
 }
