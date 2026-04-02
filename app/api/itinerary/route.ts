@@ -14,6 +14,30 @@ const STYLE_BUDGETS = {
 const TRAVELER_EMOJIS = ["🧑","👩","🧔","👱","🧕","👨‍🦱","👩‍🦰","🧒"];
 const TRAVELER_COLORS = ["#1565C0","#FF7043","#2E7D32","#7B1FA2","#F9A825","#546E7A","#E64A19","#0D47A1"];
 
+// Claude sometimes emits literal control characters inside JSON strings.
+// This walks char-by-char and escapes them only while inside a string value.
+function sanitizeJson(raw: string): string {
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    const code = raw.charCodeAt(i);
+    if (escaped) { out += ch; escaped = false; continue; }
+    if (ch === "\\" && inString) { out += ch; escaped = true; continue; }
+    if (ch === '"') { inString = !inString; out += ch; continue; }
+    if (inString && code < 0x20) {
+      if (code === 0x0a) out += "\\n";
+      else if (code === 0x0d) out += "\\r";
+      else if (code === 0x09) out += "\\t";
+      // drop other control chars
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
 function buildFlightUrl(from: string, to: string, fromIata?: string, toIata?: string, date?: string, pax?: number): string {
   const dateStr = (date ?? "").slice(0, 10);
   if (fromIata && toIata && dateStr) {
@@ -126,7 +150,9 @@ REGLAS:
         const rawText = finalMessage.content[0].type === "text" ? finalMessage.content[0].text : "";
 
         // Parse and build trip, then send as final chunk
-        const jsonText = rawText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+        const jsonText = sanitizeJson(
+          rawText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim()
+        );
         const generated = JSON.parse(jsonText);
 
         const hotelTotal = (generated.accommodations ?? []).reduce(
