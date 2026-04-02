@@ -443,43 +443,51 @@ export default function PlanificarPage() {
         {/* ── Step 1: input ── */}
         {step === "input" && (
           <div style={{ animation: "scaleIn 0.4s ease-out 0.1s both" }}>
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-sm">
-              <textarea
-                value={rawText}
-                onChange={(e) => setRawText(e.target.value)}
-                placeholder="Quiero ir de Santiago a Buenos Aires y Montevideo, 2 semanas en julio, somos 2 personas..."
-                rows={4}
-                className="w-full bg-transparent text-white placeholder-white/25 text-[15px] resize-none focus:outline-none leading-relaxed"
-                onKeyDown={(e) => e.key === "Enter" && e.metaKey && handleParse()}
-                autoFocus
-              />
-              <div className="border-t border-white/8 pt-4 mt-3 flex items-center justify-between gap-3">
-                <p className="text-white/25 text-[12px]">⌘↵ para continuar</p>
+            <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm">
+              {/* Textarea */}
+              <div className="p-5 pb-3">
+                <textarea
+                  value={rawText}
+                  onChange={(e) => setRawText(e.target.value)}
+                  placeholder="Quiero ir de Santiago a Buenos Aires y Montevideo, 2 semanas en julio, somos 2 personas..."
+                  rows={5}
+                  className="w-full bg-transparent text-white placeholder-white/30 text-[16px] resize-none focus:outline-none leading-relaxed"
+                  onKeyDown={(e) => e.key === "Enter" && e.metaKey && handleParse()}
+                  autoFocus
+                />
+              </div>
+              {/* Footer bar */}
+              <div className="border-t border-white/8 px-5 py-3 flex items-center justify-between gap-3 bg-white/3">
+                <p className="text-white/20 text-[12px] hidden sm:block">⌘↵ para continuar</p>
                 <button
                   onClick={handleParse}
                   disabled={!rawText.trim() || parsing}
-                  className="btn btn-accent text-[14px] min-h-[42px] px-5 disabled:opacity-40"
+                  className="btn btn-accent text-[14px] min-h-[44px] px-6 ml-auto disabled:opacity-40"
                 >
                   {parsing
-                    ? <><Loader2 size={14} className="animate-spin" /> Interpretando...</>
-                    : <><Sparkles size={14} /> Continuar <ArrowRight size={14} /></>
+                    ? <><Loader2 size={15} className="animate-spin" /> Interpretando...</>
+                    : <><Sparkles size={15} /> Planificar <ArrowRight size={15} /></>
                   }
                 </button>
               </div>
             </div>
 
             {/* Examples */}
-            <div className="mt-4 space-y-2">
-              <p className="text-white/20 text-[10px] font-semibold uppercase tracking-widest px-1">Ejemplos</p>
-              {EXAMPLES.map((e) => (
-                <button
-                  key={e}
-                  onClick={() => setRawText(e)}
-                  className="w-full text-left text-[12px] text-white/35 hover:text-white/65 transition-colors px-4 py-2.5 rounded-xl border border-white/6 hover:border-white/15 hover:bg-white/3"
-                >
-                  "{e}"
-                </button>
-              ))}
+            <div className="mt-5">
+              <p className="text-white/25 text-[11px] font-semibold uppercase tracking-widest px-1 mb-2.5">
+                Prueba con un ejemplo
+              </p>
+              <div className="space-y-2">
+                {EXAMPLES.map((e) => (
+                  <button
+                    key={e}
+                    onClick={() => setRawText(e)}
+                    className="w-full text-left text-[13px] text-white/40 hover:text-white/70 transition-colors px-4 py-3 rounded-xl border border-white/8 hover:border-white/20 hover:bg-white/4"
+                  >
+                    "{e}"
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
