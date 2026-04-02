@@ -103,11 +103,6 @@ Estructura JSON:
   "accommodations": [
     {"city":"Buenos Aires","name":"Hotel Boutique Palermo","stars":4,"rating":8.6,"pricePerNight":65000,"nights":4,"totalCost":260000,"neighborhood":"Palermo Soho"}
   ],
-  "hotelRecommendations": {
-    "Buenos Aires": [
-      {"name":"...","neighborhood":"...","stars":4,"pricePerNightClp":70000,"rating":8.5,"style":"boutique","pros":["...","...","..."],"cons":["...","..."]}
-    ]
-  },
   "savingsTip": "Compra la SUBE el primer día, ahorra en transporte",
   "optimizerTips": ["El Museo Nacional de Bellas Artes es gratis","Los vuelos del martes son 20% más baratos"]
 }
@@ -115,19 +110,19 @@ Estructura JSON:
 REGLAS:
 - morning: 2 actividades por día normal (no días de viaje)
 - afternoon: 2 actividades por día normal
-- Solo 1 opción en lunch.options y dinner.options (la mejor para el estilo ${travelStyle})
+- Solo 1 opción en lunch.options y dinner.options (la mejor para ${travelStyle})
 - Días de viaje: morning=[], afternoon=[], solo lunch y dinner
-- hotelRecommendations: exactamente 3 hoteles reales por ciudad destino
 - Costos en CLP realistas para ${travelStyle}
 - IATA codes correctos para todas las ciudades
-- Español chileno natural, tips útiles y específicos`;
+- Español chileno, tips útiles y específicos
+- NO incluir hotelRecommendations en este JSON`;
 
   const client = new Anthropic();
 
   // Stream the Claude response directly to the client
   const stream = await client.messages.stream({
     model: "claude-sonnet-4-6",
-    max_tokens: 7000,
+    max_tokens: 5000,
     messages: [{ role: "user", content: prompt }],
   });
 
@@ -209,7 +204,7 @@ REGLAS:
             };
           }),
           accommodations: generated.accommodations ?? [],
-          hotelRecommendations: (generated.hotelRecommendations ?? {}) as Record<string, HotelRecommendation[]>,
+          hotelRecommendations: {} as Record<string, HotelRecommendation[]>, // loaded lazily on hotels tab
           days: generated.days ?? [],
           costs,
           travelers_list,

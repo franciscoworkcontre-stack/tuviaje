@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Download, FileSpreadsheet, ChevronDown, ChevronUp,
-  MapPin, Clock, Users, ExternalLink, Star, ThumbsUp, ThumbsDown
+  MapPin, Clock, Users, ExternalLink, ThumbsUp, ThumbsDown, Loader2
 } from "lucide-react";
 import { useTripStore } from "@/stores/tripStore";
 import { CostSummary } from "@/components/trip/CostSummary";
@@ -208,6 +208,31 @@ export default function TripPage() {
   const { trip } = useTripStore();
   const [activeTab, setActiveTab] = useState<ExportTab>("itinerary");
   const [downloading, setDownloading] = useState<"sheet" | "pdf" | null>(null);
+  const [hotelRecs, setHotelRecs] = useState<Record<string, HotelRecommendation[]>>(
+    () => trip?.hotelRecommendations ?? {}
+  );
+  const [loadingHotels, setLoadingHotels] = useState(false);
+  const hotelsFetched = useRef(false);
+
+  useEffect(() => {
+    if (activeTab !== "hotels" || hotelsFetched.current || !trip) return;
+    const hasRecs = trip.cities.every(c => (hotelRecs[c.name] ?? []).length > 0);
+    if (hasRecs) return;
+    hotelsFetched.current = true;
+    setLoadingHotels(true);
+    fetch("/api/hotels", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cities: trip.cities.map(c => c.name),
+        travelStyle: trip.travelStyle,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => { if (data.hotelRecommendations) setHotelRecs(data.hotelRecommendations); })
+      .catch(() => {})
+      .finally(() => setLoadingHotels(false));
+  }, [activeTab, trip]);
 
   if (!trip) {
     return (
@@ -403,9 +428,15 @@ export default function TripPage() {
             </div>
 
             {/* Hotel recommendations per city */}
+            {loadingHotels && (
+              <div className="flex items-center gap-3 text-[#78909C] py-4">
+                <Loader2 size={16} className="animate-spin" />
+                <span className="text-[13px]">Buscando las mejores opciones...</span>
+              </div>
+            )}
             {trip.cities.map((city) => {
-              const recs = trip.hotelRecommendations?.[city.name] ?? [];
-              if (recs.length === 0) return null;
+              const recs = hotelRecs[city.name] ?? [];
+              if (recs.length === 0 && !loadingHotels) return null;
               return (
                 <div key={city.name}>
                   <p className="font-serif text-[22px] font-bold text-[#1A2332] mb-1">Hoteles en {city.name}</p>
@@ -413,7 +444,7 @@ export default function TripPage() {
                     Top {recs.length} opciones para estilo {trip.travelStyle} · ordenados por mejor relación calidad/precio
                   </p>
                   <div className="space-y-2">
-                    {recs.map((hotel, i) => (
+                    {(hotelRecs[city.name] ?? []).map((hotel, i) => (
                       <HotelCard key={i} hotel={hotel} rank={i} />
                     ))}
                   </div>
