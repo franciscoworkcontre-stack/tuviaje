@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import type { PlanningInput, DayPlan, CostBreakdown, Traveler, HotelRecommendation } from "@/types/trip";
+import { fetchHotelsForCities } from "@/lib/fetchHotels";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -144,6 +145,11 @@ REGLAS ESTRICTAS:
 - SOLO el array dentro de {"days":[...]}`;
     }
 
+    // ── Llamada hoteles (paralela con días) ──────────────────────
+    const hotelsPromise = fetchHotelsForCities(allCities, travelStyle, startDate, endDate, adults)
+      .then(recs => { console.log("[itinerary] hotels: ok for cities:", Object.keys(recs)); return recs; })
+      .catch(e => { console.error("[itinerary] hotels error:", e instanceof Error ? e.message : e); return {} as Record<string, HotelRecommendation[]>; });
+
     // ── Llamadas 2-N: ciudades en PARALELO, batches de 4 días ────
     const BATCH_SIZE = 4;
     console.log("[itinerary] step4: parallel cities with batching", allCities);
@@ -185,6 +191,9 @@ REGLAS ESTRICTAS:
       console.log(`[itinerary] ${city} total days collected: ${cityAllDays.length}`);
       return cityAllDays;
     }));
+
+    // ── Esperar hoteles (ya corrió en paralelo con los días) ─────
+    const hotelRecommendations = await hotelsPromise;
 
     // ── Ensamblar ────────────────────────────────────────────────
     const allDays: DayPlan[] = [];
@@ -241,7 +250,7 @@ REGLAS ESTRICTAS:
         };
       }),
       accommodations: accs,
-      hotelRecommendations: {} as Record<string, HotelRecommendation[]>,
+      hotelRecommendations,
       days: allDays, costs, travelers_list,
       splitAssignments: [], currency: "CLP",
       createdAt: new Date().toISOString(),

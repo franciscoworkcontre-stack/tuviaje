@@ -797,22 +797,31 @@ export default function PlanificarPage() {
 }
 
 function GeneratingScreen() {
-  const { generatingStep, generatingSteps, generatingEstimatedMs, generatingCountdownSec } = useTripStore();
+  const { generatingStep, generatingSteps, generatingEstimatedMs } = useTripStore();
   const [pct, setPct] = useState(0);
+  const [elapsedSec, setElapsedSec] = useState(0);
 
   useEffect(() => {
     const start = Date.now();
     const id = setInterval(() => {
       const elapsed = Date.now() - start;
-      const raw = Math.min(elapsed / generatingEstimatedMs, 1);
-      // Ease-out: fast start, slows near end, caps at 95%
-      const eased = 1 - Math.pow(1 - raw, 2.2);
-      setPct(Math.round(eased * 95));
-    }, 300);
+      setElapsedSec(Math.floor(elapsed / 1000));
+      const raw = elapsed / generatingEstimatedMs;
+      // Ease-out up to 95%, then creep 0.04%/s toward 99% so bar never freezes
+      if (raw < 1) {
+        const eased = 1 - Math.pow(1 - Math.min(raw, 1), 2.2);
+        setPct(parseFloat((eased * 95).toFixed(1)));
+      } else {
+        const extra = Math.min((elapsed - generatingEstimatedMs) / 1000 * 0.04, 4);
+        setPct(parseFloat((95 + extra).toFixed(1)));
+      }
+    }, 500);
     return () => clearInterval(id);
   }, [generatingEstimatedMs]);
 
   const currentIdx = generatingSteps.indexOf(generatingStep);
+  const isOnLastStep = generatingSteps.length > 0 &&
+    (currentIdx === generatingSteps.length - 1 || currentIdx === -1);
 
   return (
     <div className="min-h-screen bg-[#0D1F3C] flex items-center justify-center px-6">
@@ -842,7 +851,9 @@ function GeneratingScreen() {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] text-white/25">Progreso</span>
-            <span className="text-[12px] font-bold text-ocean-light tabular-nums">{pct}%</span>
+            <span className="text-[12px] font-bold text-ocean-light tabular-nums">
+              {isOnLastStep ? `${pct.toFixed(1)}%` : `${Math.round(pct)}%`}
+            </span>
           </div>
           <div className="h-2 bg-white/8 rounded-full overflow-hidden">
             <div
@@ -857,8 +868,7 @@ function GeneratingScreen() {
           {generatingSteps.map((s, i) => {
             const isLast = i === generatingSteps.length - 1;
             const done = i < currentIdx;
-            const active = i === currentIdx || (isLast && currentIdx === -1 && generatingCountdownSec > 0);
-            const showCountdown = active && isLast && generatingCountdownSec > 0;
+            const active = i === currentIdx || (isLast && isOnLastStep);
             return (
               <div
                 key={s}
@@ -876,9 +886,9 @@ function GeneratingScreen() {
                   </span>
                   {s}
                 </div>
-                {showCountdown && (
-                  <span className="text-[11px] text-ocean-light font-bold tabular-nums shrink-0">
-                    ~{generatingCountdownSec}s
+                {active && isLast && (
+                  <span className="text-[11px] text-ocean-light font-mono tabular-nums shrink-0">
+                    {elapsedSec}s
                   </span>
                 )}
               </div>

@@ -363,9 +363,9 @@ export default function TripPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip?.id]); // run once per trip
 
-  // ── Hotels: lazy on tab click ────────────────────────────────────────────
+  // ── Hotels: start immediately on page load (fallback for trips without pre-fetched hotels) ──
   useEffect(() => {
-    if (activeTab !== "hotels" || !trip || hotelsFetched.current) return;
+    if (!trip || hotelsFetched.current) return;
     const hasRecs = trip.cities.every(c => (hotelRecs[c.name] ?? []).length > 0);
     if (hasRecs) return;
     hotelsFetched.current = true;
@@ -379,7 +379,8 @@ export default function TripPage() {
       .then(data => { if (data.hotelRecommendations) setHotelRecs(data.hotelRecommendations); })
       .catch(() => {})
       .finally(() => setLoadingHotels(false));
-  }, [activeTab, trip]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trip?.id]);
 
   if (!trip) {
     return (
