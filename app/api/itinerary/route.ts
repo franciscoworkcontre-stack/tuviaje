@@ -110,8 +110,8 @@ IMPORTANTE para hotelRecommendations:
 - Solo ciudades de destino, no origen`;
 
     const message = await client.messages.create({
-      model: "claude-opus-4-6",
-      max_tokens: 12000,
+      model: "claude-sonnet-4-6",
+      max_tokens: 10000,
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
     });
@@ -232,9 +232,10 @@ IMPORTANTE para hotelRecommendations:
 
     return NextResponse.json({ trip });
   } catch (err) {
-    console.error("[itinerary]", err);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[itinerary] error:", message);
     return NextResponse.json(
-      { error: "Error generando el itinerario. Intenta de nuevo." },
+      { error: message },
       { status: 500 }
     );
   }

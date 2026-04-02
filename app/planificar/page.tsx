@@ -24,6 +24,7 @@ export default function PlanificarPage() {
   const { planningInput, setPlanningInput, setTrip, setIsGenerating, setGeneratingStep } = useTripStore();
 
   const [step, setStep] = useState<"input" | "confirm" | "generating" | "error">("input");
+  const [errorMsg, setErrorMsg] = useState("");
   const [rawText, setRawText] = useState("");
   const [parsing, setParsing] = useState(false);
 
@@ -113,7 +114,9 @@ export default function PlanificarPage() {
         throw new Error(data.error ?? "Sin respuesta");
       }
     } catch (e) {
-      console.error(e);
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[generate]", msg);
+      setErrorMsg(msg);
       setIsGenerating(false);
       setStep("error");
     }
@@ -138,9 +141,14 @@ export default function PlanificarPage() {
         <div className="text-center max-w-sm">
           <p className="text-[48px] mb-4">😵</p>
           <p className="font-serif text-[22px] font-bold text-white mb-2">Algo salió mal</p>
-          <p className="text-[14px] text-white/50 mb-6">
-            No pudimos generar el itinerario. Puede ser que Claude esté tardando más de lo normal.
+          <p className="text-[14px] text-white/50 mb-2">
+            No pudimos generar el itinerario.
           </p>
+          {errorMsg && (
+            <p className="text-[11px] text-white/25 font-mono mb-4 px-3 py-2 bg-white/5 rounded-lg max-w-xs mx-auto break-all">
+              {errorMsg}
+            </p>
+          )}
           <button
             onClick={() => setStep("confirm")}
             className="btn btn-accent px-6"
