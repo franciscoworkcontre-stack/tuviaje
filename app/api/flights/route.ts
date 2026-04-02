@@ -206,7 +206,10 @@ async function fetchLegFlights(
 
   if (allPrices.length === 0) return [];
 
-  const options = buildFlightOptions(allGroups, fromIata, toIata, date, adults, allPrices);
+  const options = buildFlightOptions(allGroups, fromIata, toIata, date, adults, allPrices)
+    .filter(o => o.priceClp > 0);
+
+  if (options.length === 0) return [];
 
   // Sort: cheapest + fastest first. Score = price + 25% per stop + 8 CLP/min of duration
   options.sort((a, b) => {

@@ -15,28 +15,57 @@ function fmt(n: number) {
   return "$" + n.toLocaleString("es-CL");
 }
 
-function HotelCard({ hotel, rank }: { hotel: HotelRecommendation; rank: number }) {
+function HotelCard({
+  hotel, rank, selected, onSelect,
+}: {
+  hotel: HotelRecommendation;
+  rank: number;
+  selected: boolean;
+  onSelect: () => void;
+}) {
   const [open, setOpen] = useState(rank === 0);
+  const isTop = rank === 0;
+
   return (
-    <div className="border border-[#E3F2FD] rounded-xl overflow-hidden">
+    <div className={`rounded-xl overflow-hidden border-2 transition-all duration-200 ${
+      selected ? "border-[#2E7D32] shadow-[0_0_0_3px_rgba(46,125,50,0.12)]" : isTop ? "border-ocean/40" : "border-[#E3F2FD]"
+    }`}>
+      {/* Recommended banner */}
+      {isTop && !selected && (
+        <div className="bg-ocean px-4 py-1.5 flex items-center gap-2">
+          <span className="text-[11px] font-bold text-white uppercase tracking-widest">⭐ Recomendado · Mejor relación calidad/precio</span>
+        </div>
+      )}
+      {selected && (
+        <div className="bg-[#2E7D32] px-4 py-1.5 flex items-center gap-2">
+          <span className="text-[11px] font-bold text-white uppercase tracking-widest">✓ Seleccionado</span>
+        </div>
+      )}
+
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-[#F5F0E8]/40 transition-colors text-left"
+        className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${
+          selected ? "bg-[#F1F8E9]" : isTop ? "bg-[#E3F2FD]/40 hover:bg-[#E3F2FD]/70" : "bg-white hover:bg-[#F5F0E8]/40"
+        }`}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${rank === 0 ? "bg-sunset text-white" : "bg-[#F5F0E8] text-[#78909C]"}`}>
-            {rank + 1}
+          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
+            selected ? "bg-[#2E7D32] text-white" : isTop ? "bg-ocean text-white" : "bg-[#F5F0E8] text-[#78909C]"
+          }`}>
+            {selected ? "✓" : rank + 1}
           </div>
           <div className="min-w-0">
             <p className="text-[13px] font-semibold text-[#1A2332] truncate">{hotel.name}</p>
             <p className="text-[11px] text-[#78909C]">
-              {"★".repeat(hotel.stars)} · {hotel.neighborhood}
-              {hotel.rating && ` · ${hotel.rating}/10`}
+              {"★".repeat(Math.max(0, hotel.stars ?? 0))} · {hotel.neighborhood}
+              {hotel.rating ? ` · ${hotel.rating}/10` : ""}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-2">
-          <p className="text-[13px] font-bold text-sunset tabular-nums">{fmt(hotel.pricePerNightClp)}<span className="text-[10px] text-[#78909C] font-normal">/noche</span></p>
+          <p className="text-[13px] font-bold text-sunset tabular-nums">
+            {fmt(hotel.pricePerNightClp)}<span className="text-[10px] text-[#78909C] font-normal">/noche</span>
+          </p>
           {open ? <ChevronUp size={14} className="text-[#B0BEC5]" /> : <ChevronDown size={14} className="text-[#B0BEC5]" />}
         </div>
       </button>
@@ -65,15 +94,30 @@ function HotelCard({ hotel, rank }: { hotel: HotelRecommendation; rank: number }
               ))}
             </div>
           </div>
-          <a
-            href={hotel.bookingSearchUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg bg-[#003580] hover:bg-[#00267a] text-white text-[12px] font-semibold transition-colors"
-          >
-            <ExternalLink size={12} />
-            Ver en Booking.com
-          </a>
+          <div className="flex gap-2">
+            {!selected ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); onSelect(); }}
+                className="flex-1 py-2 rounded-lg bg-[#2E7D32] hover:bg-[#1B5E20] text-white text-[12px] font-semibold transition-colors"
+              >
+                ✓ Elegir este hotel
+              </button>
+            ) : (
+              <div className="flex-1 py-2 rounded-lg bg-[#E8F5E9] text-[#2E7D32] text-[12px] font-semibold text-center">
+                ✓ Hotel seleccionado
+              </div>
+            )}
+            <a
+              href={hotel.bookingSearchUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={onSelect}
+              className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#003580] hover:bg-[#00267a] text-white text-[12px] font-semibold transition-colors"
+            >
+              <ExternalLink size={12} />
+              Booking
+            </a>
+          </div>
         </div>
       )}
     </div>
@@ -92,15 +136,28 @@ function FlightCard({
   const hrs = Math.floor(flight.durationMin / 60);
   const mins = flight.durationMin % 60;
 
+  const isTop = rank === 0;
+
   return (
     <div className={`rounded-xl overflow-hidden border-2 transition-all duration-200 ${
-      selected ? "border-[#2E7D32] shadow-[0_0_0_3px_rgba(46,125,50,0.12)]" : "border-[#E3F2FD]"
+      selected ? "border-[#2E7D32] shadow-[0_0_0_3px_rgba(46,125,50,0.12)]" : isTop ? "border-ocean/40" : "border-[#E3F2FD]"
     }`}>
+      {/* Recommended / selected banner */}
+      {isTop && !selected && (
+        <div className="bg-ocean px-4 py-1.5">
+          <span className="text-[11px] font-bold text-white uppercase tracking-widest">⭐ Recomendado · Más barato y rápido</span>
+        </div>
+      )}
+      {selected && (
+        <div className="bg-[#2E7D32] px-4 py-1.5">
+          <span className="text-[11px] font-bold text-white uppercase tracking-widest">✓ Seleccionado</span>
+        </div>
+      )}
       {/* Header row */}
       <button
         onClick={() => setOpen(!open)}
         className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${
-          selected ? "bg-[#F1F8E9]" : "bg-white hover:bg-[#F5F0E8]/40"
+          selected ? "bg-[#F1F8E9]" : isTop ? "bg-[#E3F2FD]/40 hover:bg-[#E3F2FD]/70" : "bg-white hover:bg-[#F5F0E8]/40"
         }`}
       >
         <div className="flex items-center gap-3 min-w-0">
@@ -332,6 +389,7 @@ export default function TripPage() {
         .map(l => [`${l.fromCity}-${l.toCity}`, l.selectedFlightIndex!])
     )
   );
+  const [selectedHotels, setSelectedHotels] = useState<Record<string, number>>({});
   const [loadingHotels, setLoadingHotels] = useState(false);
   const [loadingFlights, setLoadingFlights] = useState(false);
   const hotelsFetched = useRef(false);
@@ -562,50 +620,60 @@ export default function TripPage() {
               </div>
             )}
 
-            {/* ── Selected flights summary ── */}
-            {Object.keys(selectedFlights).length > 0 && (
-              <div className="bg-[#F1F8E9] border border-[#C8E6C9] rounded-2xl p-4">
-                <p className="text-[11px] font-bold text-[#2E7D32] uppercase tracking-widest mb-3">
-                  ✓ Vuelos seleccionados
-                </p>
-                <div className="space-y-2">
-                  {trip.transportLegs.map((leg) => {
-                    const key = `${leg.fromCity}-${leg.toCity}`;
-                    const idx = selectedFlights[key];
-                    const f = flightOpts[key]?.[idx];
-                    if (f == null) return null;
-                    return (
-                      <div key={key} className="flex items-center justify-between">
-                        <div>
-                          <p className="text-[13px] font-semibold text-[#1A2332]">
-                            {leg.fromCity} → {leg.toCity}
-                          </p>
-                          <p className="text-[11px] text-[#78909C]">
-                            {f.airline} {f.flightNumber ?? ""} · {f.departure}→{f.arrival}
-                            {f.stops === 0 ? " · directo" : ` · ${f.stops} escala`}
-                          </p>
-                        </div>
-                        <p className="text-[14px] font-bold text-sunset tabular-nums shrink-0 ml-4">
-                          {fmt(f.priceClp)}
-                        </p>
+            {/* ── Selected summary (flights + hotels) ── */}
+            {(Object.keys(selectedFlights).length > 0 || Object.keys(selectedHotels).length > 0) && (
+              <div className="bg-[#F1F8E9] border border-[#C8E6C9] rounded-2xl p-4 space-y-3">
+                <p className="text-[11px] font-bold text-[#2E7D32] uppercase tracking-widest">✓ Tu selección</p>
+
+                {/* Flights */}
+                {trip.transportLegs.map((leg) => {
+                  const key = `${leg.fromCity}-${leg.toCity}`;
+                  const f = flightOpts[key]?.[selectedFlights[key]];
+                  if (!f) return null;
+                  return (
+                    <div key={key} className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[12px] font-semibold text-[#1A2332]">✈️ {leg.fromCity} → {leg.toCity}</p>
+                        <p className="text-[11px] text-[#78909C]">{f.airline} · {f.departure}→{f.arrival}{f.stops === 0 ? " · directo" : ` · ${f.stops} escala`}</p>
                       </div>
-                    );
-                  })}
-                </div>
-                {/* Total selected flights cost */}
+                      <p className="text-[13px] font-bold text-sunset tabular-nums shrink-0 ml-4">{fmt(f.priceClp)}</p>
+                    </div>
+                  );
+                })}
+
+                {/* Hotels */}
+                {trip.cities.map((city) => {
+                  const h = hotelRecs[city.name]?.[selectedHotels[city.name]];
+                  if (!h) return null;
+                  return (
+                    <div key={city.name} className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[12px] font-semibold text-[#1A2332]">🏨 {city.name}</p>
+                        <p className="text-[11px] text-[#78909C]">{h.name} · {h.neighborhood}</p>
+                      </div>
+                      <p className="text-[13px] font-bold text-sunset tabular-nums shrink-0 ml-4">{fmt(h.pricePerNightClp)}<span className="text-[10px] font-normal text-[#78909C]">/noche</span></p>
+                    </div>
+                  );
+                })}
+
+                {/* Grand total */}
                 {(() => {
-                  const total = trip.transportLegs.reduce((sum, leg) => {
-                    const key = `${leg.fromCity}-${leg.toCity}`;
-                    const idx = selectedFlights[key];
-                    const f = flightOpts[key]?.[idx];
-                    return sum + (f?.priceClp ?? 0);
+                  const flightTotal = trip.transportLegs.reduce((s, leg) => {
+                    const f = flightOpts[`${leg.fromCity}-${leg.toCity}`]?.[selectedFlights[`${leg.fromCity}-${leg.toCity}`]];
+                    return s + (f?.priceClp ?? 0);
                   }, 0);
-                  return total > 0 ? (
-                    <div className="mt-3 pt-3 border-t border-[#C8E6C9] flex justify-between">
-                      <p className="text-[12px] font-bold text-[#2E7D32]">Total vuelos</p>
+                  const hotelTotal = trip.cities.reduce((s, city) => {
+                    const h = hotelRecs[city.name]?.[selectedHotels[city.name]];
+                    return s + (h ? h.pricePerNightClp * city.days : 0);
+                  }, 0);
+                  const total = flightTotal + hotelTotal;
+                  if (total === 0) return null;
+                  return (
+                    <div className="pt-3 border-t border-[#C8E6C9] flex justify-between">
+                      <p className="text-[12px] font-bold text-[#2E7D32]">Total vuelos + alojamiento</p>
                       <p className="text-[14px] font-bold text-sunset tabular-nums">{fmt(total)}</p>
                     </div>
-                  ) : null;
+                  );
                 })()}
               </div>
             )}
@@ -698,7 +766,13 @@ export default function TripPage() {
                   )}
                   <div className="space-y-2">
                     {recs.map((hotel, i) => (
-                      <HotelCard key={i} hotel={hotel} rank={i} />
+                      <HotelCard
+                        key={i}
+                        hotel={hotel}
+                        rank={i}
+                        selected={selectedHotels[city.name] === i}
+                        onSelect={() => setSelectedHotels(prev => ({ ...prev, [city.name]: i }))}
+                      />
                     ))}
                   </div>
                 </div>
@@ -709,22 +783,26 @@ export default function TripPage() {
             {!loadingFlights && !loadingHotels && (
               <div className="sticky bottom-6 pt-4">
                 {(() => {
-                  const allSelected = trip.transportLegs.every(
+                  const allFlights = trip.transportLegs.every(
                     l => selectedFlights[`${l.fromCity}-${l.toCity}`] != null
                   );
+                  const allHotels = trip.cities.every(c => selectedHotels[c.name] != null);
+                  const allDone = allFlights && allHotels;
+                  const missing = !allFlights && !allHotels ? "vuelos y hoteles"
+                    : !allFlights ? "vuelos" : "hoteles";
                   return (
                     <button
                       onClick={() => setActiveTab("itinerary")}
                       className={`w-full py-4 rounded-2xl text-[15px] font-bold transition-all flex items-center justify-center gap-2 shadow-lg ${
-                        allSelected
+                        allDone
                           ? "bg-ocean text-white hover:bg-ocean-dark"
                           : "bg-[#1A2332] text-white/60 hover:text-white/80"
                       }`}
                     >
-                      {allSelected ? "✅ Ver mi itinerario →" : "Ver itinerario →"}
-                      {!allSelected && (
+                      {allDone ? "✅ Ver mi itinerario →" : "Ver itinerario →"}
+                      {!allDone && (
                         <span className="text-[11px] font-normal opacity-60 ml-1">
-                          (selecciona tus vuelos primero)
+                          (selecciona tus {missing} primero)
                         </span>
                       )}
                     </button>

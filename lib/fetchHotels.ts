@@ -4,9 +4,9 @@ const APIFY_TOKEN = process.env.APIFY_TOKEN;
 const ACTOR_ID = "oeiQgfg5fsmIJB7Cn"; // voyager/booking-scraper
 
 const STYLE_SORT: Record<string, string> = {
-  mochilero: "class_asc",
-  comfort:   "class_asc",
-  premium:   "class_desc",
+  mochilero: "popularity",
+  comfort:   "popularity",
+  premium:   "review_score",
 };
 
 const STYLE_PRICE: Record<string, string> = {
@@ -44,6 +44,7 @@ async function scrapeCity(
         adults,
         children: 0,
         minMaxPrice: STYLE_PRICE[travelStyle] ?? "0-999999",
+        minScore: 7,
       }),
     }
   );
