@@ -20,6 +20,7 @@ import { useTripStore } from "@/stores/tripStore";
 import { CostSummary } from "@/components/trip/CostSummary";
 import { CostSplitter } from "@/components/trip/CostSplitter";
 import { OptimizerTips } from "@/components/trip/OptimizerTips";
+import { FlightCard } from "@/components/trip/FlightCard";
 import { CurrencySelector } from "@/components/ui/CurrencySelector";
 import { fmtCurrency } from "@/lib/currency";
 import type { DayPlan, HotelRecommendation, FlightOption } from "@/types/trip";
@@ -138,138 +139,7 @@ function HotelCard({
   );
 }
 
-function FlightCard({
-  flight, rank, selected, onSelect,
-}: {
-  flight: FlightOption;
-  rank: number;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const [open, setOpen] = useState(rank === 0);
-  const { trip, displayCurrency } = useTripStore();
-  const hrs = Math.floor(flight.durationMin / 60);
-  const mins = flight.durationMin % 60;
-  const adults = trip?.travelers.adults ?? 1;
-
-  const isTop = rank === 0;
-
-  return (
-    <div className={`rounded-xl overflow-hidden border-2 transition-all duration-200 ${
-      selected ? "border-[#2E7D32] shadow-[0_0_0_3px_rgba(46,125,50,0.12)]" : isTop ? "border-ocean/40" : "border-[#E3F2FD]"
-    }`}>
-      {/* Recommended / selected banner */}
-      {isTop && !selected && (
-        <div className="bg-ocean px-4 py-1.5">
-          <span className="text-[11px] font-bold text-white uppercase tracking-widest">⭐ Recomendado · Más barato y rápido</span>
-        </div>
-      )}
-      {selected && (
-        <div className="bg-[#2E7D32] px-4 py-1.5">
-          <span className="text-[11px] font-bold text-white uppercase tracking-widest">✓ Seleccionado</span>
-        </div>
-      )}
-      {/* Header row */}
-      <button
-        onClick={() => setOpen(!open)}
-        className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${
-          selected ? "bg-[#F1F8E9]" : isTop ? "bg-[#E3F2FD]/40 hover:bg-[#E3F2FD]/70" : "bg-white hover:bg-[#F5F0E8]/40"
-        }`}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          {/* Rank / selected indicator */}
-          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
-            selected ? "bg-[#2E7D32] text-white" : rank === 0 ? "bg-ocean text-white" : "bg-[#F5F0E8] text-[#78909C]"
-          }`}>
-            {selected ? "✓" : rank + 1}
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="text-[13px] font-semibold text-[#1A2332] truncate">
-                {flight.airline} {flight.flightNumber ?? ""}
-              </p>
-              {selected && (
-                <span className="text-[10px] font-bold text-[#2E7D32] bg-[#E8F5E9] px-1.5 py-0.5 rounded-full shrink-0">
-                  Seleccionado
-                </span>
-              )}
-            </div>
-            <p className="text-[11px] text-[#78909C]">
-              {flight.departure} → {flight.arrival} · {hrs}h{mins > 0 ? ` ${mins}m` : ""}
-              {flight.stops === 0 ? " · directo" : ` · ${flight.stops} escala`}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0 ml-2">
-          <p className="text-[13px] font-bold text-sunset tabular-nums">
-            {fmtCurrency(flight.priceClp, displayCurrency)}
-            <span className="text-[10px] text-[#78909C] font-normal">
-              {adults > 1
-                ? ` · ${fmtCurrency(flight.priceClp / adults, displayCurrency)}/p`
-                : " /persona"}
-            </span>
-          </p>
-          {open ? <ChevronUp size={14} className="text-[#B0BEC5]" /> : <ChevronDown size={14} className="text-[#B0BEC5]" />}
-        </div>
-      </button>
-
-      {/* Expanded body */}
-      {open && (
-        <div className="px-4 pb-4 bg-[#FAFAFA] border-t border-[#F0EBE3]">
-          <div className="grid grid-cols-2 gap-3 mt-3 mb-3">
-            <div>
-              <p className="text-[10px] font-bold text-[#2E7D32] flex items-center gap-1 mb-1.5 uppercase tracking-wide">
-                <ThumbsUp size={10} /> A favor
-              </p>
-              {flight.pros.map((pro, i) => (
-                <p key={i} className="text-[11px] text-[#37474F] flex items-start gap-1.5 mb-1">
-                  <span className="text-[#2E7D32] mt-0.5 shrink-0">✓</span>{pro}
-                </p>
-              ))}
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-[#E64A19] flex items-center gap-1 mb-1.5 uppercase tracking-wide">
-                <ThumbsDown size={10} /> A tener en cuenta
-              </p>
-              {flight.cons.map((con, i) => (
-                <p key={i} className="text-[11px] text-[#37474F] flex items-start gap-1.5 mb-1">
-                  <span className="text-[#E64A19] mt-0.5 shrink-0">·</span>{con}
-                </p>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            {/* Select this flight */}
-            {!selected ? (
-              <button
-                onClick={(e) => { e.stopPropagation(); onSelect(); }}
-                className="flex-1 py-2 rounded-lg bg-[#2E7D32] hover:bg-[#1B5E20] text-white text-[12px] font-semibold transition-colors"
-              >
-                ✓ Elegir este vuelo
-              </button>
-            ) : (
-              <div className="flex-1 py-2 rounded-lg bg-[#E8F5E9] text-[#2E7D32] text-[12px] font-semibold text-center">
-                ✓ Vuelo seleccionado
-              </div>
-            )}
-            {/* Book link */}
-            <a
-              href={flight.bookingSearchUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={onSelect}
-              className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#1A73E8] hover:bg-[#1557b0] text-white text-[12px] font-semibold transition-colors"
-            >
-              <ExternalLink size={12} />
-              Comprar
-            </a>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+// FlightCard is now in components/trip/FlightCard.tsx
 
 function DayCard({ day, flightSearchUrl }: { day: DayPlan; flightSearchUrl?: string }) {
   const [open, setOpen] = useState(day.dayNumber <= 2);
@@ -752,6 +622,9 @@ export default function TripPage() {
                           flight={opt}
                           rank={j}
                           selected={selectedIdx === j}
+                          fromIata={leg.fromIata}
+                          toIata={leg.toIata}
+                          departureDate={leg.date}
                           onSelect={() => {
                             setSelectedFlights(prev => ({ ...prev, [key]: j }));
                             selectFlight(leg.fromCity, leg.toCity, j, opt.priceClp);
