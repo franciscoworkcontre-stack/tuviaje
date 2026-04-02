@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRightIcon as ArrowRight } from "@/components/ui/AnimatedIcons";
 
 const TOOLS = [
   {

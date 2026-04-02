@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check, X } from "lucide-react";
+import { CheckIcon as Check, XIcon as X } from "@/components/ui/AnimatedIcons";
 
 const FREE_FEATURES = [
   { text: "1 viaje por mes", included: true },

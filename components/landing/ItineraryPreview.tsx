@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, MapPin } from "lucide-react";
+import {
+  ChevronDownIcon as ChevronDown,
+  ChevronUpIcon as ChevronUp,
+  MapPinIcon as MapPin,
+} from "@/components/ui/AnimatedIcons";
 
 const DAY_EXAMPLE = {
   number: 2,

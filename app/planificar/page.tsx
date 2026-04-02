@@ -3,9 +3,18 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowRight, Sparkles, Loader2, X, Plus, Minus,
-  ChevronUp, ChevronDown, MapPin, Calendar, Wand2,
-} from "lucide-react";
+  ArrowRightIcon as ArrowRight,
+  SparklesIcon as Sparkles,
+  LoaderIcon as Loader2,
+  XIcon as X,
+  PlusIcon as Plus,
+  MinusIcon as Minus,
+  ChevronUpIcon as ChevronUp,
+  ChevronDownIcon as ChevronDown,
+  MapPinIcon as MapPin,
+  CalendarIcon as Calendar,
+  WandIcon as Wand2,
+} from "@/components/ui/AnimatedIcons";
 import { useTripStore } from "@/stores/tripStore";
 import type { TravelStyle } from "@/types/trip";
 import type { DateSuggestion } from "@/app/api/suggest-dates/route";

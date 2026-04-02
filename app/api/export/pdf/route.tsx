@@ -2,146 +2,205 @@ import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import React from "react";
 import {
-  Document, Page, View, Text, StyleSheet, Font, Link,
+  Document, Page, View, Text, StyleSheet, Font,
 } from "@react-pdf/renderer";
 import type { Trip, TravelerBalance } from "@/types/trip";
 
-// react-pdf supports TTF/OTF/WOFF, not WOFF2
-Font.register({
-  family: "Inter",
-  fonts: [
-    { src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff", fontWeight: 400 },
-    { src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuI6fAZ9hiA.woff", fontWeight: 700 },
-  ],
-});
-
+// ─── Fonts ────────────────────────────────────────────────────────────────────
+// Use ONLY built-in PDF fonts — zero network calls, zero cold-start timeouts.
+// Helvetica = regular, Helvetica-Bold = bold. Always available in react-pdf.
 Font.registerHyphenationCallback((word) => [word]);
 
+const FONT  = "Helvetica";
+const FONTB = "Helvetica-Bold";
+
+// ─── Palette ──────────────────────────────────────────────────────────────────
 const c = {
-  ocean:         "#1565C0",
-  oceanLight:    "#42A5F5",
-  oceanLighter:  "#E3F2FD",
-  sunset:        "#FF7043",
-  sunsetDark:    "#E64A19",
-  sand:          "#F5F0E8",
-  sandDark:      "#E0D5C5",
-  text:          "#1A2332",
-  body:          "#37474F",
-  secondary:     "#78909C",
-  muted:         "#B0BEC5",
-  green:         "#2E7D32",
-  greenLight:    "#E8F5E9",
-  white:         "#FFFFFF",
-  dark:          "#0D1F3C",
-  darkMid:       "#14294D",
+  ocean:        "#1565C0",
+  oceanLight:   "#42A5F5",
+  oceanLighter: "#E3F2FD",
+  sunset:       "#FF7043",
+  sunsetDark:   "#E64A19",
+  sand:         "#F5F0E8",
+  sandDark:     "#E0D5C5",
+  text:         "#1A2332",
+  body:         "#37474F",
+  secondary:    "#78909C",
+  muted:        "#B0BEC5",
+  green:        "#2E7D32",
+  greenLight:   "#E8F5E9",
+  white:        "#FFFFFF",
+  dark:         "#0D1F3C",
+  darkMid:      "#14294D",
+  amber:        "#F57F17",
+  amberLight:   "#FFF8E1",
 };
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  // ── Cover ────────────────────────────────────────────────────
-  cover: { backgroundColor: c.dark, padding: 0 },
-  coverGradient: { backgroundColor: c.darkMid, paddingHorizontal: 48, paddingTop: 56, paddingBottom: 48 },
-  coverBadge: {
-    flexDirection: "row", alignItems: "center", marginBottom: 28,
-    backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 7, alignSelf: "flex-start",
-  },
-  coverBadgeText: { color: "rgba(255,255,255,0.65)", fontSize: 10, fontFamily: "Inter" },
-  coverTitle: {
-    fontSize: 34, fontFamily: "Inter", fontWeight: 700,
-    color: c.white, lineHeight: 1.2, marginBottom: 10,
-  },
-  coverAccent: { color: c.sunset },
-  coverSub: { fontSize: 13, fontFamily: "Inter", color: "rgba(255,255,255,0.5)", marginBottom: 36 },
-  coverMetaGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 48 },
-  coverMetaItem: {
-    backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 10, minWidth: 100,
-  },
-  coverMetaLabel: { fontSize: 8, color: "rgba(255,255,255,0.4)", fontFamily: "Inter", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 },
-  coverMetaValue: { fontSize: 15, color: c.white, fontFamily: "Inter", fontWeight: 700 },
+  // Cover
+  cover:           { backgroundColor: c.dark, padding: 0 },
+  coverGradient:   { backgroundColor: c.darkMid, paddingHorizontal: 48, paddingTop: 52, paddingBottom: 44, flex: 1 },
+
+  coverBadge:      { flexDirection: "row", alignItems: "center", marginBottom: 24, backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, alignSelf: "flex-start" },
+  coverBadgeText:  { color: "rgba(255,255,255,0.65)", fontSize: 9, fontFamily: FONT },
+
+  coverStyleBadge: { flexDirection: "row", alignItems: "center", marginBottom: 20, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6, alignSelf: "flex-start" },
+  coverStyleText:  { fontSize: 11, fontFamily: FONTB },
+
+  coverTitle:      { fontSize: 32, fontFamily: FONTB, color: c.white, lineHeight: 1.2, marginBottom: 6 },
+  coverSub:        { fontSize: 12, fontFamily: FONT, color: "rgba(255,255,255,0.5)", marginBottom: 24 },
+
+  // Route map
+  routeMap:        { backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 10, paddingHorizontal: 18, paddingVertical: 14, marginBottom: 20 },
+  routeMapLabel:   { fontSize: 7, fontFamily: FONTB, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 },
+  routeMapLine:    { fontSize: 11, fontFamily: FONTB, color: c.white, letterSpacing: 0.5, marginBottom: 10 },
+  routeStops:      { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  routeStop:       { backgroundColor: "rgba(255,112,67,0.18)", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5 },
+  routeStopText:   { fontSize: 9, fontFamily: FONTB, color: c.sunset },
+  routeStopDays:   { fontSize: 8, fontFamily: FONT, color: "rgba(255,255,255,0.45)", marginTop: 1 },
+
+  // Cover meta grid
+  coverMetaGrid:   { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 36 },
+  coverMetaItem:   { backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, minWidth: 100 },
+  coverMetaLabel:  { fontSize: 8, color: "rgba(255,255,255,0.4)", fontFamily: FONT, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 },
+  coverMetaValue:  { fontSize: 15, color: c.white, fontFamily: FONTB },
   coverMetaAccent: { color: c.sunset },
 
+  // Cover cost breakdown
+  coverCosts:      { marginBottom: 28 },
+  coverCostRow:    { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 },
+  coverCostLabel:  { fontSize: 9, fontFamily: FONT, color: "rgba(255,255,255,0.5)" },
+  coverCostValue:  { fontSize: 9, fontFamily: FONTB, color: "rgba(255,255,255,0.75)" },
+
   // Cover bottom band
-  coverBand: { backgroundColor: "rgba(255,255,255,0.04)", paddingHorizontal: 48, paddingVertical: 18, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  coverBrandUrl: { fontSize: 18, fontFamily: "Inter", fontWeight: 700, color: "rgba(255,255,255,0.9)" },
-  coverBrandSub: { fontSize: 9, color: "rgba(255,255,255,0.3)", fontFamily: "Inter", marginTop: 2 },
-  coverDisclaimer: { fontSize: 8, color: "rgba(255,255,255,0.2)", fontFamily: "Inter", textAlign: "right", maxWidth: 180 },
+  coverBand:       { backgroundColor: "rgba(255,255,255,0.04)", paddingHorizontal: 48, paddingVertical: 18, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  coverBrandUrl:   { fontSize: 18, fontFamily: FONTB, color: "rgba(255,255,255,0.9)" },
+  coverBrandSub:   { fontSize: 9, color: "rgba(255,255,255,0.3)", fontFamily: FONT, marginTop: 2 },
+  coverDisclaimer: { fontSize: 8, color: "rgba(255,255,255,0.2)", fontFamily: FONT, textAlign: "right", maxWidth: 180 },
 
-  // ── Pages ────────────────────────────────────────────────────
-  page: { backgroundColor: c.white, paddingHorizontal: 40, paddingVertical: 36, fontFamily: "Inter" },
-  pageHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
-  pageHeaderBrand: { fontSize: 8, color: c.muted, fontFamily: "Inter", fontWeight: 700, letterSpacing: 0.5 },
-  pageHeaderTitle: { fontSize: 8, color: c.muted, fontFamily: "Inter" },
+  // Content pages
+  page:            { backgroundColor: c.white, paddingHorizontal: 40, paddingVertical: 36, fontFamily: FONT },
+  pageHeader:      { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
+  pageHeaderBrand: { fontSize: 8, color: c.muted, fontFamily: FONTB, letterSpacing: 0.5 },
+  pageHeaderTitle: { fontSize: 8, color: c.muted, fontFamily: FONT },
 
-  sectionLabel: { fontSize: 8, fontFamily: "Inter", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: c.secondary, marginBottom: 6 },
-  h2: { fontSize: 22, fontFamily: "Inter", fontWeight: 700, color: c.text, marginBottom: 2 },
-  h3: { fontSize: 14, fontFamily: "Inter", fontWeight: 700, color: c.text },
-  body: { fontSize: 11, fontFamily: "Inter", color: c.body, lineHeight: 1.5 },
-  caption: { fontSize: 8, fontFamily: "Inter", color: c.secondary },
-  divider: { height: 1, backgroundColor: c.sandDark, marginVertical: 14 },
+  sectionLabel:    { fontSize: 8, fontFamily: FONTB, textTransform: "uppercase", letterSpacing: 1.2, color: c.secondary, marginBottom: 6 },
+  h2:              { fontSize: 22, fontFamily: FONTB, color: c.text, marginBottom: 2 },
+  h3:              { fontSize: 14, fontFamily: FONTB, color: c.text },
+  h4:              { fontSize: 11, fontFamily: FONTB, color: c.text },
+  body:            { fontSize: 10, fontFamily: FONT, color: c.body, lineHeight: 1.55 },
+  caption:         { fontSize: 8, fontFamily: FONT, color: c.secondary },
+  divider:         { height: 1, backgroundColor: c.sandDark, marginVertical: 14 },
 
-  // ── Cost summary ─────────────────────────────────────────────
-  costCard: { backgroundColor: c.sand, borderRadius: 10, padding: 16, marginBottom: 8 },
-  costRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4.5, borderBottomWidth: 1, borderBottomColor: c.sandDark },
-  costLabel: { fontSize: 11, fontFamily: "Inter", color: c.body },
-  costValue: { fontSize: 11, fontFamily: "Inter", fontWeight: 700, color: c.text },
-  totalRow: { flexDirection: "row", justifyContent: "space-between", paddingTop: 12, marginTop: 4 },
-  totalLabel: { fontSize: 14, fontFamily: "Inter", fontWeight: 700, color: c.text },
-  totalValue: { fontSize: 24, fontFamily: "Inter", fontWeight: 700, color: c.sunset },
-  perPersonBadge: {
-    backgroundColor: c.oceanLighter, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6,
-    alignSelf: "flex-end", marginTop: 6,
-  },
-  perPersonText: { fontSize: 10, fontFamily: "Inter", color: c.ocean, fontWeight: 700 },
+  // Cost summary
+  costCard:        { backgroundColor: c.sand, borderRadius: 10, padding: 16, marginBottom: 8 },
+  costRow:         { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: c.sandDark },
+  costLabel:       { fontSize: 10, fontFamily: FONT, color: c.body, flex: 1 },
+  costValue:       { fontSize: 10, fontFamily: FONTB, color: c.text },
+  totalRow:        { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", paddingTop: 12, marginTop: 4 },
+  totalLabel:      { fontSize: 14, fontFamily: FONTB, color: c.text },
+  totalValue:      { fontSize: 24, fontFamily: FONTB, color: c.sunset },
+  perPersonBadge:  { backgroundColor: c.oceanLighter, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6, alignSelf: "flex-end", marginTop: 6 },
+  perPersonText:   { fontSize: 10, fontFamily: FONTB, color: c.ocean },
 
-  // ── Day card ─────────────────────────────────────────────────
-  dayHeader: {
-    backgroundColor: c.ocean, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12,
-    marginBottom: 2, flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-  },
-  dayNum: { fontSize: 9, fontFamily: "Inter", fontWeight: 700, color: "rgba(255,255,255,0.55)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 1 },
-  dayTitle: { fontSize: 14, fontFamily: "Inter", fontWeight: 700, color: c.white },
-  dayCity: { fontSize: 9, fontFamily: "Inter", color: "rgba(255,255,255,0.6)", marginTop: 1 },
-  dayCost: { fontSize: 16, fontFamily: "Inter", fontWeight: 700, color: c.white },
+  // Split
+  splitCard:       { borderRadius: 8, padding: 12, marginBottom: 8, flexDirection: "row", alignItems: "center", gap: 12 },
+  splitEmoji:      { fontSize: 20, width: 28 },
+  splitName:       { fontSize: 12, fontFamily: FONTB, color: c.text },
+  splitDetail:     { fontSize: 9, fontFamily: FONT, color: c.secondary },
+  splitOwes:       { fontSize: 13, fontFamily: FONTB, color: c.sunsetDark },
+  splitOwed:       { fontSize: 13, fontFamily: FONTB, color: c.green },
+  splitEven:       { fontSize: 10, fontFamily: FONT, color: c.secondary },
 
-  actRow: { flexDirection: "row", paddingVertical: 5, paddingHorizontal: 2, borderBottomWidth: 1, borderBottomColor: "#F0EBE3", gap: 8, alignItems: "flex-start" },
-  actTime: { fontSize: 9, fontFamily: "Inter", color: c.secondary, width: 32, paddingTop: 1 },
-  actName: { fontSize: 10, fontFamily: "Inter", fontWeight: 700, color: c.text, flex: 1 },
-  actTip: { fontSize: 9, fontFamily: "Inter", color: c.secondary, flex: 2, lineHeight: 1.4 },
-  actCost: { fontSize: 10, fontFamily: "Inter", fontWeight: 700, color: c.sunset, width: 58, textAlign: "right" },
-  freeBadge: { fontSize: 8, fontFamily: "Inter", color: c.green, fontWeight: 700 },
+  // Day card
+  dayHeader:       { backgroundColor: c.ocean, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 4, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  dayNum:          { fontSize: 9, fontFamily: FONTB, color: "rgba(255,255,255,0.55)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 1 },
+  dayTitle:        { fontSize: 14, fontFamily: FONTB, color: c.white },
+  dayCity:         { fontSize: 9, fontFamily: FONT, color: "rgba(255,255,255,0.6)", marginTop: 1 },
+  dayCost:         { fontSize: 16, fontFamily: FONTB, color: c.white },
 
-  // ── Split ────────────────────────────────────────────────────
-  splitCard: { borderRadius: 8, padding: 12, marginBottom: 8, flexDirection: "row", alignItems: "center", gap: 12 },
-  splitEmoji: { fontSize: 20, width: 32 },
-  splitName: { fontSize: 13, fontFamily: "Inter", fontWeight: 700, color: c.text },
-  splitDetail: { fontSize: 9, fontFamily: "Inter", color: c.secondary },
-  splitOwes: { fontSize: 14, fontFamily: "Inter", fontWeight: 700, color: c.sunsetDark },
-  splitOwed: { fontSize: 14, fontFamily: "Inter", fontWeight: 700, color: c.green },
-  splitEven: { fontSize: 11, fontFamily: "Inter", color: c.secondary },
+  // Travel day
+  travelDayBox:    { backgroundColor: c.amberLight, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 8, borderLeftWidth: 3, borderLeftColor: c.amber },
+  travelDayTag:    { fontSize: 8, fontFamily: FONTB, color: c.amber, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 2 },
+  travelDayText:   { fontSize: 10, fontFamily: FONT, color: c.body, lineHeight: 1.5 },
 
-  // ── Back cover ────────────────────────────────────────────────
-  backCover: { backgroundColor: c.dark, padding: 48, flex: 1, justifyContent: "space-between" },
-  backTitle: { fontSize: 28, fontFamily: "Inter", fontWeight: 700, color: c.white, lineHeight: 1.25, marginBottom: 12 },
-  backSub: { fontSize: 13, fontFamily: "Inter", color: "rgba(255,255,255,0.5)", lineHeight: 1.6, maxWidth: 340 },
-  backUrl: { fontSize: 26, fontFamily: "Inter", fontWeight: 700, color: c.sunset, marginTop: 32 },
-  backUrlSub: { fontSize: 11, fontFamily: "Inter", color: "rgba(255,255,255,0.4)", marginTop: 4 },
-  backFeatures: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 36 },
-  backFeaturePill: {
-    backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 8,
-  },
-  backFeatureText: { fontSize: 11, fontFamily: "Inter", color: "rgba(255,255,255,0.8)" },
-  backFooter: { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)", paddingTop: 16 },
-  backFooterText: { fontSize: 9, fontFamily: "Inter", color: "rgba(255,255,255,0.25)" },
+  actRow:          { flexDirection: "row", paddingVertical: 5, paddingHorizontal: 2, borderBottomWidth: 1, borderBottomColor: "#F0EBE3", gap: 8, alignItems: "flex-start" },
+  actTime:         { fontSize: 9, fontFamily: FONT, color: c.secondary, width: 32, paddingTop: 1 },
+  actName:         { fontSize: 10, fontFamily: FONTB, color: c.text, flex: 1 },
+  actTip:          { fontSize: 9, fontFamily: FONT, color: c.secondary, flex: 2, lineHeight: 1.4 },
+  actCost:         { fontSize: 10, fontFamily: FONTB, color: c.sunset, width: 58, textAlign: "right" },
+  freeBadge:       { fontSize: 8, fontFamily: FONTB, color: c.green },
 
-  // ── Page footer ──────────────────────────────────────────────
-  pageFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: "auto", paddingTop: 12, borderTopWidth: 1, borderTopColor: c.sandDark },
-  pageFooterBrand: { fontSize: 8, fontFamily: "Inter", fontWeight: 700, color: c.ocean },
-  pageFooterPage: { fontSize: 8, fontFamily: "Inter", color: c.muted },
+  // Accommodations table
+  tableHeader:     { flexDirection: "row", backgroundColor: c.ocean, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 8, marginBottom: 2 },
+  tableHeaderCell: { fontSize: 8, fontFamily: FONTB, color: "rgba(255,255,255,0.85)", textTransform: "uppercase", letterSpacing: 0.6 },
+  tableRow:        { flexDirection: "row", paddingHorizontal: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: c.sandDark, alignItems: "center" },
+  tableRowAlt:     { backgroundColor: c.sand },
+  tableCell:       { fontSize: 10, fontFamily: FONT, color: c.body },
+  tableCellBold:   { fontSize: 10, fontFamily: FONTB, color: c.text },
+
+  // Optimizer tips
+  tipCard:         { backgroundColor: c.oceanLighter, borderRadius: 8, padding: 12, marginBottom: 8, flexDirection: "row", gap: 10, alignItems: "flex-start" },
+  tipNum:          { fontSize: 14, fontFamily: FONTB, color: c.ocean, width: 22 },
+  tipText:         { fontSize: 10, fontFamily: FONT, color: c.body, lineHeight: 1.55, flex: 1 },
+
+  // Back cover
+  backCover:       { backgroundColor: c.dark, padding: 48, flex: 1, justifyContent: "space-between" },
+  backTitle:       { fontSize: 28, fontFamily: FONTB, color: c.white, lineHeight: 1.25, marginBottom: 12 },
+  backSub:         { fontSize: 12, fontFamily: FONT, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, maxWidth: 340 },
+  backUrl:         { fontSize: 26, fontFamily: FONTB, color: c.sunset, marginTop: 28 },
+  backUrlSub:      { fontSize: 11, fontFamily: FONT, color: "rgba(255,255,255,0.4)", marginTop: 4 },
+  backFeatures:    { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 32 },
+  backFeaturePill: { backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
+  backFeatureText: { fontSize: 11, fontFamily: FONT, color: "rgba(255,255,255,0.8)" },
+  backFooter:      { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)", paddingTop: 16 },
+  backFooterText:  { fontSize: 9, fontFamily: FONT, color: "rgba(255,255,255,0.25)" },
+
+  // Page footer
+  pageFooter:      { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: "auto", paddingTop: 12, borderTopWidth: 1, borderTopColor: c.sandDark },
+  pageFooterBrand: { fontSize: 8, fontFamily: FONTB, color: c.ocean },
+  pageFooterPage:  { fontSize: 8, fontFamily: FONT, color: c.muted },
 });
 
-function fmt(n: number) { return "$" + Math.abs(n).toLocaleString("es-CL"); }
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function fmt(n: number) {
+  return "$" + Math.abs(Math.round(n)).toLocaleString("es-CL");
+}
+
+function stars(n: number) {
+  return "★".repeat(Math.min(n, 5));
+}
+
+const STYLE_BADGE: Record<string, { label: string; bg: string; color: string }> = {
+  mochilero: { label: "Mochilero",     bg: "#E8F5E9", color: "#2E7D32" },
+  comfort:   { label: "Comfort",       bg: "#E3F2FD", color: "#1565C0" },
+  premium:   { label: "Premium",       bg: "#FFF8E1", color: "#F57F17" },
+};
+
+const STYLE_EMOJI: Record<string, string> = {
+  mochilero: "Mochilero",
+  comfort:   "Comfort",
+  premium:   "Premium",
+};
+
+const COST_CATEGORIES = [
+  { key: "transport",      label: "Transporte entre ciudades" },
+  { key: "accommodation",  label: "Alojamiento" },
+  { key: "food",           label: "Comida" },
+  { key: "activities",     label: "Actividades" },
+  { key: "localTransport", label: "Transporte local" },
+  { key: "extras",         label: "Extras y seguros" },
+];
+
+const COST_EMOJI: Record<string, string> = {
+  transport:      "Avion",
+  accommodation:  "Hotel",
+  food:           "Comida",
+  activities:     "Act.",
+  localTransport: "Metro",
+  extras:         "Bolsa",
+};
 
 function computeBalances(trip: Trip): TravelerBalance[] {
   const { travelers_list, splitAssignments } = trip;
@@ -160,15 +219,12 @@ function computeBalances(trip: Trip): TravelerBalance[] {
   }));
 }
 
-const COST_CATEGORIES = [
-  { key: "transport",      label: "✈️  Transporte entre ciudades" },
-  { key: "accommodation",  label: "🏨  Alojamiento" },
-  { key: "food",           label: "🍽️  Comida" },
-  { key: "activities",     label: "🎭  Actividades" },
-  { key: "localTransport", label: "🚇  Transporte local" },
-  { key: "extras",         label: "🛍️  Extras y seguros" },
-];
+function buildRouteText(trip: Trip): string {
+  const stops = [trip.originCity, ...trip.cities.map((c) => c.name)];
+  return stops.join("  ---->  ");
+}
 
+// ─── Sub-components ───────────────────────────────────────────────────────────
 function PageHeader({ title, tripTitle }: { title: string; tripTitle: string }) {
   return (
     <View style={s.pageHeader}>
@@ -187,32 +243,71 @@ function PageFooter({ page, total }: { page: number; total: number }) {
   );
 }
 
+function ActRow({ act }: { act: { time: string; emoji?: string; name: string; tip?: string; description?: string; costClp: number } }) {
+  return (
+    <View style={s.actRow}>
+      <Text style={s.actTime}>{act.time}</Text>
+      <Text style={s.actName}>{act.emoji ? `${act.emoji} ` : ""}{act.name}</Text>
+      <Text style={s.actTip}>{act.tip ?? (act.description ? act.description.slice(0, 80) : "")}</Text>
+      {act.costClp > 0
+        ? <Text style={s.actCost}>{fmt(act.costClp)}</Text>
+        : <Text style={[s.actCost, s.freeBadge]}>GRATIS</Text>}
+    </View>
+  );
+}
+
+// ─── Main PDF component ───────────────────────────────────────────────────────
 function TripPDF({ trip }: { trip: Trip }) {
   const balances = computeBalances(trip);
   const today = new Date().toLocaleDateString("es-CL");
-  const destinations = trip.cities.map((c) => c.name).join(" → ");
-  const totalPages = 2 + trip.days.length + 1 + 1; // cover + costs + days + accom + back
+  const destinations = trip.cities.map((city) => city.name).join(" → ");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const optimizerTips: string[] = (trip as any).optimizerTips ?? [];
+  const hasTips = optimizerTips.length > 0;
+  const totalPages = 2 + trip.days.length + 1 + (hasTips ? 1 : 0) + 1;
+
+  const styleInfo = STYLE_BADGE[trip.travelStyle] ?? { label: trip.travelStyle, bg: c.sand, color: c.body };
 
   return (
     <Document title={trip.title} author="tuviaje.com" creator="tuviaje.com" producer="tuviaje.com">
 
-      {/* ─── Cover ──────────────────────────────────────────────── */}
+      {/* ─── PORTADA ──────────────────────────────────────────────── */}
       <Page size="A4" style={s.cover}>
-        <View style={[s.coverGradient, { flex: 1 }]}>
+        <View style={s.coverGradient}>
+
+          {/* Generated badge */}
           <View style={s.coverBadge}>
-            <Text style={s.coverBadgeText}>🤖 Generado por tuviaje.com · {today}</Text>
+            <Text style={s.coverBadgeText}>Generado por tuviaje.com  ·  {today}</Text>
           </View>
 
-          <Text style={s.coverTitle}>
-            {trip.originCity} → {destinations}
-          </Text>
-          <Text style={[s.coverTitle, { fontSize: 18, color: "rgba(255,255,255,0.45)", fontWeight: 400, marginTop: -6 }]}>
-            Tu plan completo, día a día 🗺️
-          </Text>
+          {/* Travel style badge */}
+          <View style={[s.coverStyleBadge, { backgroundColor: styleInfo.bg }]}>
+            <Text style={[s.coverStyleText, { color: styleInfo.color }]}>
+              {STYLE_EMOJI[trip.travelStyle] ?? trip.travelStyle}  {styleInfo.label}
+            </Text>
+          </View>
+
+          {/* Title */}
+          <Text style={s.coverTitle}>{trip.originCity} → {destinations}</Text>
           <Text style={s.coverSub}>
-            {trip.startDate}  →  {trip.endDate}  ·  {trip.totalDays} días  ·  {trip.travelers.adults} {trip.travelers.adults === 1 ? "viajero" : "viajeros"}
+            {trip.startDate}  →  {trip.endDate}  ·  {trip.totalDays} dias  ·  {trip.travelers.adults}{trip.travelers.adults === 1 ? " viajero" : " viajeros"}
           </Text>
 
+          {/* Route map */}
+          <View style={s.routeMap}>
+            <Text style={s.routeMapLabel}>Ruta del viaje</Text>
+            <Text style={s.routeMapLine}>{buildRouteText(trip)}</Text>
+            <View style={s.routeStops}>
+              {trip.cities.map((city) => (
+                <View key={city.name} style={s.routeStop}>
+                  <Text style={s.routeStopText}>Pin {city.name}</Text>
+                  <Text style={s.routeStopDays}>{city.days} {city.days === 1 ? "dia" : "dias"}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* Meta grid */}
           <View style={s.coverMetaGrid}>
             <View style={s.coverMetaItem}>
               <Text style={s.coverMetaLabel}>Costo total</Text>
@@ -223,13 +318,27 @@ function TripPDF({ trip }: { trip: Trip }) {
               <Text style={s.coverMetaValue}>{fmt(trip.costs.perPerson)}</Text>
             </View>
             <View style={s.coverMetaItem}>
-              <Text style={s.coverMetaLabel}>Por día / persona</Text>
+              <Text style={s.coverMetaLabel}>Por dia / persona</Text>
               <Text style={s.coverMetaValue}>{fmt(trip.costs.perDayPerPerson)}</Text>
             </View>
             <View style={s.coverMetaItem}>
-              <Text style={s.coverMetaLabel}>Estilo</Text>
-              <Text style={[s.coverMetaValue, { textTransform: "capitalize" }]}>{trip.travelStyle}</Text>
+              <Text style={s.coverMetaLabel}>Ciudades</Text>
+              <Text style={s.coverMetaValue}>{trip.cities.length}</Text>
             </View>
+          </View>
+
+          {/* Cost breakdown mini */}
+          <View style={s.coverCosts}>
+            {COST_CATEGORIES.map(({ key, label }) => {
+              const val = (trip.costs as unknown as Record<string, number>)[key] ?? 0;
+              if (!val) return null;
+              return (
+                <View key={key} style={s.coverCostRow}>
+                  <Text style={s.coverCostLabel}>{label}</Text>
+                  <Text style={s.coverCostValue}>{fmt(val)}</Text>
+                </View>
+              );
+            })}
           </View>
         </View>
 
@@ -246,28 +355,31 @@ function TripPDF({ trip }: { trip: Trip }) {
         </View>
       </Page>
 
-      {/* ─── Presupuesto ────────────────────────────────────────── */}
+      {/* ─── PRESUPUESTO ──────────────────────────────────────────── */}
       <Page size="A4" style={s.page}>
         <PageHeader title="Presupuesto" tripTitle={trip.title} />
 
         <Text style={s.sectionLabel}>Resumen de costos</Text>
-        <Text style={s.h2}>¿Cuánto cuesta el viaje?</Text>
+        <Text style={s.h2}>Cuanto cuesta el viaje?</Text>
         <View style={s.divider} />
 
         <View style={s.costCard}>
-          {COST_CATEGORIES.map(({ key, label }) => (
-            <View key={key} style={s.costRow}>
-              <Text style={s.costLabel}>{label}</Text>
-              <Text style={s.costValue}>{fmt((trip.costs as unknown as Record<string, number>)[key])}</Text>
-            </View>
-          ))}
+          {COST_CATEGORIES.map(({ key, label }) => {
+            const val = (trip.costs as unknown as Record<string, number>)[key] ?? 0;
+            return (
+              <View key={key} style={s.costRow}>
+                <Text style={s.costLabel}>{label}</Text>
+                <Text style={s.costValue}>{fmt(val)}</Text>
+              </View>
+            );
+          })}
           <View style={s.totalRow}>
             <Text style={s.totalLabel}>TOTAL</Text>
             <Text style={s.totalValue}>{fmt(trip.costs.total)}</Text>
           </View>
           <View style={s.perPersonBadge}>
             <Text style={s.perPersonText}>
-              {fmt(trip.costs.perPerson)} por persona  ·  {fmt(trip.costs.perDayPerPerson)} / día
+              {fmt(trip.costs.perPerson)} por persona  ·  {fmt(trip.costs.perDayPerPerson)} / dia
             </Text>
           </View>
         </View>
@@ -275,8 +387,8 @@ function TripPDF({ trip }: { trip: Trip }) {
         {/* Cost split summary */}
         {balances.length >= 2 && (
           <>
-            <Text style={[s.sectionLabel, { marginTop: 20 }]}>División de gastos</Text>
-            <Text style={s.h2}>¿Quién le debe a quién?</Text>
+            <Text style={[s.sectionLabel, { marginTop: 20 }]}>Division de gastos</Text>
+            <Text style={s.h2}>Quien le debe a quien?</Text>
             <View style={s.divider} />
             {balances.map((b) => (
               <View key={b.travelerId} style={[s.splitCard, { backgroundColor: b.color + "18" }]}>
@@ -298,7 +410,7 @@ function TripPDF({ trip }: { trip: Trip }) {
                     <Text style={s.splitOwes}>{fmt(b.netBalance)}</Text>
                   </View>
                 ) : (
-                  <Text style={s.splitEven}>✅ A mano</Text>
+                  <Text style={s.splitEven}>OK - A mano</Text>
                 )}
               </View>
             ))}
@@ -308,141 +420,212 @@ function TripPDF({ trip }: { trip: Trip }) {
         <PageFooter page={2} total={totalPages} />
       </Page>
 
-      {/* ─── Itinerario día a día ──────────────────────────────── */}
+      {/* ─── ITINERARIO DIA A DIA ─────────────────────────────────── */}
       {trip.days.map((day, idx) => (
         <Page key={day.dayNumber} size="A4" style={s.page}>
-          <PageHeader title={`Día ${day.dayNumber}`} tripTitle={trip.title} />
+          <PageHeader title={`Dia ${day.dayNumber}`} tripTitle={trip.title} />
 
+          {/* Day header bar */}
           <View style={s.dayHeader}>
             <View>
-              <Text style={s.dayNum}>Día {day.dayNumber}  ·  {day.date}</Text>
-              <Text style={s.dayTitle}>{day.isTravelDay ? "✈️ Día de viaje" : day.theme}</Text>
-              <Text style={s.dayCity}>📍 {day.city}</Text>
+              <Text style={s.dayNum}>Dia {day.dayNumber}  ·  {day.date}</Text>
+              <Text style={s.dayTitle}>{day.isTravelDay ? "Dia de viaje" : day.theme}</Text>
+              <Text style={s.dayCity}>Pin {day.city}</Text>
             </View>
             <View style={{ alignItems: "flex-end" }}>
-              <Text style={[s.caption, { color: "rgba(255,255,255,0.45)" }]}>Costo del día</Text>
+              <Text style={[s.caption, { color: "rgba(255,255,255,0.45)" }]}>Costo del dia</Text>
               <Text style={s.dayCost}>{fmt(day.dayTotalClp)}</Text>
             </View>
           </View>
 
-          {!day.isTravelDay ? (
-            <>
-              {(day.morning?.length > 0) && (
-                <>
-                  <Text style={[s.sectionLabel, { marginTop: 10 }]}>🌅 Mañana</Text>
-                  {day.morning.map((act, i) => (
-                    <View key={i} style={s.actRow}>
-                      <Text style={s.actTime}>{act.time}</Text>
-                      <Text style={s.actName}>{act.emoji} {act.name}</Text>
-                      <Text style={s.actTip}>{act.tip ?? act.description?.slice(0, 70)}</Text>
-                      {act.costClp > 0
-                        ? <Text style={s.actCost}>{fmt(act.costClp)}</Text>
-                        : <Text style={[s.actCost, s.freeBadge]}>GRATIS</Text>}
-                    </View>
-                  ))}
-                </>
-              )}
-
-              {day.lunch?.options?.[0] && (
-                <>
-                  <Text style={[s.sectionLabel, { marginTop: 8 }]}>☀️ Almuerzo</Text>
-                  <View style={s.actRow}>
-                    <Text style={s.actTime}>13:00</Text>
-                    <Text style={s.actName}>🍽️ {day.lunch.recommended}</Text>
-                    <Text style={s.actTip}>{day.lunch.options[0].cuisine}  ·  {day.lunch.options[0].priceTier}</Text>
-                    <Text style={s.actCost}>{fmt(day.lunch.options[0].costClp)}</Text>
-                  </View>
-                </>
-              )}
-
-              {(day.afternoon?.length > 0) && (
-                <>
-                  <Text style={[s.sectionLabel, { marginTop: 8 }]}>🌇 Tarde</Text>
-                  {day.afternoon.map((act, i) => (
-                    <View key={i} style={s.actRow}>
-                      <Text style={s.actTime}>{act.time}</Text>
-                      <Text style={s.actName}>{act.emoji} {act.name}</Text>
-                      <Text style={s.actTip}>{act.tip ?? act.description?.slice(0, 70)}</Text>
-                      {act.costClp > 0
-                        ? <Text style={s.actCost}>{fmt(act.costClp)}</Text>
-                        : <Text style={[s.actCost, s.freeBadge]}>GRATIS</Text>}
-                    </View>
-                  ))}
-                </>
-              )}
-
-              {day.dinner?.options?.[0] && (
-                <>
-                  <Text style={[s.sectionLabel, { marginTop: 8 }]}>🌙 Cena</Text>
-                  <View style={s.actRow}>
-                    <Text style={s.actTime}>20:00</Text>
-                    <Text style={s.actName}>🌙 {day.dinner.recommended}</Text>
-                    <Text style={s.actTip}>{day.dinner.options[0].cuisine}  ·  {day.dinner.options[0].priceTier}</Text>
-                    <Text style={s.actCost}>{fmt(day.dinner.options[0].costClp)}</Text>
-                  </View>
-                </>
-              )}
-            </>
-          ) : (
-            <View style={{ padding: 24, alignItems: "center" }}>
-              <Text style={{ fontSize: 32, marginBottom: 8 }}>✈️</Text>
-              <Text style={[s.h3, { textAlign: "center" }]}>Día de viaje</Text>
-              <Text style={[s.caption, { textAlign: "center", marginTop: 4 }]}>
-                Revisa tu itinerario de transporte para este día
+          {/* Travel day notice */}
+          {day.isTravelDay && (
+            <View style={s.travelDayBox}>
+              <Text style={s.travelDayTag}>Dia de traslado</Text>
+              <Text style={s.travelDayText}>
+                Hoy viajas hacia {day.city}. Revisa tu itinerario de transporte y ten a mano tus documentos.
+                {day.morning?.length > 0 || day.afternoon?.length > 0
+                  ? " A continuacion, las actividades del dia:"
+                  : ""}
               </Text>
             </View>
+          )}
+
+          {/* Morning — always show if exists */}
+          {(day.morning?.length > 0) && (
+            <>
+              <Text style={[s.sectionLabel, { marginTop: 10 }]}>Manana</Text>
+              {day.morning.map((act, i) => (
+                <ActRow key={i} act={act} />
+              ))}
+            </>
+          )}
+
+          {/* Lunch — skip on travel days with no data */}
+          {day.lunch?.options?.[0] && (
+            <>
+              <Text style={[s.sectionLabel, { marginTop: 8 }]}>Almuerzo</Text>
+              <View style={s.actRow}>
+                <Text style={s.actTime}>13:00</Text>
+                <Text style={s.actName}>{day.lunch.recommended}</Text>
+                <Text style={s.actTip}>{day.lunch.options[0].cuisine}  ·  {day.lunch.options[0].priceTier}</Text>
+                <Text style={s.actCost}>{fmt(day.lunch.options[0].costClp)}</Text>
+              </View>
+            </>
+          )}
+
+          {/* Afternoon — always show if exists */}
+          {(day.afternoon?.length > 0) && (
+            <>
+              <Text style={[s.sectionLabel, { marginTop: 8 }]}>Tarde</Text>
+              {day.afternoon.map((act, i) => (
+                <ActRow key={i} act={act} />
+              ))}
+            </>
+          )}
+
+          {/* Dinner */}
+          {day.dinner?.options?.[0] && (
+            <>
+              <Text style={[s.sectionLabel, { marginTop: 8 }]}>Cena</Text>
+              <View style={s.actRow}>
+                <Text style={s.actTime}>20:00</Text>
+                <Text style={s.actName}>{day.dinner.recommended}</Text>
+                <Text style={s.actTip}>{day.dinner.options[0].cuisine}  ·  {day.dinner.options[0].priceTier}</Text>
+                <Text style={s.actCost}>{fmt(day.dinner.options[0].costClp)}</Text>
+              </View>
+            </>
+          )}
+
+          {/* Evening */}
+          {day.eveningActivity && (
+            <>
+              <Text style={[s.sectionLabel, { marginTop: 8 }]}>Noche</Text>
+              <ActRow act={day.eveningActivity} />
+            </>
+          )}
+
+          {/* Show placeholder only if travel day has zero activities at all */}
+          {day.isTravelDay &&
+            !day.morning?.length &&
+            !day.afternoon?.length &&
+            !day.dinner?.options?.[0] && (
+              <View style={{ paddingVertical: 16, alignItems: "center" }}>
+                <Text style={[s.caption, { textAlign: "center" }]}>
+                  Sin actividades planificadas — dia de descanso y traslado.
+                </Text>
+              </View>
           )}
 
           <PageFooter page={3 + idx} total={totalPages} />
         </Page>
       ))}
 
-      {/* ─── Alojamiento ────────────────────────────────────────── */}
+      {/* ─── ALOJAMIENTO ──────────────────────────────────────────── */}
       <Page size="A4" style={s.page}>
         <PageHeader title="Alojamiento" tripTitle={trip.title} />
         <Text style={s.sectionLabel}>Alojamiento</Text>
-        <Text style={s.h2}>¿Dónde te quedas?</Text>
+        <Text style={s.h2}>Donde te quedas?</Text>
         <View style={s.divider} />
 
+        {/* Table header */}
+        <View style={s.tableHeader}>
+          <Text style={[s.tableHeaderCell, { flex: 3 }]}>Hotel</Text>
+          <Text style={[s.tableHeaderCell, { flex: 2 }]}>Ciudad / Barrio</Text>
+          <Text style={[s.tableHeaderCell, { flex: 1, textAlign: "center" }]}>Estrellas</Text>
+          <Text style={[s.tableHeaderCell, { flex: 1, textAlign: "center" }]}>Noches</Text>
+          <Text style={[s.tableHeaderCell, { flex: 2, textAlign: "right" }]}>Precio / noche</Text>
+          <Text style={[s.tableHeaderCell, { flex: 2, textAlign: "right" }]}>Total</Text>
+        </View>
+
         {trip.accommodations.map((acc, i) => (
-          <View key={i} style={[s.costCard, { marginBottom: 10 }]}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-              <Text style={s.h3}>🏨 {acc.name}</Text>
-              <Text style={[s.costValue, { color: c.sunset }]}>{fmt(acc.totalCost)}</Text>
+          <View key={i} style={[s.tableRow, i % 2 === 1 ? s.tableRowAlt : {}]}>
+            <View style={{ flex: 3 }}>
+              <Text style={s.tableCellBold}>{acc.name}</Text>
+              {acc.rating ? <Text style={s.caption}>Rating {acc.rating}/10</Text> : null}
             </View>
-            <Text style={s.body}>📍 {acc.city}{acc.neighborhood ? `  —  ${acc.neighborhood}` : ""}</Text>
-            <Text style={s.caption}>
-              {acc.nights} {acc.nights === 1 ? "noche" : "noches"}  ×  {fmt(acc.pricePerNight)}/noche
-              {acc.rating ? `  ·  ⭐ ${acc.rating}` : ""}
-              {acc.stars ? `  ·  ${"★".repeat(acc.stars)}` : ""}
+            <View style={{ flex: 2 }}>
+              <Text style={s.tableCell}>{acc.city}</Text>
+              {acc.neighborhood ? <Text style={s.caption}>{acc.neighborhood}</Text> : null}
+            </View>
+            <Text style={[s.tableCell, { flex: 1, textAlign: "center" }]}>
+              {acc.stars ? stars(acc.stars) : "-"}
             </Text>
-            {acc.bookingUrl && (
-              <Text style={[s.caption, { color: c.ocean, marginTop: 4 }]}>🔗 {acc.bookingUrl}</Text>
-            )}
+            <Text style={[s.tableCell, { flex: 1, textAlign: "center" }]}>{acc.nights}</Text>
+            <Text style={[s.tableCell, { flex: 2, textAlign: "right" }]}>{fmt(acc.pricePerNight)}</Text>
+            <Text style={[s.tableCellBold, { flex: 2, textAlign: "right", color: c.sunset }]}>{fmt(acc.totalCost)}</Text>
           </View>
         ))}
 
-        <PageFooter page={totalPages - 1} total={totalPages} />
+        {/* Total row */}
+        <View style={[s.tableRow, { backgroundColor: c.sand, borderTopWidth: 2, borderTopColor: c.ocean }]}>
+          <Text style={[s.tableCellBold, { flex: 3 }]}>TOTAL ALOJAMIENTO</Text>
+          <Text style={{ flex: 2 }} />
+          <Text style={{ flex: 1 }} />
+          <Text style={[s.tableCellBold, { flex: 1, textAlign: "center" }]}>
+            {trip.accommodations.reduce((sum, a) => sum + a.nights, 0)} noc.
+          </Text>
+          <Text style={{ flex: 2 }} />
+          <Text style={[s.tableCellBold, { flex: 2, textAlign: "right", color: c.sunset }]}>
+            {fmt(trip.costs.accommodation)}
+          </Text>
+        </View>
+
+        {/* Booking links */}
+        {trip.accommodations.some((a) => a.bookingUrl) && (
+          <View style={{ marginTop: 16 }}>
+            <Text style={[s.sectionLabel, { marginBottom: 8 }]}>Links de reserva</Text>
+            {trip.accommodations.filter((a) => a.bookingUrl).map((acc, i) => (
+              <Text key={i} style={[s.caption, { color: c.ocean, marginBottom: 3 }]}>
+                {acc.name}: {acc.bookingUrl}
+              </Text>
+            ))}
+          </View>
+        )}
+
+        <PageFooter page={2 + trip.days.length + 1} total={totalPages} />
       </Page>
 
-      {/* ─── Back cover / CTA ───────────────────────────────────── */}
+      {/* ─── OPTIMIZER TIPS (condicional) ─────────────────────────── */}
+      {hasTips && (
+        <Page size="A4" style={s.page}>
+          <PageHeader title="Consejos" tripTitle={trip.title} />
+          <Text style={s.sectionLabel}>Optimizacion del viaje</Text>
+          <Text style={s.h2}>Consejos para ahorrar y disfrutar mas</Text>
+          <View style={s.divider} />
+
+          {optimizerTips.map((tip, i) => (
+            <View key={i} style={s.tipCard}>
+              <Text style={s.tipNum}>{i + 1}</Text>
+              <Text style={s.tipText}>{tip}</Text>
+            </View>
+          ))}
+
+          <PageFooter page={2 + trip.days.length + 2} total={totalPages} />
+        </Page>
+      )}
+
+      {/* ─── BACK COVER / CTA ─────────────────────────────────────── */}
       <Page size="A4" style={{ backgroundColor: c.dark, padding: 0 }}>
         <View style={s.backCover}>
           <View>
             <Text style={[s.sectionLabel, { color: "rgba(255,255,255,0.3)", marginBottom: 16 }]}>
-              ¿TE GUSTÓ EL PLAN?
+              TE GUSTO EL PLAN?
             </Text>
             <Text style={s.backTitle}>
-              Planifica tu{"\n"}próximo viaje{"\n"}en segundos
+              Planifica tu{"\n"}proximo viaje{"\n"}en segundos
             </Text>
             <Text style={s.backSub}>
-              Describe a dónde quieres ir y cuándo, y nuestros agentes IA
+              Describe a donde quieres ir y cuando, y nuestros agentes IA
               arman tu itinerario completo con costos, actividades, alojamiento
               y transporte — todo de una vez.
             </Text>
 
             <View style={s.backFeatures}>
-              {["🤖 Agentes IA", "✈️ Vuelos", "🏨 Hoteles", "📅 Itinerario día a día", "💰 División de gastos", "📄 PDF exportable"].map((f) => (
+              {[
+                "Agentes IA", "Vuelos", "Hoteles",
+                "Itinerario dia a dia", "Division de gastos", "PDF exportable",
+              ].map((f) => (
                 <View key={f} style={s.backFeaturePill}>
                   <Text style={s.backFeatureText}>{f}</Text>
                 </View>
@@ -455,7 +638,7 @@ function TripPDF({ trip }: { trip: Trip }) {
 
           <View style={s.backFooter}>
             <Text style={s.backFooterText}>
-              Este PDF fue generado automáticamente por tuviaje.com el {today}.
+              Este PDF fue generado automaticamente por tuviaje.com el {today}.
               Los precios son estimaciones y pueden variar. Verifica siempre con las plataformas de booking antes de comprar.
             </Text>
           </View>
@@ -466,17 +649,38 @@ function TripPDF({ trip }: { trip: Trip }) {
   );
 }
 
+// ─── Route handler ────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
-  const trip: Trip = await req.json();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const buffer = await renderToBuffer(React.createElement(TripPDF, { trip }) as any);
-  const slug = trip.title.replace(/[^a-zA-Z0-9\s]/g, "").replace(/\s+/g, "-").toLowerCase();
-  const filename = `tuviaje-${slug}.pdf`;
+  try {
+    const trip: Trip = await req.json();
 
-  return new NextResponse(buffer as unknown as BodyInit, {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-    },
-  });
+    if (!trip || !trip.days || !trip.cities) {
+      return new NextResponse(JSON.stringify({ error: "Datos de viaje inválidos" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const buffer = await renderToBuffer(React.createElement(TripPDF, { trip }) as any);
+
+    const slug = (trip.title ?? "viaje")
+      .replace(/[^a-zA-Z0-9\s]/g, "")
+      .replace(/\s+/g, "-")
+      .toLowerCase();
+    const filename = `tuviaje-${slug}.pdf`;
+
+    return new NextResponse(buffer as unknown as BodyInit, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+    });
+  } catch (err) {
+    console.error("[pdf/route] Error generating PDF:", err);
+    return new NextResponse(
+      JSON.stringify({ error: "Error generando el PDF", detail: String(err) }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
 }

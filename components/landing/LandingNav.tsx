@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Map, Menu } from "lucide-react";
+import { MapIcon as Map, MenuIcon as Menu } from "@/components/ui/AnimatedIcons";
 
 export function LandingNav() {
   return (

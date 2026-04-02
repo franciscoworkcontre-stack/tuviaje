@@ -3,9 +3,19 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft, Download, FileSpreadsheet, ChevronDown, ChevronUp,
-  MapPin, Clock, Users, ExternalLink, ThumbsUp, ThumbsDown, Loader2
-} from "lucide-react";
+  ArrowLeftIcon as ArrowLeft,
+  DownloadIcon as Download,
+  FileSpreadsheetIcon as FileSpreadsheet,
+  ChevronDownIcon as ChevronDown,
+  ChevronUpIcon as ChevronUp,
+  MapPinIcon as MapPin,
+  ClockIcon as Clock,
+  UsersIcon as Users,
+  ExternalLinkIcon as ExternalLink,
+  ThumbsUpIcon as ThumbsUp,
+  ThumbsDownIcon as ThumbsDown,
+  LoaderIcon as Loader2,
+} from "@/components/ui/AnimatedIcons";
 import { useTripStore } from "@/stores/tripStore";
 import { CostSummary } from "@/components/trip/CostSummary";
 import { CostSplitter } from "@/components/trip/CostSplitter";

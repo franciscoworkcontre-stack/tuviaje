@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Plane, Bus, Hotel, UtensilsCrossed, Map, FileDown } from "lucide-react";
+import {
+  ArrowRightIcon as ArrowRight,
+  PlaneIcon as Plane,
+  BusIcon as Bus,
+  BedDoubleIcon as Hotel,
+  UtensilsCrossedIcon as UtensilsCrossed,
+  MapIcon as Map,
+  FileDownIcon as FileDown,
+} from "@/components/ui/AnimatedIcons";
 import { useEffect, useRef, useState } from "react";
 
 // ─── Product demo phases ──────────────────────────────────────

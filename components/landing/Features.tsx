@@ -1,13 +1,13 @@
 import {
-  Plane,
-  Bus,
-  BedDouble,
-  UtensilsCrossed,
-  DollarSign,
-  FileDown,
-  Map,
-  Sparkles,
-} from "lucide-react";
+  PlaneIcon as Plane,
+  BusIcon as Bus,
+  BedDoubleIcon as BedDouble,
+  UtensilsCrossedIcon as UtensilsCrossed,
+  DollarSignIcon as DollarSign,
+  FileDownIcon as FileDown,
+  MapIcon as Map,
+  SparklesIcon as Sparkles,
+} from "@/components/ui/AnimatedIcons";
 
 const FEATURES = [
   {

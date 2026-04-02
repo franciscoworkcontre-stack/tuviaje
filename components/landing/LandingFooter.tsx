@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Map } from "lucide-react";
+import { MapIcon as Map } from "@/components/ui/AnimatedIcons";
 
 const LINKS = {
   Producto: [
