@@ -18,57 +18,6 @@ const EXAMPLE_PROMPTS = [
   "Mochilero por Brasil: São Paulo, Río y Florianópolis, 3 semanas",
 ];
 
-// Naive AI-like parser — real version calls Claude
-function parseNaturalInput(text: string) {
-  const lower = text.toLowerCase();
-  const cities: string[] = [];
-  const knownCities = [
-    "buenos aires","montevideo","são paulo","lima","bogotá","bogota",
-    "cartagena","río de janeiro","rio de janeiro","medellín","medellin",
-    "ciudad de méxico","ciudad de mexico","cancún","cancun","cusco",
-    "quito","asunción","asuncion","florianópolis","florianopolis",
-  ];
-  for (const city of knownCities) {
-    if (lower.includes(city)) {
-      cities.push(city.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "));
-    }
-  }
-
-  const adultsMatch = text.match(/(\d+)\s*(personas?|adultos?|viajeros?)/i);
-  const adults = adultsMatch ? parseInt(adultsMatch[1]) : text.includes("esposa") || text.includes("pareja") ? 2 : 1;
-
-  const daysMatch = text.match(/(\d+)\s*(días?|semanas?)/i);
-  const daysUnit = text.match(/semanas?/i) ? 7 : 1;
-  const days = daysMatch ? parseInt(daysMatch[1]) * daysUnit : 10;
-
-  const style: TravelStyle = lower.includes("mochilero") ? "mochilero"
-    : lower.includes("premium") || lower.includes("lujo") ? "premium"
-    : "comfort";
-
-  const monthNames: Record<string,number> = {
-    enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,
-    julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11,
-  };
-  let startDate = "";
-  let endDate = "";
-  for (const [month, idx] of Object.entries(monthNames)) {
-    if (lower.includes(month)) {
-      const year = new Date().getFullYear() + (idx < new Date().getMonth() ? 1 : 0);
-      startDate = `${year}-${String(idx + 1).padStart(2,"0")}-15`;
-      endDate = new Date(new Date(startDate).getTime() + days * 86400000)
-        .toISOString().split("T")[0];
-      break;
-    }
-  }
-  if (!startDate) {
-    const base = new Date();
-    base.setMonth(base.getMonth() + 2);
-    startDate = base.toISOString().split("T")[0];
-    endDate = new Date(base.getTime() + days * 86400000).toISOString().split("T")[0];
-  }
-
-  return { cities, adults, style, startDate, endDate };
-}
 
 export default function PlanificarPage() {
   const router = useRouter();
@@ -98,15 +47,25 @@ export default function PlanificarPage() {
   async function handleParse() {
     if (!rawText.trim()) return;
     setParsing(true);
-    await new Promise((r) => setTimeout(r, 600)); // simulate
-    const parsed = parseNaturalInput(rawText);
-    setCities(parsed.cities.length ? parsed.cities : ["Buenos Aires"]);
-    setAdults(parsed.adults);
-    setStyle(parsed.style);
-    setStartDate(parsed.startDate);
-    setEndDate(parsed.endDate);
-    setParsing(false);
-    setStep("confirm");
+    try {
+      const res = await fetch("/api/parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: rawText }),
+      });
+      const parsed = await res.json();
+      setCities(parsed.destinationCities?.length ? parsed.destinationCities : ["Buenos Aires"]);
+      setAdults(parsed.adults ?? 2);
+      setStyle(parsed.travelStyle ?? "comfort");
+      setStartDate(parsed.startDate ?? "");
+      setEndDate(parsed.endDate ?? "");
+    } catch {
+      // fallback: just go to confirm with defaults
+      setCities(["Buenos Aires"]);
+    } finally {
+      setParsing(false);
+      setStep("confirm");
+    }
   }
 
   async function handleGenerate() {
