@@ -199,14 +199,22 @@ export default function PlanificarPage() {
     if (!cityRows.length || !departureDate) return;
     setStep("generating");
 
+    // Compute endDate directly here — don't rely on render-time closure
     const dates = cityDates();
+    const computedEndDate = dates[dates.length - 1]?.departure ?? "";
+    if (!computedEndDate) {
+      setErrorMsg("No se pudo calcular la fecha de regreso. Revisa las fechas.");
+      setStep("error");
+      return;
+    }
+
     const input = {
       rawText,
       originCity: origin,
       destinationCities: cityRows.map((r) => r.name),
       daysPerCity: cityRows.map((r) => r.days),
       startDate: departureDate,
-      endDate,
+      endDate: computedEndDate,
       adults,
       children: 0,
       travelStyle: style,
