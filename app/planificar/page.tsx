@@ -74,7 +74,7 @@ export default function PlanificarPage() {
   const router = useRouter();
   const { planningInput, setPlanningInput, setTrip, setIsGenerating, setGeneratingStep } = useTripStore();
 
-  const [step, setStep] = useState<"input" | "confirm" | "generating">("input");
+  const [step, setStep] = useState<"input" | "confirm" | "generating" | "error">("input");
   const [rawText, setRawText] = useState("");
   const [parsing, setParsing] = useState(false);
 
@@ -126,30 +126,37 @@ export default function PlanificarPage() {
       confirmed: true,
     };
     setPlanningInput(input);
-
-    // Animate steps
     setIsGenerating(true);
+
+    // Start API call immediately — don't wait for animation
+    const apiPromise = fetch("/api/itinerary", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+
+    // Run animation in parallel
     for (const s of GENERATING_STEPS) {
       setGeneratingStep(s);
-      await new Promise((r) => setTimeout(r, 1800));
+      await new Promise((r) => setTimeout(r, 2200));
     }
 
+    // Now wait for the API (likely already done or close)
     try {
-      const res = await fetch("/api/itinerary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
+      const res = await apiPromise;
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.trip) {
         setTrip(data.trip);
+        setIsGenerating(false);
         router.push(`/viaje/${data.trip.id}`);
+      } else {
+        throw new Error(data.error ?? "Sin respuesta");
       }
     } catch (e) {
       console.error(e);
-      setStep("confirm");
-    } finally {
       setIsGenerating(false);
+      setStep("error");
     }
   }
 
@@ -164,9 +171,26 @@ export default function PlanificarPage() {
     }
   }
 
-  // ─── Step: generating ─────────────────────────────────────────
-  if (step === "generating") {
-    return <GeneratingScreen />;
+  if (step === "generating") return <GeneratingScreen />;
+
+  if (step === "error") {
+    return (
+      <div className="min-h-screen bg-[#0D1F3C] flex items-center justify-center px-6">
+        <div className="text-center max-w-sm">
+          <p className="text-[48px] mb-4">😵</p>
+          <p className="font-serif text-[22px] font-bold text-white mb-2">Algo salió mal</p>
+          <p className="text-[14px] text-white/50 mb-6">
+            No pudimos generar el itinerario. Puede ser que Claude esté tardando más de lo normal.
+          </p>
+          <button
+            onClick={() => setStep("confirm")}
+            className="btn btn-accent px-6"
+          >
+            Intentar de nuevo
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

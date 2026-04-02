@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+
+export const maxDuration = 60;
 import type { Trip, PlanningInput, DayPlan, CostBreakdown, Traveler, HotelRecommendation } from "@/types/trip";
 
 const client = new Anthropic();
@@ -109,7 +111,7 @@ IMPORTANTE para hotelRecommendations:
 
     const message = await client.messages.create({
       model: "claude-opus-4-6",
-      max_tokens: 8000,
+      max_tokens: 12000,
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
     });
