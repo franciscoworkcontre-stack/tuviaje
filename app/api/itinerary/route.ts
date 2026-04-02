@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     console.log("[itinerary] step1: calling structure haiku", { allCities, totalDays, travelStyle });
     const structureMsg = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 1200,
+      max_tokens: 4096,
       messages: [{
         role: "user",
         content: `Genera la estructura de este viaje. SOLO JSON válido.
@@ -98,7 +98,7 @@ Reglas: IATA codes reales, precios en CLP para ${travelStyle}, 1 hotel por ciuda
 
       const msg = await client.messages.create({
         model: "claude-sonnet-4-6",
-        max_tokens: 4000,
+        max_tokens: 8192,
         messages: [{
           role: "user",
           content: `Genera itinerario detallado para ${cityDays} días en ${city}.
