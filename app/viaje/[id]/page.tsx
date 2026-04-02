@@ -80,22 +80,47 @@ function HotelCard({ hotel, rank }: { hotel: HotelRecommendation; rank: number }
   );
 }
 
-function FlightCard({ flight, rank, legLabel }: { flight: FlightOption; rank: number; legLabel: string }) {
+function FlightCard({
+  flight, rank, selected, onSelect,
+}: {
+  flight: FlightOption;
+  rank: number;
+  selected: boolean;
+  onSelect: () => void;
+}) {
   const [open, setOpen] = useState(rank === 0);
   const hrs = Math.floor(flight.durationMin / 60);
   const mins = flight.durationMin % 60;
+
   return (
-    <div className="border border-[#E3F2FD] rounded-xl overflow-hidden">
+    <div className={`rounded-xl overflow-hidden border-2 transition-all duration-200 ${
+      selected ? "border-[#2E7D32] shadow-[0_0_0_3px_rgba(46,125,50,0.12)]" : "border-[#E3F2FD]"
+    }`}>
+      {/* Header row */}
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-[#F5F0E8]/40 transition-colors text-left"
+        className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${
+          selected ? "bg-[#F1F8E9]" : "bg-white hover:bg-[#F5F0E8]/40"
+        }`}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${rank === 0 ? "bg-ocean text-white" : "bg-[#F5F0E8] text-[#78909C]"}`}>
-            {rank + 1}
+          {/* Rank / selected indicator */}
+          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
+            selected ? "bg-[#2E7D32] text-white" : rank === 0 ? "bg-ocean text-white" : "bg-[#F5F0E8] text-[#78909C]"
+          }`}>
+            {selected ? "✓" : rank + 1}
           </div>
           <div className="min-w-0">
-            <p className="text-[13px] font-semibold text-[#1A2332] truncate">{flight.airline} {flight.flightNumber ?? ""}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-[13px] font-semibold text-[#1A2332] truncate">
+                {flight.airline} {flight.flightNumber ?? ""}
+              </p>
+              {selected && (
+                <span className="text-[10px] font-bold text-[#2E7D32] bg-[#E8F5E9] px-1.5 py-0.5 rounded-full shrink-0">
+                  Seleccionado
+                </span>
+              )}
+            </div>
             <p className="text-[11px] text-[#78909C]">
               {flight.departure} → {flight.arrival} · {hrs}h{mins > 0 ? ` ${mins}m` : ""}
               {flight.stops === 0 ? " · directo" : ` · ${flight.stops} escala`}
@@ -103,11 +128,14 @@ function FlightCard({ flight, rank, legLabel }: { flight: FlightOption; rank: nu
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-2">
-          <p className="text-[13px] font-bold text-sunset tabular-nums">{fmt(flight.priceClp)}<span className="text-[10px] text-[#78909C] font-normal">/persona</span></p>
+          <p className="text-[13px] font-bold text-sunset tabular-nums">
+            {fmt(flight.priceClp)}<span className="text-[10px] text-[#78909C] font-normal">/total</span>
+          </p>
           {open ? <ChevronUp size={14} className="text-[#B0BEC5]" /> : <ChevronDown size={14} className="text-[#B0BEC5]" />}
         </div>
       </button>
 
+      {/* Expanded body */}
       {open && (
         <div className="px-4 pb-4 bg-[#FAFAFA] border-t border-[#F0EBE3]">
           <div className="grid grid-cols-2 gap-3 mt-3 mb-3">
@@ -132,15 +160,33 @@ function FlightCard({ flight, rank, legLabel }: { flight: FlightOption; rank: nu
               ))}
             </div>
           </div>
-          <a
-            href={flight.bookingSearchUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg bg-[#1A73E8] hover:bg-[#1557b0] text-white text-[12px] font-semibold transition-colors"
-          >
-            <ExternalLink size={12} />
-            Ver precios reales en Google Flights
-          </a>
+
+          <div className="flex gap-2">
+            {/* Select this flight */}
+            {!selected ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); onSelect(); }}
+                className="flex-1 py-2 rounded-lg bg-[#2E7D32] hover:bg-[#1B5E20] text-white text-[12px] font-semibold transition-colors"
+              >
+                ✓ Elegir este vuelo
+              </button>
+            ) : (
+              <div className="flex-1 py-2 rounded-lg bg-[#E8F5E9] text-[#2E7D32] text-[12px] font-semibold text-center">
+                ✓ Vuelo seleccionado
+              </div>
+            )}
+            {/* Book link */}
+            <a
+              href={flight.bookingSearchUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={onSelect}
+              className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#1A73E8] hover:bg-[#1557b0] text-white text-[12px] font-semibold transition-colors"
+            >
+              <ExternalLink size={12} />
+              Comprar
+            </a>
+          </div>
         </div>
       )}
     </div>
@@ -272,7 +318,7 @@ function DayCard({ day, flightSearchUrl }: { day: DayPlan; flightSearchUrl?: str
 type ExportTab = "itinerary" | "hotels" | "split";
 
 export default function TripPage() {
-  const { trip } = useTripStore();
+  const { trip, selectFlight } = useTripStore();
   const [activeTab, setActiveTab] = useState<ExportTab>("itinerary");
   const [downloading, setDownloading] = useState<"sheet" | "pdf" | null>(null);
   const [hotelRecs, setHotelRecs] = useState<Record<string, HotelRecommendation[]>>(
@@ -280,6 +326,14 @@ export default function TripPage() {
   );
   const [flightOpts, setFlightOpts] = useState<Record<string, FlightOption[]>>(
     () => trip?.flightOptions ?? {}
+  );
+  // selectedFlights: key="fromCity-toCity" → index of selected flight option
+  const [selectedFlights, setSelectedFlights] = useState<Record<string, number>>(
+    () => Object.fromEntries(
+      (trip?.transportLegs ?? [])
+        .filter(l => l.selectedFlightIndex != null)
+        .map(l => [`${l.fromCity}-${l.toCity}`, l.selectedFlightIndex!])
+    )
   );
   const [loadingHotels, setLoadingHotels] = useState(false);
   const [loadingFlights, setLoadingFlights] = useState(false);
@@ -504,37 +558,105 @@ export default function TripPage() {
 
         {activeTab === "hotels" && (
           <div className="max-w-3xl mx-auto space-y-8">
-            {/* Flight options per leg */}
+
+            {/* ── Selected flights summary ── */}
+            {Object.keys(selectedFlights).length > 0 && (
+              <div className="bg-[#F1F8E9] border border-[#C8E6C9] rounded-2xl p-4">
+                <p className="text-[11px] font-bold text-[#2E7D32] uppercase tracking-widest mb-3">
+                  ✓ Vuelos seleccionados
+                </p>
+                <div className="space-y-2">
+                  {trip.transportLegs.map((leg) => {
+                    const key = `${leg.fromCity}-${leg.toCity}`;
+                    const idx = selectedFlights[key];
+                    const f = flightOpts[key]?.[idx];
+                    if (f == null) return null;
+                    return (
+                      <div key={key} className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[13px] font-semibold text-[#1A2332]">
+                            {leg.fromCity} → {leg.toCity}
+                          </p>
+                          <p className="text-[11px] text-[#78909C]">
+                            {f.airline} {f.flightNumber ?? ""} · {f.departure}→{f.arrival}
+                            {f.stops === 0 ? " · directo" : ` · ${f.stops} escala`}
+                          </p>
+                        </div>
+                        <p className="text-[14px] font-bold text-sunset tabular-nums shrink-0 ml-4">
+                          {fmt(f.priceClp)}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Total selected flights cost */}
+                {(() => {
+                  const total = trip.transportLegs.reduce((sum, leg) => {
+                    const key = `${leg.fromCity}-${leg.toCity}`;
+                    const idx = selectedFlights[key];
+                    const f = flightOpts[key]?.[idx];
+                    return sum + (f?.priceClp ?? 0);
+                  }, 0);
+                  return total > 0 ? (
+                    <div className="mt-3 pt-3 border-t border-[#C8E6C9] flex justify-between">
+                      <p className="text-[12px] font-bold text-[#2E7D32]">Total vuelos</p>
+                      <p className="text-[14px] font-bold text-sunset tabular-nums">{fmt(total)}</p>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
+
+            {/* ── Flight options per leg ── */}
             {trip.transportLegs.map((leg, i) => {
               const key = `${leg.fromCity}-${leg.toCity}`;
               const opts = flightOpts[key] ?? [];
+              const selectedIdx = selectedFlights[key];
               return (
                 <div key={i}>
                   <div className="flex items-center justify-between mb-1">
                     <p className="font-serif text-[22px] font-bold text-[#1A2332]">
                       ✈️ {leg.fromCity} → {leg.toCity}
                     </p>
-                    {leg.date && <p className="text-[12px] text-[#78909C]">📅 {leg.date}</p>}
+                    <div className="flex items-center gap-2">
+                      {leg.date && <p className="text-[12px] text-[#78909C]">📅 {leg.date}</p>}
+                      {selectedIdx != null && (
+                        <span className="text-[10px] font-bold text-[#2E7D32] bg-[#E8F5E9] px-2 py-0.5 rounded-full">
+                          ✓ Elegido
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className="text-[13px] text-[#78909C] mb-4">
                     {opts.length > 0
-                      ? `${opts.length} opciones analizadas · precios estimados en CLP`
+                      ? `${opts.length} vuelo${opts.length > 1 ? "s" : ""} encontrado${opts.length > 1 ? "s" : ""} · precios reales de Google Flights en CLP`
                       : loadingFlights
-                      ? "Buscando opciones..."
+                      ? "Buscando vuelos en Google Flights..."
                       : "Precios en tiempo real en Google Flights"}
                   </p>
 
                   {loadingFlights && opts.length === 0 && (
                     <div className="flex items-center gap-3 text-[#78909C] py-3">
                       <Loader2 size={15} className="animate-spin" />
-                      <span className="text-[13px]">Analizando vuelos disponibles...</span>
+                      <span className="text-[13px]">
+                        Abriendo Google Flights y analizando resultados{i > 0 ? ` (tramo ${i + 1})` : ""}...
+                      </span>
                     </div>
                   )}
 
                   {opts.length > 0 && (
                     <div className="space-y-2">
                       {opts.map((opt, j) => (
-                        <FlightCard key={j} flight={opt} rank={j} legLabel={key} />
+                        <FlightCard
+                          key={j}
+                          flight={opt}
+                          rank={j}
+                          selected={selectedIdx === j}
+                          onSelect={() => {
+                            setSelectedFlights(prev => ({ ...prev, [key]: j }));
+                            selectFlight(leg.fromCity, leg.toCity, j, opt.priceClp);
+                          }}
+                        />
                       ))}
                     </div>
                   )}

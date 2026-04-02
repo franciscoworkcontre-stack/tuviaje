@@ -46,6 +46,8 @@ export interface TransportLeg {
   flightSearchUrl?: string; // pre-built Google Flights URL
   selected?: TransportOption;
   options: TransportOption[];
+  selectedFlightIndex?: number;      // index into FlightOption[] shown in UI
+  selectedFlightPriceClp?: number;   // real price from Google Flights
 }
 
 // ─── Activity / itinerary ──────────────────────────────────────

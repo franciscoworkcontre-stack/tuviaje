@@ -40,6 +40,7 @@ interface TripStore {
   // Day editing
   updateDay: (dayNumber: number, day: Partial<DayPlan>) => void;
   updateTransportLeg: (fromCity: string, toCity: string, selectedIndex: number) => void;
+  selectFlight: (fromCity: string, toCity: string, flightIndex: number, priceClp: number) => void;
 
   // Cost splitting
   addTraveler: (name: string) => void;
@@ -114,6 +115,21 @@ export const useTripStore = create<TripStore>()(
                 }
                 return leg;
               }),
+            },
+          };
+        }),
+
+      selectFlight: (fromCity, toCity, flightIndex, priceClp) =>
+        set((s) => {
+          if (!s.trip) return s;
+          return {
+            trip: {
+              ...s.trip,
+              transportLegs: s.trip.transportLegs.map((leg) =>
+                leg.fromCity === fromCity && leg.toCity === toCity
+                  ? { ...leg, selectedFlightIndex: flightIndex, selectedFlightPriceClp: priceClp }
+                  : leg
+              ),
             },
           };
         }),
