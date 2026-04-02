@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import type { PlanningInput, DayPlan, CostBreakdown, Traveler, HotelRecommendation } from "@/types/trip";
 import { fetchHotelsForCities } from "@/lib/fetchHotels";
+import { fetchFlightsForLegs } from "@/lib/fetchFlights";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -146,10 +147,30 @@ REGLAS ESTRICTAS:
 - SOLO el array dentro de {"days":[...]}`;
     }
 
-    // ── Llamada hoteles (paralela con días) ──────────────────────
+    // ── Hoteles + vuelos en paralelo con días ────────────────────
     const hotelsPromise = fetchHotelsForCities(allCities, travelStyle, startDate, endDate, adults)
-      .then(recs => { console.log("[itinerary] hotels: ok for cities:", Object.keys(recs)); return recs; })
+      .then(recs => { console.log("[itinerary] hotels ok:", Object.keys(recs)); return recs; })
       .catch(e => { console.error("[itinerary] hotels error:", e instanceof Error ? e.message : e); return {} as Record<string, HotelRecommendation[]>; });
+
+    // Build legs list for flights — we know cities/IATAs from structure
+    // Flights promise starts now and resolves after city days are done
+    const legsForFlights = allCities.map((city, i) => {
+      const leg = (structure.transportLegs as Array<{fromCity:string;toCity:string;fromIata?:string;toIata?:string;date?:string}>)
+        .find(l => l.toCity?.toLowerCase() === city.toLowerCase());
+      const fromCity = i === 0 ? originCity : allCities[i - 1];
+      return { fromCity, toCity: city, fromIata: leg?.fromIata, toIata: leg?.toIata, date: leg?.date ?? startDate };
+    });
+    if (roundTrip) {
+      const lastCity = allCities[allCities.length - 1];
+      const firstLeg = (structure.transportLegs as Array<{fromCity:string;toCity:string;fromIata?:string;toIata?:string}>)
+        .find(l => l.fromCity?.toLowerCase() === originCity.toLowerCase());
+      const lastLeg = (structure.transportLegs as Array<{fromCity:string;toCity:string;fromIata?:string;toIata?:string}>)
+        .find(l => l.toCity?.toLowerCase() === lastCity.toLowerCase());
+      legsForFlights.push({ fromCity: lastCity, toCity: originCity, fromIata: lastLeg?.toIata, toIata: firstLeg?.fromIata, date: endDate });
+    }
+    const flightsPromise = fetchFlightsForLegs(legsForFlights, adults)
+      .then(opts => { console.log("[itinerary] flights ok:", Object.keys(opts)); return opts; })
+      .catch(e => { console.error("[itinerary] flights error:", e instanceof Error ? e.message : e); return {} as Record<string, import("@/types/trip").FlightOption[]>; });
 
     // ── Llamadas 2-N: ciudades en PARALELO, batches de 4 días ────
     const BATCH_SIZE = 4;
@@ -193,8 +214,8 @@ REGLAS ESTRICTAS:
       return cityAllDays;
     }));
 
-    // ── Esperar hoteles (ya corrió en paralelo con los días) ─────
-    const hotelRecommendations = await hotelsPromise;
+    // ── Esperar hoteles y vuelos (corrieron en paralelo con los días) ──
+    const [hotelRecommendations, flightOptions] = await Promise.all([hotelsPromise, flightsPromise]);
 
     // ── Ensamblar ────────────────────────────────────────────────
     const allDays: DayPlan[] = [];
@@ -269,6 +290,7 @@ REGLAS ESTRICTAS:
       })(),
       accommodations: accs,
       hotelRecommendations,
+      flightOptions,
       days: allDays, costs, travelers_list,
       splitAssignments: [], currency: "CLP",
       createdAt: new Date().toISOString(),

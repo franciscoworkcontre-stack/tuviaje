@@ -379,7 +379,10 @@ export default function TripPage() {
     () => trip?.hotelRecommendations ?? {}
   );
   const [flightOpts, setFlightOpts] = useState<Record<string, FlightOption[]>>(
-    () => trip?.flightOptions ?? {}
+    () => {
+      const pre = trip?.flightOptions ?? {};
+      return Object.keys(pre).length > 0 ? pre : {};
+    }
   );
   // selectedFlights: key="fromCity-toCity" → index of selected flight option
   const [selectedFlights, setSelectedFlights] = useState<Record<string, number>>(
@@ -395,11 +398,11 @@ export default function TripPage() {
   const hotelsFetched = useRef(false);
   const flightsFetched = useRef(false);
 
-  // ── Flights: start immediately on page load (not waiting for tab) ──────────
+  // ── Flights: skip if already pre-fetched during generation ─────────────────
   useEffect(() => {
     if (!trip || flightsFetched.current || trip.transportLegs.length === 0) return;
     const hasFlights = trip.transportLegs.every(l => (flightOpts[`${l.fromCity}-${l.toCity}`] ?? []).length > 0);
-    if (hasFlights) return;
+    if (hasFlights) { flightsFetched.current = true; return; }
     flightsFetched.current = true;
     setLoadingFlights(true);
     fetch("/api/flights", {
