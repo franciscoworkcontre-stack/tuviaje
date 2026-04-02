@@ -147,8 +147,10 @@ function FlightCard({
   onSelect: () => void;
 }) {
   const [open, setOpen] = useState(rank === 0);
+  const { trip, displayCurrency } = useTripStore();
   const hrs = Math.floor(flight.durationMin / 60);
   const mins = flight.durationMin % 60;
+  const adults = trip?.travelers.adults ?? 1;
 
   const isTop = rank === 0;
 
@@ -200,7 +202,12 @@ function FlightCard({
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-2">
           <p className="text-[13px] font-bold text-sunset tabular-nums">
-            {fmt(flight.priceClp)}<span className="text-[10px] text-[#78909C] font-normal">/total</span>
+            {fmtCurrency(flight.priceClp, displayCurrency)}
+            <span className="text-[10px] text-[#78909C] font-normal">
+              {adults > 1
+                ? ` · ${fmtCurrency(flight.priceClp / adults, displayCurrency)}/p`
+                : " /persona"}
+            </span>
           </p>
           {open ? <ChevronUp size={14} className="text-[#B0BEC5]" /> : <ChevronDown size={14} className="text-[#B0BEC5]" />}
         </div>

@@ -131,10 +131,12 @@ export async function fetchLegFlights(
 
   const url = `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=50`;
 
+  // Always fetch for 1 adult — Apify returns total price for the requested passenger count,
+  // so we control per-person price ourselves and multiply by adults below.
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ departure_id: fromIata, arrival_id: toIata, outbound_date: date, adults, currency: "USD", hl: "en", gl: "us", exclude_basic: false, max_pages: 1 }),
+    body: JSON.stringify({ departure_id: fromIata, arrival_id: toIata, outbound_date: date, adults: 1, currency: "USD", hl: "en", gl: "us", exclude_basic: false, max_pages: 1 }),
     signal: AbortSignal.timeout(55000),
   });
 
