@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight, Sparkles, Loader2, X, Plus, Minus,
@@ -39,7 +39,7 @@ function fmtDate(dateStr: string): string {
 
 export default function PlanificarPage() {
   const router = useRouter();
-  const { setPlanningInput, setTrip, setIsGenerating, setGeneratingStep } = useTripStore();
+  const { setPlanningInput, setTrip, setIsGenerating, setGeneratingStep, setGeneratingSteps, setGeneratingEstimatedMs } = useTripStore();
 
   const [step, setStep] = useState<"input" | "clarify" | "dates" | "confirm" | "generating" | "error">("input");
   const [errorMsg, setErrorMsg] = useState("");
@@ -79,13 +79,24 @@ export default function PlanificarPage() {
     ? cityDates()[cityRows.length - 1]?.departure ?? ""
     : "";
 
-  const GENERATING_STEPS = [
-    "✈️ Buscando vuelos entre ciudades...",
-    "🏨 Encontrando alojamiento en tu rango...",
-    "🤖 Generando itinerario día a día...",
-    "💰 Calculando costos detallados...",
-    "✨ Preparando tu plan...",
-  ];
+  function buildGeneratingSteps(cities: CityRow[], originCity: string): string[] {
+    const steps: string[] = [
+      "🔍 Analizando rutas y fechas óptimas...",
+    ];
+    // One flight step per leg
+    const allCities = [{ name: originCity }, ...cities];
+    for (let i = 0; i < cities.length; i++) {
+      steps.push(`✈️ Buscando vuelos ${allCities[i].name} → ${cities[i].name}...`);
+    }
+    steps.push("🏨 Buscando hoteles según tu estilo...");
+    // One city itinerary step per city
+    for (const city of cities) {
+      steps.push(`🗺️ Armando itinerario en ${city.name} (${city.days} días)...`);
+    }
+    steps.push("💰 Calculando costos y desglose por persona...");
+    steps.push("✨ Preparando tu plan completo...");
+    return steps;
+  }
 
   async function handleClarify() {
     if (!clarificationAnswer.trim()) return;
@@ -224,6 +235,13 @@ export default function PlanificarPage() {
     setPlanningInput(input);
     setIsGenerating(true);
 
+    // Build dynamic steps based on actual cities
+    const dynSteps = buildGeneratingSteps(cityRows, origin);
+    setGeneratingSteps(dynSteps);
+    // Estimate: 15s base + 25s per city (parallel calls, so dominated by longest)
+    const estimatedMs = Math.max(30000, 15000 + Math.max(...cityRows.map(r => r.days)) * 3000);
+    setGeneratingEstimatedMs(estimatedMs);
+
     // Start API immediately
     const apiPromise = fetch("/api/itinerary", {
       method: "POST",
@@ -231,18 +249,20 @@ export default function PlanificarPage() {
       body: JSON.stringify(input),
     });
 
-    // Animate all steps (always completes the full sequence)
+    // Animate steps in sync with estimated timeline
     let done = false;
     apiPromise.finally(() => { done = true; });
 
-    for (const s of GENERATING_STEPS) {
+    const msPerStep = estimatedMs / dynSteps.length;
+    for (const s of dynSteps) {
       setGeneratingStep(s);
-      await new Promise((r) => setTimeout(r, 2600));
+      await new Promise((r) => setTimeout(r, msPerStep));
+      if (done) break;
     }
 
-    // If API is still running, keep showing last step until it's done
+    // If API is still running, loop last step
     while (!done) {
-      setGeneratingStep("✨ Preparando tu plan...");
+      setGeneratingStep("✨ Preparando tu plan completo...");
       await new Promise((r) => setTimeout(r, 800));
     }
 
@@ -748,19 +768,28 @@ export default function PlanificarPage() {
 }
 
 function GeneratingScreen() {
-  const { generatingStep } = useTripStore();
-  const steps = [
-    "✈️ Buscando vuelos entre ciudades...",
-    "🏨 Encontrando alojamiento en tu rango...",
-    "🤖 Generando itinerario día a día...",
-    "💰 Calculando costos detallados...",
-    "✨ Preparando tu plan...",
-  ];
+  const { generatingStep, generatingSteps, generatingEstimatedMs } = useTripStore();
+  const [pct, setPct] = useState(0);
+
+  useEffect(() => {
+    const start = Date.now();
+    const id = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const raw = Math.min(elapsed / generatingEstimatedMs, 1);
+      // Ease-out: fast start, slows near end, caps at 95%
+      const eased = 1 - Math.pow(1 - raw, 2.2);
+      setPct(Math.round(eased * 95));
+    }, 300);
+    return () => clearInterval(id);
+  }, [generatingEstimatedMs]);
+
+  const currentIdx = generatingSteps.indexOf(generatingStep);
 
   return (
     <div className="min-h-screen bg-[#0D1F3C] flex items-center justify-center px-6">
       <div className="text-center max-w-sm w-full">
-        <div className="relative w-20 h-20 mx-auto mb-8">
+        {/* Spinner */}
+        <div className="relative w-20 h-20 mx-auto mb-6">
           <div className="absolute inset-0 rounded-full border-4 border-ocean/15" />
           <div
             className="absolute inset-0 rounded-full border-4 border-transparent border-t-ocean-light"
@@ -768,27 +797,55 @@ function GeneratingScreen() {
           />
           <span className="absolute inset-0 flex items-center justify-center text-[28px]">🗺️</span>
         </div>
-        <p className="font-serif text-[22px] font-bold text-white mb-2">Armando tu viaje...</p>
+
+        <p className="font-serif text-[22px] font-bold text-white mb-1">Armando tu viaje...</p>
+
+        {/* Current step label */}
         <p
-          className="text-[14px] text-white/50 mb-8 min-h-[20px]"
+          className="text-[13px] text-white/50 mb-5 min-h-[20px]"
           key={generatingStep}
           style={{ animation: "fadeInUp 0.3s ease-out both" }}
         >
           {generatingStep}
         </p>
-        <div className="space-y-2">
-          {steps.map((s) => (
+
+        {/* Progress bar */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] text-white/25">Progreso</span>
+            <span className="text-[12px] font-bold text-ocean-light tabular-nums">{pct}%</span>
+          </div>
+          <div className="h-2 bg-white/8 rounded-full overflow-hidden">
             <div
-              key={s}
-              className={`text-[12px] px-4 py-2.5 rounded-xl border transition-all duration-500 ${
-                s === generatingStep
-                  ? "border-ocean-light/30 bg-ocean/15 text-white"
-                  : "border-white/6 text-white/20"
-              }`}
-            >
-              {s}
-            </div>
-          ))}
+              className="h-full bg-gradient-to-r from-ocean to-ocean-light rounded-full transition-all duration-500"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Steps checklist */}
+        <div className="space-y-1.5 text-left">
+          {generatingSteps.map((s, i) => {
+            const done = i < currentIdx;
+            const active = i === currentIdx;
+            return (
+              <div
+                key={s}
+                className={`text-[12px] px-3 py-2 rounded-xl border transition-all duration-500 flex items-center gap-2 ${
+                  active
+                    ? "border-ocean-light/30 bg-ocean/15 text-white"
+                    : done
+                    ? "border-white/6 text-white/35"
+                    : "border-white/4 text-white/15"
+                }`}
+              >
+                <span className="shrink-0 text-[11px] w-4 text-center">
+                  {done ? "✓" : active ? "→" : "·"}
+                </span>
+                {s}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

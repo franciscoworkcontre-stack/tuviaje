@@ -121,6 +121,21 @@ export interface CostBreakdown {
   byCityClp: Record<string, number>;
 }
 
+// ─── Flight recommendations ────────────────────────────────────
+
+export interface FlightOption {
+  airline: string;
+  flightNumber?: string;
+  departure: string;   // "HH:MM"
+  arrival: string;     // "HH:MM"
+  durationMin: number;
+  stops: number;       // 0 = direct
+  priceClp: number;    // per person
+  pros: string[];
+  cons: string[];
+  bookingSearchUrl: string;
+}
+
 // ─── Hotel recommendations ─────────────────────────────────────
 
 export interface HotelRecommendation {
@@ -184,6 +199,7 @@ export interface Trip {
   transportLegs: TransportLeg[];
   accommodations: Accommodation[];
   hotelRecommendations: Record<string, HotelRecommendation[]>; // keyed by city name
+  flightOptions?: Record<string, FlightOption[]>; // keyed by "fromCity-toCity"
   days: DayPlan[];
   costs: CostBreakdown;
   travelers_list: Traveler[]; // for cost splitting

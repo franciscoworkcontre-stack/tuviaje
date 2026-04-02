@@ -9,7 +9,7 @@ import {
 import { useTripStore } from "@/stores/tripStore";
 import { CostSummary } from "@/components/trip/CostSummary";
 import { CostSplitter } from "@/components/trip/CostSplitter";
-import type { DayPlan, HotelRecommendation } from "@/types/trip";
+import type { DayPlan, HotelRecommendation, FlightOption } from "@/types/trip";
 
 function fmt(n: number) {
   return "$" + n.toLocaleString("es-CL");
@@ -73,6 +73,73 @@ function HotelCard({ hotel, rank }: { hotel: HotelRecommendation; rank: number }
           >
             <ExternalLink size={12} />
             Ver en Booking.com
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FlightCard({ flight, rank, legLabel }: { flight: FlightOption; rank: number; legLabel: string }) {
+  const [open, setOpen] = useState(rank === 0);
+  const hrs = Math.floor(flight.durationMin / 60);
+  const mins = flight.durationMin % 60;
+  return (
+    <div className="border border-[#E3F2FD] rounded-xl overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-[#F5F0E8]/40 transition-colors text-left"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${rank === 0 ? "bg-ocean text-white" : "bg-[#F5F0E8] text-[#78909C]"}`}>
+            {rank + 1}
+          </div>
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold text-[#1A2332] truncate">{flight.airline} {flight.flightNumber ?? ""}</p>
+            <p className="text-[11px] text-[#78909C]">
+              {flight.departure} → {flight.arrival} · {hrs}h{mins > 0 ? ` ${mins}m` : ""}
+              {flight.stops === 0 ? " · directo" : ` · ${flight.stops} escala`}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 ml-2">
+          <p className="text-[13px] font-bold text-sunset tabular-nums">{fmt(flight.priceClp)}<span className="text-[10px] text-[#78909C] font-normal">/persona</span></p>
+          {open ? <ChevronUp size={14} className="text-[#B0BEC5]" /> : <ChevronDown size={14} className="text-[#B0BEC5]" />}
+        </div>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 bg-[#FAFAFA] border-t border-[#F0EBE3]">
+          <div className="grid grid-cols-2 gap-3 mt-3 mb-3">
+            <div>
+              <p className="text-[10px] font-bold text-[#2E7D32] flex items-center gap-1 mb-1.5 uppercase tracking-wide">
+                <ThumbsUp size={10} /> A favor
+              </p>
+              {flight.pros.map((pro, i) => (
+                <p key={i} className="text-[11px] text-[#37474F] flex items-start gap-1.5 mb-1">
+                  <span className="text-[#2E7D32] mt-0.5 shrink-0">✓</span>{pro}
+                </p>
+              ))}
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-[#E64A19] flex items-center gap-1 mb-1.5 uppercase tracking-wide">
+                <ThumbsDown size={10} /> A tener en cuenta
+              </p>
+              {flight.cons.map((con, i) => (
+                <p key={i} className="text-[11px] text-[#37474F] flex items-start gap-1.5 mb-1">
+                  <span className="text-[#E64A19] mt-0.5 shrink-0">·</span>{con}
+                </p>
+              ))}
+            </div>
+          </div>
+          <a
+            href={flight.bookingSearchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg bg-[#1A73E8] hover:bg-[#1557b0] text-white text-[12px] font-semibold transition-colors"
+          >
+            <ExternalLink size={12} />
+            Ver precios reales en Google Flights
           </a>
         </div>
       )}
@@ -211,27 +278,68 @@ export default function TripPage() {
   const [hotelRecs, setHotelRecs] = useState<Record<string, HotelRecommendation[]>>(
     () => trip?.hotelRecommendations ?? {}
   );
+  const [flightOpts, setFlightOpts] = useState<Record<string, FlightOption[]>>(
+    () => trip?.flightOptions ?? {}
+  );
   const [loadingHotels, setLoadingHotels] = useState(false);
+  const [loadingFlights, setLoadingFlights] = useState(false);
   const hotelsFetched = useRef(false);
+  const flightsFetched = useRef(false);
 
   useEffect(() => {
-    if (activeTab !== "hotels" || hotelsFetched.current || !trip) return;
-    const hasRecs = trip.cities.every(c => (hotelRecs[c.name] ?? []).length > 0);
-    if (hasRecs) return;
-    hotelsFetched.current = true;
-    setLoadingHotels(true);
-    fetch("/api/hotels", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cities: trip.cities.map(c => c.name),
-        travelStyle: trip.travelStyle,
-      }),
-    })
-      .then(r => r.json())
-      .then(data => { if (data.hotelRecommendations) setHotelRecs(data.hotelRecommendations); })
-      .catch(() => {})
-      .finally(() => setLoadingHotels(false));
+    if (activeTab !== "hotels" || !trip) return;
+
+    // Fetch hotel recs
+    if (!hotelsFetched.current) {
+      const hasRecs = trip.cities.every(c => (hotelRecs[c.name] ?? []).length > 0);
+      if (!hasRecs) {
+        hotelsFetched.current = true;
+        setLoadingHotels(true);
+        fetch("/api/hotels", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cities: trip.cities.map(c => c.name),
+            travelStyle: trip.travelStyle,
+          }),
+        })
+          .then(r => r.json())
+          .then(data => { if (data.hotelRecommendations) setHotelRecs(data.hotelRecommendations); })
+          .catch(() => {})
+          .finally(() => setLoadingHotels(false));
+      }
+    }
+
+    // Fetch flight options
+    if (!flightsFetched.current && trip.transportLegs.length > 0) {
+      const hasFlights = trip.transportLegs.every(l => {
+        const key = `${l.fromCity}-${l.toCity}`;
+        return (flightOpts[key] ?? []).length > 0;
+      });
+      if (!hasFlights) {
+        flightsFetched.current = true;
+        setLoadingFlights(true);
+        fetch("/api/flights", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            legs: trip.transportLegs.map(l => ({
+              fromCity: l.fromCity,
+              toCity: l.toCity,
+              fromIata: l.fromIata,
+              toIata: l.toIata,
+              date: l.date,
+            })),
+            travelStyle: trip.travelStyle,
+            adults: trip.travelers.adults,
+          }),
+        })
+          .then(r => r.json())
+          .then(data => { if (data.flightOptions) setFlightOpts(data.flightOptions); })
+          .catch(() => {})
+          .finally(() => setLoadingFlights(false));
+      }
+    }
   }, [activeTab, trip]);
 
   if (!trip) {
@@ -396,36 +504,54 @@ export default function TripPage() {
 
         {activeTab === "hotels" && (
           <div className="max-w-3xl mx-auto space-y-8">
-            {/* Transport legs */}
-            <div>
-              <p className="font-serif text-[22px] font-bold text-[#1A2332] mb-1">Vuelos</p>
-              <p className="text-[13px] text-[#78909C] mb-4">Precios en tiempo real directo en Google Flights</p>
-              <div className="grid sm:grid-cols-2 gap-3">
-                {trip.transportLegs.map((leg, i) => (
-                  <a
-                    key={i}
-                    href={leg.flightSearchUrl ?? "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-4 rounded-2xl bg-white border border-[#E3F2FD] hover:border-ocean hover:shadow-md transition-all group"
-                  >
-                    <div>
-                      <p className="text-[14px] font-bold text-[#1A2332]">{leg.fromCity} → {leg.toCity}</p>
-                      {leg.fromIata && leg.toIata && (
-                        <p className="text-[11px] text-[#78909C] font-mono mt-0.5">{leg.fromIata} · {leg.toIata}</p>
-                      )}
-                      {leg.date && <p className="text-[11px] text-[#78909C] mt-0.5">📅 {leg.date}</p>}
+            {/* Flight options per leg */}
+            {trip.transportLegs.map((leg, i) => {
+              const key = `${leg.fromCity}-${leg.toCity}`;
+              const opts = flightOpts[key] ?? [];
+              return (
+                <div key={i}>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="font-serif text-[22px] font-bold text-[#1A2332]">
+                      ✈️ {leg.fromCity} → {leg.toCity}
+                    </p>
+                    {leg.date && <p className="text-[12px] text-[#78909C]">📅 {leg.date}</p>}
+                  </div>
+                  <p className="text-[13px] text-[#78909C] mb-4">
+                    {opts.length > 0
+                      ? `${opts.length} opciones analizadas · precios estimados en CLP`
+                      : loadingFlights
+                      ? "Buscando opciones..."
+                      : "Precios en tiempo real en Google Flights"}
+                  </p>
+
+                  {loadingFlights && opts.length === 0 && (
+                    <div className="flex items-center gap-3 text-[#78909C] py-3">
+                      <Loader2 size={15} className="animate-spin" />
+                      <span className="text-[13px]">Analizando vuelos disponibles...</span>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <div className="bg-ocean text-white text-[11px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 group-hover:bg-ocean-dark transition-colors">
-                        <ExternalLink size={11} />
-                        Google Flights
-                      </div>
+                  )}
+
+                  {opts.length > 0 && (
+                    <div className="space-y-2">
+                      {opts.map((opt, j) => (
+                        <FlightCard key={j} flight={opt} rank={j} legLabel={key} />
+                      ))}
                     </div>
-                  </a>
-                ))}
-              </div>
-            </div>
+                  )}
+
+                  {!loadingFlights && opts.length === 0 && (
+                    <a
+                      href={leg.flightSearchUrl ?? "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 py-3 rounded-xl border border-[#E3F2FD] hover:border-ocean text-[13px] font-semibold text-ocean hover:text-ocean-dark transition-all"
+                    >
+                      <ExternalLink size={13} /> Buscar en Google Flights
+                    </a>
+                  )}
+                </div>
+              );
+            })}
 
             {/* Hotel recommendations per city */}
             {loadingHotels && (

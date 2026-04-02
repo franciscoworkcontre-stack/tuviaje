@@ -32,6 +32,10 @@ interface TripStore {
   setIsGenerating: (v: boolean) => void;
   generatingStep: string;
   setGeneratingStep: (step: string) => void;
+  generatingSteps: string[];
+  setGeneratingSteps: (steps: string[]) => void;
+  generatingEstimatedMs: number;
+  setGeneratingEstimatedMs: (ms: number) => void;
 
   // Day editing
   updateDay: (dayNumber: number, day: Partial<DayPlan>) => void;
@@ -79,6 +83,10 @@ export const useTripStore = create<TripStore>()(
       setIsGenerating: (v) => set({ isGenerating: v }),
       generatingStep: "",
       setGeneratingStep: (step) => set({ generatingStep: step }),
+      generatingSteps: [],
+      setGeneratingSteps: (steps) => set({ generatingSteps: steps }),
+      generatingEstimatedMs: 60000,
+      setGeneratingEstimatedMs: (ms) => set({ generatingEstimatedMs: ms }),
 
       // ─── Day editing ───────────────────────────────────────────
       updateDay: (dayNumber, partial) =>
