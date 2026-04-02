@@ -39,7 +39,7 @@ function fmtDate(dateStr: string): string {
 
 export default function PlanificarPage() {
   const router = useRouter();
-  const { setPlanningInput, setTrip, setIsGenerating, setGeneratingStep, setGeneratingSteps, setGeneratingEstimatedMs } = useTripStore();
+  const { setPlanningInput, setTrip, setIsGenerating, setGeneratingStep, setGeneratingSteps, setGeneratingEstimatedMs, setGeneratingCountdownSec } = useTripStore();
 
   const [step, setStep] = useState<"input" | "clarify" | "dates" | "confirm" | "generating" | "error">("input");
   const [errorMsg, setErrorMsg] = useState("");
@@ -262,17 +262,15 @@ export default function PlanificarPage() {
       if (done) break;
     }
 
-    // If API is still running, show countdown in last step
+    // If API is still running, keep last step active + show countdown separately
+    if (!done) setGeneratingStep(dynSteps[dynSteps.length - 1]);
     while (!done) {
       const elapsed = Date.now() - genStartMs;
       const remaining = Math.max(0, Math.ceil((estimatedMs - elapsed) / 1000));
-      if (remaining > 0) {
-        setGeneratingStep(`✨ Finalizando tu plan... (~${remaining}s)`);
-      } else {
-        setGeneratingStep("✨ Casi listo, revisando detalles...");
-      }
+      setGeneratingCountdownSec(remaining);
       await new Promise((r) => setTimeout(r, 1000));
     }
+    setGeneratingCountdownSec(0);
 
     try {
       const res = await apiPromise;
@@ -617,22 +615,35 @@ export default function PlanificarPage() {
                       </button>
                     </div>
 
-                    {/* City name + dates + firstTime */}
+                    {/* City name + dates */}
                     <div className="flex-1 min-w-0">
                       <p className="text-[15px] font-semibold text-white truncate">{row.name}</p>
                       <p className="text-[11px] text-white/35 mt-0.5">
                         {dates[i]?.arrival ? `${fmtDate(dates[i].arrival)} → ${fmtDate(dates[i].departure)}` : "Agrega fecha de salida"}
                       </p>
-                      <button
-                        onClick={() => setCityRows((rows) => rows.map((r, idx) => idx === i ? { ...r, firstTime: !r.firstTime } : r))}
-                        className={`mt-1.5 text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
-                          row.firstTime
-                            ? "border-ocean-light/40 bg-ocean/20 text-ocean-light"
-                            : "border-white/15 text-white/35 hover:text-white/55"
-                        }`}
-                      >
-                        {row.firstTime ? "✨ Primera vez" : "↩ Ya la conozco"}
-                      </button>
+                      {/* First time toggle */}
+                      <div className="flex items-center gap-1 mt-2">
+                        <button
+                          onClick={() => setCityRows((rows) => rows.map((r, idx) => idx === i ? { ...r, firstTime: true } : r))}
+                          className={`text-[10px] px-2.5 py-1 rounded-l-lg border border-r-0 transition-colors font-semibold ${
+                            row.firstTime
+                              ? "bg-ocean/30 border-ocean-light/50 text-ocean-light"
+                              : "bg-white/5 border-white/12 text-white/30 hover:text-white/50"
+                          }`}
+                        >
+                          ✨ Primera vez
+                        </button>
+                        <button
+                          onClick={() => setCityRows((rows) => rows.map((r, idx) => idx === i ? { ...r, firstTime: false } : r))}
+                          className={`text-[10px] px-2.5 py-1 rounded-r-lg border transition-colors font-semibold ${
+                            !row.firstTime
+                              ? "bg-sunset/20 border-sunset/50 text-sunset"
+                              : "bg-white/5 border-white/12 text-white/30 hover:text-white/50"
+                          }`}
+                        >
+                          ↩ Ya la conozco
+                        </button>
+                      </div>
                     </div>
 
                     {/* Days counter */}
@@ -786,7 +797,7 @@ export default function PlanificarPage() {
 }
 
 function GeneratingScreen() {
-  const { generatingStep, generatingSteps, generatingEstimatedMs } = useTripStore();
+  const { generatingStep, generatingSteps, generatingEstimatedMs, generatingCountdownSec } = useTripStore();
   const [pct, setPct] = useState(0);
 
   useEffect(() => {
@@ -844,12 +855,14 @@ function GeneratingScreen() {
         {/* Steps checklist */}
         <div className="space-y-1.5 text-left">
           {generatingSteps.map((s, i) => {
+            const isLast = i === generatingSteps.length - 1;
             const done = i < currentIdx;
-            const active = i === currentIdx;
+            const active = i === currentIdx || (isLast && currentIdx === -1 && generatingCountdownSec > 0);
+            const showCountdown = active && isLast && generatingCountdownSec > 0;
             return (
               <div
                 key={s}
-                className={`text-[12px] px-3 py-2 rounded-xl border transition-all duration-500 flex items-center gap-2 ${
+                className={`text-[12px] px-3 py-2 rounded-xl border transition-all duration-500 flex items-center justify-between gap-2 ${
                   active
                     ? "border-ocean-light/30 bg-ocean/15 text-white"
                     : done
@@ -857,10 +870,17 @@ function GeneratingScreen() {
                     : "border-white/4 text-white/15"
                 }`}
               >
-                <span className="shrink-0 text-[11px] w-4 text-center">
-                  {done ? "✓" : active ? "→" : "·"}
-                </span>
-                {s}
+                <div className="flex items-center gap-2">
+                  <span className="shrink-0 text-[11px] w-4 text-center">
+                    {done ? "✓" : active ? "→" : "·"}
+                  </span>
+                  {s}
+                </div>
+                {showCountdown && (
+                  <span className="text-[11px] text-ocean-light font-bold tabular-nums shrink-0">
+                    ~{generatingCountdownSec}s
+                  </span>
+                )}
               </div>
             );
           })}

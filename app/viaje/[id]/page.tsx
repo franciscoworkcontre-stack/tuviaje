@@ -230,25 +230,16 @@ function DayCard({ day, flightSearchUrl }: { day: DayPlan; flightSearchUrl?: str
 
       {open && (
         <div>
-          {day.isTravelDay ? (
-            <div className="p-5 text-center">
-              <span className="text-[32px]">✈️</span>
-              <p className="font-semibold text-[#1A2332] mt-2">Día de viaje a {day.city}</p>
-              <p className="text-[13px] text-[#78909C] mb-4">Busca el vuelo con precios en tiempo real</p>
-              {flightSearchUrl && (
-                <a
-                  href={flightSearchUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-ocean text-white text-[13px] font-semibold hover:bg-ocean-dark transition-colors"
-                >
-                  <ExternalLink size={14} />
-                  Buscar vuelos en Google Flights
-                </a>
-              )}
+          {/* Travel day header badge */}
+          {day.isTravelDay && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-[#FFF8E1] border-b border-[#FFE082]">
+              <span className="text-[14px]">✈️</span>
+              <p className="text-[11px] font-semibold text-[#F57F17]">Día de viaje — horarios estimados, confirma con tu vuelo real</p>
             </div>
-          ) : (
-            <div>
+          )}
+          {/* All days (including travel days) show the activities list */}
+          {(activities.length > 0 || day.lunch?.options?.[0] || day.dinner?.options?.[0]) ? (
+            <div className="divide-y divide-[#F5F0E8]">
               {/* Activities */}
               {activities.map((act, i) => (
                 <div
@@ -308,6 +299,12 @@ function DayCard({ day, flightSearchUrl }: { day: DayPlan; flightSearchUrl?: str
                 </div>
               )}
             </div>
+          ) : (
+            /* Old travel-day cards with no activities */
+            <div className="p-5 text-center text-[#78909C]">
+              <span className="text-[28px]">✈️</span>
+              <p className="text-[13px] mt-2">Día de viaje hacia {day.city}</p>
+            </div>
           )}
         </div>
       )}
@@ -340,60 +337,48 @@ export default function TripPage() {
   const hotelsFetched = useRef(false);
   const flightsFetched = useRef(false);
 
+  // ── Flights: start immediately on page load (not waiting for tab) ──────────
   useEffect(() => {
-    if (activeTab !== "hotels" || !trip) return;
+    if (!trip || flightsFetched.current || trip.transportLegs.length === 0) return;
+    const hasFlights = trip.transportLegs.every(l => (flightOpts[`${l.fromCity}-${l.toCity}`] ?? []).length > 0);
+    if (hasFlights) return;
+    flightsFetched.current = true;
+    setLoadingFlights(true);
+    fetch("/api/flights", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        legs: trip.transportLegs.map(l => ({
+          fromCity: l.fromCity, toCity: l.toCity,
+          fromIata: l.fromIata, toIata: l.toIata, date: l.date,
+        })),
+        travelStyle: trip.travelStyle,
+        adults: trip.travelers.adults,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => { if (data.flightOptions) setFlightOpts(data.flightOptions); })
+      .catch(() => {})
+      .finally(() => setLoadingFlights(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trip?.id]); // run once per trip
 
-    // Fetch hotel recs
-    if (!hotelsFetched.current) {
-      const hasRecs = trip.cities.every(c => (hotelRecs[c.name] ?? []).length > 0);
-      if (!hasRecs) {
-        hotelsFetched.current = true;
-        setLoadingHotels(true);
-        fetch("/api/hotels", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            cities: trip.cities.map(c => c.name),
-            travelStyle: trip.travelStyle,
-          }),
-        })
-          .then(r => r.json())
-          .then(data => { if (data.hotelRecommendations) setHotelRecs(data.hotelRecommendations); })
-          .catch(() => {})
-          .finally(() => setLoadingHotels(false));
-      }
-    }
-
-    // Fetch flight options
-    if (!flightsFetched.current && trip.transportLegs.length > 0) {
-      const hasFlights = trip.transportLegs.every(l => {
-        const key = `${l.fromCity}-${l.toCity}`;
-        return (flightOpts[key] ?? []).length > 0;
-      });
-      if (!hasFlights) {
-        flightsFetched.current = true;
-        setLoadingFlights(true);
-        fetch("/api/flights", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            legs: trip.transportLegs.map(l => ({
-              fromCity: l.fromCity,
-              toCity: l.toCity,
-              fromIata: l.fromIata,
-              toIata: l.toIata,
-              date: l.date,
-            })),
-            travelStyle: trip.travelStyle,
-            adults: trip.travelers.adults,
-          }),
-        })
-          .then(r => r.json())
-          .then(data => { if (data.flightOptions) setFlightOpts(data.flightOptions); })
-          .catch(() => {})
-          .finally(() => setLoadingFlights(false));
-      }
-    }
+  // ── Hotels: lazy on tab click ────────────────────────────────────────────
+  useEffect(() => {
+    if (activeTab !== "hotels" || !trip || hotelsFetched.current) return;
+    const hasRecs = trip.cities.every(c => (hotelRecs[c.name] ?? []).length > 0);
+    if (hasRecs) return;
+    hotelsFetched.current = true;
+    setLoadingHotels(true);
+    fetch("/api/hotels", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cities: trip.cities.map(c => c.name), travelStyle: trip.travelStyle }),
+    })
+      .then(r => r.json())
+      .then(data => { if (data.hotelRecommendations) setHotelRecs(data.hotelRecommendations); })
+      .catch(() => {})
+      .finally(() => setLoadingHotels(false));
   }, [activeTab, trip]);
 
   if (!trip) {

@@ -36,6 +36,8 @@ interface TripStore {
   setGeneratingSteps: (steps: string[]) => void;
   generatingEstimatedMs: number;
   setGeneratingEstimatedMs: (ms: number) => void;
+  generatingCountdownSec: number;
+  setGeneratingCountdownSec: (sec: number) => void;
 
   // Day editing
   updateDay: (dayNumber: number, day: Partial<DayPlan>) => void;
@@ -88,6 +90,8 @@ export const useTripStore = create<TripStore>()(
       setGeneratingSteps: (steps) => set({ generatingSteps: steps }),
       generatingEstimatedMs: 60000,
       setGeneratingEstimatedMs: (ms) => set({ generatingEstimatedMs: ms }),
+      generatingCountdownSec: 0,
+      setGeneratingCountdownSec: (sec) => set({ generatingCountdownSec: sec }),
 
       // ─── Day editing ───────────────────────────────────────────
       updateDay: (dayNumber, partial) =>

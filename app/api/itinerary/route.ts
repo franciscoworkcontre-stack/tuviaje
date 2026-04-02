@@ -105,66 +105,80 @@ Reglas: IATA codes reales, precios en CLP para ${travelStyle}, 1 hotel por ciuda
         messages: [{
           role: "user",
           content: `Genera itinerario detallado para ${cityDays} días en ${city}.
-Estilo: ${travelStyle} | Llegada: ${arrival} | ${adults} viajeros
-Vienen desde: ${prevCity} (vuelo típico ${prevCity}→${city})
-¿Primera vez en ${city}?: ${isFirstTime ? "SÍ — incluir imperdibles clásicos" : "NO — enfocarse en lugares menos conocidos, joya oculta, experiencias locales"}
+Estilo: ${travelStyle} | Fecha llegada: ${arrival} | ${adults} viajeros
+Origen del vuelo: ${prevCity} → ${city}
+¿Primera vez en ${city}?: ${isFirstTime ? "SÍ — incluir imperdibles clásicos" : "NO — lugares locales menos conocidos, joyas ocultas"}
 SOLO JSON válido, sin markdown.
 
+ESTRUCTURA DÍA 1 — día de viaje con horario REAL y PRECISO:
+Usa tu conocimiento para calcular:
+- Hora salida típica desde ${prevCity} (vuelo mañana ~7-9am es lo más común)
+- Duración real del vuelo ${prevCity}→${city} en minutos
+- Hora llegada al aeropuerto de ${city}
+- Si es vuelo internacional: +45-60 min inmigración + aduana
+- Tiempo traslado aeropuerto→hotel en ${city} (taxi, shuttle o metro según lo que existe)
+- Hora check-in hotel (~15:00 estándar, si llegan antes dejan maletas)
+- Después del check-in: qué alcanza a hacerse
+
+Ejemplo estructura día 1 CORRECTO (adaptar a ${prevCity}→${city}):
 {
-  "days": [
-    {
-      "dayNumber": 1,
-      "city": "${city}",
-      "date": "${arrival}",
-      "theme": "Llegada a ${city}",
-      "isTravelDay": true,
-      "morning": [],
-      "lunch": {"options":[{"name":"...","cuisine":"...","priceTier":"$$","costClp":12000}],"recommended":"..."},
-      "afternoon": [
-        {"time":"15:00","durationMin":90,"name":"Paseo por barrio del hotel","category":"culture","costClp":0,"tip":"Oriéntate y conoce el entorno","emoji":"🚶"}
-      ],
-      "dinner": {"options":[{"name":"...","cuisine":"...","priceTier":"$$","costClp":18000}],"recommended":"..."},
-      "localTransportCostClp": 3000,
-      "dayTotalClp": 40000
-    },
-    {
-      "dayNumber": 2,
-      "city": "${city}",
-      "date": "YYYY-MM-DD",
-      "theme": "Barrio histórico y arte",
-      "isTravelDay": false,
-      "morning": [
-        {"time":"09:00","durationMin":90,"name":"...","category":"culture","costClp":0,"tip":"tip concreto y útil","emoji":"🏛️"},
-        {"time":"11:00","durationMin":60,"name":"...","category":"culture","costClp":5000,"tip":"...","emoji":"🎨"}
-      ],
-      "lunch": {"options":[{"name":"...","cuisine":"...","priceTier":"$$","costClp":14000}],"recommended":"..."},
-      "afternoon": [
-        {"time":"15:00","durationMin":120,"name":"...","category":"culture","costClp":8000,"tip":"...","emoji":"🎭"},
-        {"time":"17:30","durationMin":60,"name":"...","category":"food","costClp":0,"tip":"...","emoji":"🍷"}
-      ],
-      "dinner": {"options":[{"name":"...","cuisine":"...","priceTier":"$$$","costClp":22000}],"recommended":"..."},
-      "localTransportCostClp": 4000,
-      "dayTotalClp": 85000
-    }
-  ]
+  "dayNumber": 1,
+  "city": "${city}",
+  "date": "${arrival}",
+  "theme": "Llegada a ${city}",
+  "isTravelDay": true,
+  "morning": [
+    {"time":"06:00","durationMin":90,"name":"Traslado al aeropuerto de ${prevCity}","category":"culture","costClp":15000,"tip":"Llega 2.5h antes si es vuelo internacional, 2h si es doméstico","emoji":"🚕"},
+    {"time":"08:30","durationMin":185,"name":"Vuelo ${prevCity} → ${city}","category":"culture","costClp":0,"tip":"Vuelo de X horas. Zona horaria: indica si hay diferencia horaria","emoji":"✈️"},
+    {"time":"12:15","durationMin":60,"name":"Llegada al aeropuerto — Inmigración y aduana","category":"culture","costClp":0,"tip":"Ten el pasaporte y declaración lista. Para ciudadanos CL → [ciudad] generalmente sin visa","emoji":"🛬"}
+  ],
+  "afternoon": [
+    {"time":"13:30","durationMin":60,"name":"Traslado aeropuerto → hotel en [barrio]","category":"culture","costClp":18000,"tip":"[Opción concreta: ej. Shuttle EzeiBus $6 USD / Taxi oficial ~$30 USD / Metro línea X $1.2 USD]","emoji":"🚌"},
+    {"time":"15:00","durationMin":30,"name":"Check-in en el hotel","category":"culture","costClp":0,"tip":"Si la habitación no está lista, deja el equipaje en consigna y sal a explorar","emoji":"🏨"},
+    {"time":"15:30","durationMin":90,"name":"Primer paseo: [barrio específico de ${city}]","category":"culture","costClp":0,"tip":"[Tip concreto del barrio]","emoji":"🚶"},
+    {"time":"17:00","durationMin":60,"name":"[Actividad liviana real en ${city}]","category":"culture","costClp":5000,"tip":"[Tip]","emoji":"☕"}
+  ],
+  "lunch": {"options":[{"name":"[Restaurant real en ruta aeropuerto→hotel]","cuisine":"...","priceTier":"$","costClp":8000}],"recommended":"Algo rápido y local cerca del aeropuerto o en el camino"},
+  "dinner": {"options":[{"name":"[Restaurant real en barrio del hotel]","cuisine":"...","priceTier":"$$","costClp":18000}],"recommended":"Primera cena local cerca del hotel"},
+  "localTransportCostClp": 18000,
+  "dayTotalClp": 60000
 }
 
-REGLAS IMPORTANTES:
-- Exactamente ${cityDays} días
-- Día 1 (día de viaje/llegada): isTravelDay=true, morning=[]
-  * Estima hora de llegada según vuelo típico ${prevCity}→${city} (suma ~1.5h transporte al hotel + check-in)
-  * Si llegada estimada antes de 13:00: incluye 1-2 actividades en afternoon livianas
-  * Si llegada estimada 13:00-17:00: incluye 1 actividad de tarde tranquila (paseo/orientación)
-  * Si llegada después de 17:00: afternoon=[]
-  * lunch y dinner siempre presentes el día 1
-- Días normales: 2 actividades en morning, 2 en afternoon
-- 1 sola opción en lunch y dinner
-- Fechas consecutivas desde ${arrival}
-- Actividades y restaurantes REALES y específicos de ${city} (nombres reales, direcciones si es posible)
-- ${isFirstTime ? "Primera visita: incluir los íconos imperdibles de la ciudad" : "Viajero que ya conoce: evitar los sitios turísticos obvios, priorizar barrios locales, mercados, bares de barrio"}
-- Tips útiles y concretos ("llega antes de las 10am, hay menos fila", "pide el menú del mediodía que es más barato")
-- Costos en CLP realistas y actualizados para ${travelStyle}
-- dayTotalClp = suma real de todos los costos del día`
+Días normales (2+):
+{
+  "dayNumber": 2,
+  "city": "${city}",
+  "date": "YYYY-MM-DD",
+  "theme": "Tema específico",
+  "isTravelDay": false,
+  "morning": [
+    {"time":"09:00","durationMin":90,"name":"[Lugar real]","category":"culture","costClp":0,"tip":"[Tip concreto]","emoji":"🏛️"},
+    {"time":"11:00","durationMin":60,"name":"[Lugar real]","category":"culture","costClp":5000,"tip":"[Tip]","emoji":"🎨"}
+  ],
+  "lunch": {"options":[{"name":"[Restaurant real]","cuisine":"...","priceTier":"$$","costClp":14000}],"recommended":"..."},
+  "afternoon": [
+    {"time":"15:00","durationMin":120,"name":"[Lugar real]","category":"culture","costClp":8000,"tip":"[Tip]","emoji":"🎭"},
+    {"time":"17:30","durationMin":60,"name":"[Lugar real]","category":"food","costClp":0,"tip":"[Tip]","emoji":"🍷"}
+  ],
+  "dinner": {"options":[{"name":"[Restaurant real]","cuisine":"...","priceTier":"$$$","costClp":22000}],"recommended":"..."},
+  "localTransportCostClp": 4000,
+  "dayTotalClp": 85000
+}
+
+REGLAS:
+- Exactamente ${cityDays} días, fechas consecutivas desde ${arrival}
+- Día 1: isTravelDay=true, horarios REALES y PRECISOS del vuelo ${prevCity}→${city}
+  * Calcula las horas exactas basado en vuelos típicos en esa ruta
+  * Incluye SIEMPRE: traslado al aeropuerto, vuelo, llegada+aduana, traslado al hotel, check-in
+  * Indica el costo REAL del traslado aeropuerto→hotel en CLP
+  * Agrega actividades de tarde SOLO si el tiempo lo permite (llegar antes de las 16:00)
+- Días normales: 2 actividades morning, 2 afternoon
+- ${isFirstTime ? "PRIMERA VISITA: incluir los sitios icónicos imperdibles de " + city : "VIAJERO QUE YA CONOCE " + city + ": EVITAR sitios turísticos típicos, priorizar: mercados locales, bares de barrio, rutas menos conocidas, experiencias auténticas"}
+- Restaurantes y lugares REALES y específicos de ${city} (nombres reales que existan hoy)
+- Tips hiper-concretos y útiles ("Metro línea D, estación Facultad de Medicina, $200 ARS", "Reserva online con al menos 3 días de anticipación")
+- Costos en CLP realistas para estilo ${travelStyle}
+- 1 opción en lunch y dinner
+- dayTotalClp = suma de todos los costos del día`
         }],
       });
 
