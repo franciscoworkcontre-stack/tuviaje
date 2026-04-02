@@ -7,6 +7,45 @@ import { fetchFlightsForLegs } from "@/lib/fetchFlights";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
+// Cities with multiple airports — maps route type to correct IATA
+// "default" = main international; "regional" = secondary/domestic
+const MULTI_AIRPORT: Record<string, { default: string; regional: string; regionalCities: string[] }> = {
+  "buenos aires": {
+    default:  "EZE",  // Ezeiza — long-haul international
+    regional: "AEP",  // Aeroparque — regional (Uruguay, Chile, Brazil, Paraguay, Bolivia)
+    regionalCities: ["montevideo", "santiago", "lima", "são paulo", "sao paulo", "rio de janeiro", "asuncion", "asunción", "santa cruz", "la paz", "bogota", "bogotá"],
+  },
+  "london": {
+    default:  "LHR",
+    regional: "LGW",
+    regionalCities: [],
+  },
+  "new york": {
+    default:  "JFK",
+    regional: "LGA",
+    regionalCities: [],
+  },
+  "milan":  { default: "MXP", regional: "LIN", regionalCities: [] },
+  "paris":  { default: "CDG", regional: "ORY", regionalCities: [] },
+  "chicago":{ default: "ORD", regional: "MDW", regionalCities: [] },
+  "tokyo":  { default: "NRT", regional: "HND", regionalCities: [] },
+  "osaka":  { default: "KIX", regional: "ITM", regionalCities: [] },
+};
+
+/**
+ * Given a city name and the other city it's connecting TO/FROM,
+ * return the correct IATA code for that route.
+ */
+function resolveIata(city: string, otherCity: string, suggestedIata?: string): string | undefined {
+  const key = city.toLowerCase().trim();
+  const info = MULTI_AIRPORT[key];
+  if (!info) return suggestedIata; // single-airport city, trust haiku
+
+  const other = otherCity.toLowerCase().trim();
+  const useRegional = info.regionalCities.some(r => other.includes(r) || r.includes(other));
+  return useRegional ? info.regional : info.default;
+}
+
 const STYLE_BUDGETS = {
   mochilero:  { hotel: 20000, food: 15000, activities: 8000,  local: 3000 },
   comfort:    { hotel: 60000, food: 35000, activities: 20000, local: 6000 },
@@ -71,20 +110,30 @@ Fechas: ${startDate} → ${endDate} (${totalDays} días)
 Viajeros: ${adults} | Estilo: ${travelStyle}
 Días por ciudad: ${allCities.map((c, i) => `${c}=${daysPerCity(i)}d`).join(", ")}
 
+Formato exacto:
 {
-  "title": "Santiago → Buenos Aires → Montevideo",
+  "title": "...",
   "transportLegs": [
-    {"fromCity":"${originCity}","toCity":"${allCities[0]}","fromIata":"SCL","toIata":"EZE","date":"${startDate}"}
+    {"fromCity":"CIUDAD_ORIGEN","toCity":"CIUDAD_DESTINO","fromIata":"IATA_CORRECTO","toIata":"IATA_CORRECTO","date":"FECHA_ISO"}
   ],
   "accommodations": [
-    {"city":"${allCities[0]}","name":"...","stars":4,"rating":8.4,"pricePerNight":65000,"nights":${daysPerCity(0)},"totalCost":${daysPerCity(0)*65000},"neighborhood":"..."}
+    {"city":"...","name":"...","stars":4,"rating":8.4,"pricePerNight":65000,"nights":N,"totalCost":N,"neighborhood":"..."}
   ],
-  "cityArrivalDates": {"${allCities[0]}":"${startDate}"},
+  "cityArrivalDates": {"ciudad":"fecha_iso"},
   "savingsTip": "...",
   "optimizerTips": ["...","..."]
 }
 
-Reglas: IATA codes reales, precios en CLP para ${travelStyle}, 1 hotel por ciudad destino.`
+CRÍTICO — Aeropuertos con múltiples terminales, usa el correcto según la ruta:
+- Buenos Aires: AEP (Aeroparque) para vuelos REGIONALES a Uruguay, Chile, Brasil, Paraguay, Bolivia. EZE (Ezeiza) solo para intercontinental (Europa, EEUU, México).
+- Santiago: SCL (único aeropuerto internacional)
+- Montevideo: MVD (Carrasco, único)
+- Lima: LIM (único)
+- São Paulo: GRU (Guarulhos) internacional, CGH (Congonhas) doméstico
+- Bogotá: BOG (único)
+- Ciudad de México: MEX (único)
+
+Reglas adicionales: precios en CLP para estilo ${travelStyle}, 1 hotel por ciudad destino, IATA codes reales y correctos según tipo de ruta.`
       }],
     });
 
@@ -158,7 +207,10 @@ REGLAS ESTRICTAS:
       const leg = (structure.transportLegs as Array<{fromCity:string;toCity:string;fromIata?:string;toIata?:string;date?:string}>)
         .find(l => l.toCity?.toLowerCase() === city.toLowerCase());
       const fromCity = i === 0 ? originCity : allCities[i - 1];
-      return { fromCity, toCity: city, fromIata: leg?.fromIata, toIata: leg?.toIata, date: leg?.date ?? startDate };
+      // Resolve correct IATA for multi-airport cities based on the actual route
+      const fromIata = resolveIata(fromCity, city, leg?.fromIata);
+      const toIata   = resolveIata(city, fromCity, leg?.toIata);
+      return { fromCity, toCity: city, fromIata, toIata, date: leg?.date ?? startDate };
     });
     if (roundTrip) {
       const lastCity = allCities[allCities.length - 1];
@@ -166,7 +218,10 @@ REGLAS ESTRICTAS:
         .find(l => l.fromCity?.toLowerCase() === originCity.toLowerCase());
       const lastLeg = (structure.transportLegs as Array<{fromCity:string;toCity:string;fromIata?:string;toIata?:string}>)
         .find(l => l.toCity?.toLowerCase() === lastCity.toLowerCase());
-      legsForFlights.push({ fromCity: lastCity, toCity: originCity, fromIata: lastLeg?.toIata, toIata: firstLeg?.fromIata, date: endDate });
+      // Return leg: lastCity → originCity, resolve IATAs for the return direction
+      const returnFromIata = resolveIata(lastCity, originCity, lastLeg?.toIata);
+      const returnToIata   = resolveIata(originCity, lastCity, firstLeg?.fromIata);
+      legsForFlights.push({ fromCity: lastCity, toCity: originCity, fromIata: returnFromIata, toIata: returnToIata, date: endDate });
     }
     const flightsPromise = fetchFlightsForLegs(legsForFlights, adults)
       .then(opts => { console.log("[itinerary] flights ok:", Object.keys(opts)); return opts; })
@@ -265,10 +320,13 @@ REGLAS ESTRICTAS:
           const fromCity = i === 0 ? originCity : allCities[i - 1];
           const tDay = allDays.find(d => d.isTravelDay && d.city === city);
           const legDate = leg?.date ?? tDay?.date ?? startDate;
+          // Resolve correct airport for multi-airport cities
+          const fromIata = resolveIata(fromCity, city, leg?.fromIata);
+          const toIata   = resolveIata(city, fromCity, leg?.toIata);
           return {
             fromCity, toCity: city,
-            fromIata: leg?.fromIata, toIata: leg?.toIata, date: legDate,
-            flightSearchUrl: buildFlightUrl(fromCity, city, leg?.fromIata, leg?.toIata, legDate, adults),
+            fromIata, toIata, date: legDate,
+            flightSearchUrl: buildFlightUrl(fromCity, city, fromIata, toIata, legDate, adults),
             selected: undefined, options: [],
           };
         });
@@ -276,9 +334,9 @@ REGLAS ESTRICTAS:
         if (roundTrip) {
           const lastCity = allCities[allCities.length - 1];
           const firstLeg = legs.find(l => l.fromCity?.toLowerCase() === originCity.toLowerCase());
-          const lastLeg = legs.find(l => l.toCity?.toLowerCase() === lastCity.toLowerCase());
-          const returnFromIata = lastLeg?.toIata;
-          const returnToIata = firstLeg?.fromIata;
+          const lastLeg  = legs.find(l => l.toCity?.toLowerCase() === lastCity.toLowerCase());
+          const returnFromIata = resolveIata(lastCity, originCity, lastLeg?.toIata);
+          const returnToIata   = resolveIata(originCity, lastCity, firstLeg?.fromIata);
           outbound.push({
             fromCity: lastCity, toCity: originCity,
             fromIata: returnFromIata, toIata: returnToIata, date: endDate,
