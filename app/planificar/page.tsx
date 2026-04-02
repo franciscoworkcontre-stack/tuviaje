@@ -216,47 +216,28 @@ export default function PlanificarPage() {
     setPlanningInput(input);
     setIsGenerating(true);
 
+    // Animate steps while waiting for the API
+    const apiPromise = fetch("/api/itinerary", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+
+    for (const s of GENERATING_STEPS) {
+      setGeneratingStep(s);
+      await new Promise((r) => setTimeout(r, 2800));
+    }
+
     try {
-      const res = await fetch("/api/itinerary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-
-      if (!res.ok || !res.body) throw new Error(`Error ${res.status}`);
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-
-      setGeneratingStep(GENERATING_STEPS[0]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-
-        // Parse SSE lines
-        const lines = buf.split("\n");
-        buf = lines.pop() ?? "";
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const { event, data } = JSON.parse(line.slice(6));
-
-          if (event === "status") {
-            setGeneratingStep(data as string);
-          } else if (event === "done") {
-            setGeneratingStep("✨ ¡Listo!");
-            await new Promise((r) => setTimeout(r, 300));
-            setTrip((data as { trip: Parameters<typeof setTrip>[0] }).trip);
-            setIsGenerating(false);
-            router.push(`/viaje/${(data as { trip: { id: string } }).trip.id}`);
-            return;
-          } else if (event === "error") {
-            throw new Error(data as string);
-          }
-        }
+      const res = await apiPromise;
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `Error ${res.status}`);
+      if (data.trip) {
+        setTrip(data.trip);
+        setIsGenerating(false);
+        router.push(`/viaje/${data.trip.id}`);
+      } else {
+        throw new Error(data.error ?? "Sin respuesta");
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
