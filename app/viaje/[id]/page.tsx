@@ -316,7 +316,7 @@ type ExportTab = "itinerary" | "hotels" | "split";
 
 export default function TripPage() {
   const { trip, selectFlight } = useTripStore();
-  const [activeTab, setActiveTab] = useState<ExportTab>("itinerary");
+  const [activeTab, setActiveTab] = useState<ExportTab>("hotels");
   const [downloading, setDownloading] = useState<"sheet" | "pdf" | null>(null);
   const [hotelRecs, setHotelRecs] = useState<Record<string, HotelRecommendation[]>>(
     () => trip?.hotelRecommendations ?? {}
@@ -480,8 +480,8 @@ export default function TripPage() {
         {/* Tabs */}
         <div className="max-w-6xl mx-auto px-6 flex border-t border-[#E0D5C5]">
           {([
+            { id: "hotels",    label: "✈️ Vuelos & Hoteles" },
             { id: "itinerary", label: "📅 Itinerario" },
-            { id: "hotels",    label: "🏨 Vuelos & Hoteles" },
             { id: "split",     label: "👥 Dividir costos" },
           ] as { id: ExportTab; label: string }[]).map(({ id, label }) => (
             <button
@@ -544,6 +544,23 @@ export default function TripPage() {
 
         {activeTab === "hotels" && (
           <div className="max-w-3xl mx-auto space-y-8">
+
+            {/* ── Loading banner ── */}
+            {(loadingFlights || loadingHotels) && (
+              <div className="flex items-center gap-3 bg-[#E3F2FD] border border-[#90CAF9] rounded-2xl px-5 py-4">
+                <Loader2 size={18} className="animate-spin text-ocean shrink-0" />
+                <div>
+                  <p className="text-[13px] font-semibold text-[#1565C0]">
+                    {loadingFlights && loadingHotels
+                      ? "Buscando vuelos y hoteles con precios reales..."
+                      : loadingFlights
+                      ? "Buscando vuelos en Google Flights..."
+                      : "Buscando hoteles disponibles en Booking..."}
+                  </p>
+                  <p className="text-[11px] text-[#1565C0]/70 mt-0.5">Esto puede tomar hasta 60 segundos</p>
+                </div>
+              </div>
+            )}
 
             {/* ── Selected flights summary ── */}
             {Object.keys(selectedFlights).length > 0 && (
@@ -662,29 +679,59 @@ export default function TripPage() {
             })}
 
             {/* Hotel recommendations per city */}
-            {loadingHotels && (
-              <div className="flex items-center gap-3 text-[#78909C] py-4">
-                <Loader2 size={16} className="animate-spin" />
-                <span className="text-[13px]">Buscando las mejores opciones...</span>
-              </div>
-            )}
             {trip.cities.map((city) => {
               const recs = hotelRecs[city.name] ?? [];
               if (recs.length === 0 && !loadingHotels) return null;
               return (
                 <div key={city.name}>
-                  <p className="font-serif text-[22px] font-bold text-[#1A2332] mb-1">Hoteles en {city.name}</p>
-                  <p className="text-[13px] text-[#78909C] mb-4">
-                    Top {recs.length} opciones para estilo {trip.travelStyle} · ordenados por mejor relación calidad/precio
-                  </p>
+                  <p className="font-serif text-[22px] font-bold text-[#1A2332] mb-1">🏨 Hoteles en {city.name}</p>
+                  {recs.length > 0 && (
+                    <p className="text-[13px] text-[#78909C] mb-4">
+                      Top {recs.length} opciones · precios reales de Booking · ordenados por mejor relación calidad/precio
+                    </p>
+                  )}
+                  {loadingHotels && recs.length === 0 && (
+                    <div className="flex items-center gap-2 text-[#78909C] py-3">
+                      <Loader2 size={14} className="animate-spin" />
+                      <span className="text-[13px]">Buscando disponibilidad...</span>
+                    </div>
+                  )}
                   <div className="space-y-2">
-                    {(hotelRecs[city.name] ?? []).map((hotel, i) => (
+                    {recs.map((hotel, i) => (
                       <HotelCard key={i} hotel={hotel} rank={i} />
                     ))}
                   </div>
                 </div>
               );
             })}
+
+            {/* ── CTA: proceed to itinerary ── */}
+            {!loadingFlights && !loadingHotels && (
+              <div className="sticky bottom-6 pt-4">
+                {(() => {
+                  const allSelected = trip.transportLegs.every(
+                    l => selectedFlights[`${l.fromCity}-${l.toCity}`] != null
+                  );
+                  return (
+                    <button
+                      onClick={() => setActiveTab("itinerary")}
+                      className={`w-full py-4 rounded-2xl text-[15px] font-bold transition-all flex items-center justify-center gap-2 shadow-lg ${
+                        allSelected
+                          ? "bg-ocean text-white hover:bg-ocean-dark"
+                          : "bg-[#1A2332] text-white/60 hover:text-white/80"
+                      }`}
+                    >
+                      {allSelected ? "✅ Ver mi itinerario →" : "Ver itinerario →"}
+                      {!allSelected && (
+                        <span className="text-[11px] font-normal opacity-60 ml-1">
+                          (selecciona tus vuelos primero)
+                        </span>
+                      )}
+                    </button>
+                  );
+                })()}
+              </div>
+            )}
           </div>
         )}
 
