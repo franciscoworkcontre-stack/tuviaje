@@ -10,11 +10,8 @@ interface Agent {
   emoji: string;
   name: string;
   task: string;
-  result: string;
-  resultHighlight: string; // the "best find"
-  duration: number; // ms to complete
-  color: string;
-  bgColor: string;
+  resultHighlight: string;
+  duration: number;
 }
 
 const AGENTS: Agent[] = [
@@ -23,55 +20,40 @@ const AGENTS: Agent[] = [
     emoji: "✈️",
     name: "Transport Agent",
     task: "Comparando 1.247 vuelos y rutas...",
-    result: "Encontré 3 opciones. Mejor precio:",
-    resultHighlight: "Sky LA482 — $32.000 por persona",
+    resultHighlight: "Sky LA482 — $32.000 / persona",
     duration: 2800,
-    color: "#1565C0",
-    bgColor: "#E3F2FD",
   },
   {
     id: "buses",
     emoji: "🚌",
     name: "Bus & Train Agent",
     task: "Escaneando Pullman, Andesmar, Rome2Rio...",
-    result: "Bus cama disponible desde",
-    resultHighlight: "Pullman $22.000 — 18h, cama suite",
+    resultHighlight: "Pullman cama suite — $22.000",
     duration: 2200,
-    color: "#2E7D32",
-    bgColor: "#E8F5E9",
   },
   {
     id: "hotels",
     emoji: "🏨",
     name: "Accommodation Agent",
     task: "Revisando 3.820 hoteles y hostales...",
-    result: "Mejor relación precio/zona:",
-    resultHighlight: "Hotel Clasico BA ⭐4.2 — $38.000/noche",
+    resultHighlight: "Hotel Clasico BA ⭐ 4.2 — $38.000/noche",
     duration: 3400,
-    color: "#7B1FA2",
-    bgColor: "#EDE8FE",
   },
   {
     id: "itinerary",
     emoji: "🤖",
     name: "Itinerary Agent (Claude)",
     task: "Generando plan día a día con IA...",
-    result: "14 días planificados, 42 actividades,",
-    resultHighlight: "9 restaurantes recomendados",
+    resultHighlight: "14 días · 42 actividades · 9 restaurantes",
     duration: 4100,
-    color: "#FF7043",
-    bgColor: "#FBE9E7",
   },
   {
     id: "optimizer",
     emoji: "💡",
     name: "Optimizer Agent",
     task: "Buscando ahorros y combinaciones...",
-    result: "3 tips de ahorro encontrados:",
-    resultHighlight: "Volar jueves ahorra $18.000 ↓",
+    resultHighlight: "Volar el jueves ahorra $18.000 ↓",
     duration: 3000,
-    color: "#F9A825",
-    bgColor: "#FFF8E1",
   },
 ];
 
@@ -85,29 +67,6 @@ const AGENTS: Agent[] = [
 const PHASE_TIMINGS = [0, 800, 5200, 6200, 11000];
 const LOOP_DURATION = 12000;
 
-function ProgressBar({
-  active,
-  duration,
-  color,
-}: {
-  active: boolean;
-  duration: number;
-  color: string;
-}) {
-  return (
-    <div className="h-1 bg-white/20 rounded-full overflow-hidden mt-2">
-      <div
-        className="h-full rounded-full"
-        style={{
-          backgroundColor: color,
-          width: active ? "100%" : "0%",
-          transition: active ? `width ${duration}ms cubic-bezier(0.4,0,0.2,1)` : "none",
-        }}
-      />
-    </div>
-  );
-}
-
 function AgentCard({
   agent,
   status,
@@ -117,83 +76,65 @@ function AgentCard({
   status: AgentStatus;
   delay: number;
 }) {
+  const isIdle = status === "idle";
+  const isSearching = status === "searching";
+  const isDone = status === "done";
+
   return (
     <div
       className="rounded-xl border px-4 py-3 transition-all duration-500"
       style={{
-        backgroundColor:
-          status === "idle" ? "rgba(255,255,255,0.04)" : agent.bgColor + "22",
-        borderColor:
-          status === "idle"
-            ? "rgba(255,255,255,0.08)"
-            : agent.color + "44",
-        opacity: status === "idle" ? 0.4 : 1,
-        transform: status === "idle" ? "translateY(4px)" : "translateY(0)",
-        animation:
-          status !== "idle"
-            ? `fadeInUp 0.4s ease-out ${delay}ms both`
-            : undefined,
+        backgroundColor: isIdle ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.07)",
+        borderColor: isDone ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.08)",
+        opacity: isIdle ? 0.35 : 1,
+        animation: !isIdle ? `fadeInUp 0.35s ease-out ${delay}ms both` : undefined,
       }}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className="text-[18px] shrink-0">{agent.emoji}</span>
+          <span className="text-[17px] shrink-0 opacity-80">{agent.emoji}</span>
           <div className="min-w-0">
-            <p
-              className="text-[11px] font-bold"
-              style={{ color: status === "idle" ? "rgba(255,255,255,0.3)" : agent.color }}
-            >
+            <p className={`text-[11px] font-semibold ${isIdle ? "text-white/25" : "text-white/80"}`}>
               {agent.name}
             </p>
-            <p className="text-[10px] text-white/40 truncate">
-              {status === "idle"
-                ? "En espera..."
-                : status === "searching"
-                ? agent.task
-                : agent.result}
+            <p className="text-[10px] text-white/40 truncate mt-0.5">
+              {isIdle ? "En espera..." : isSearching ? agent.task : `→ ${agent.resultHighlight}`}
             </p>
           </div>
         </div>
+
         {/* Status indicator */}
         <div className="shrink-0">
-          {status === "idle" && (
-            <div className="w-5 h-5 rounded-full border border-white/15 flex items-center justify-center">
-              <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-            </div>
+          {isIdle && (
+            <div className="w-4 h-4 rounded-full border border-white/15" />
           )}
-          {status === "searching" && (
+          {isSearching && (
             <div
-              className="w-5 h-5 rounded-full border-2 border-transparent"
+              className="w-4 h-4 rounded-full border-2 border-white/15"
               style={{
-                borderTopColor: agent.color,
-                borderRightColor: agent.color + "66",
-                animation: "spin 0.8s linear infinite",
+                borderTopColor: "rgba(255,255,255,0.7)",
+                animation: "spin 0.7s linear infinite",
               }}
             />
           )}
-          {status === "done" && (
-            <div
-              className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
-              style={{ backgroundColor: agent.color, color: "white" }}
-            >
-              ✓
+          {isDone && (
+            <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center">
+              <span className="text-[8px] text-white font-bold">✓</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Progress bar */}
-      {status === "searching" && (
-        <ProgressBar active={true} duration={agent.duration} color={agent.color} />
-      )}
-
-      {/* Result highlight */}
-      {status === "done" && (
-        <div
-          className="mt-2 rounded-lg px-2.5 py-1.5 text-[10px] font-semibold"
-          style={{ backgroundColor: agent.color + "18", color: agent.color }}
-        >
-          → {agent.resultHighlight}
+      {/* Progress bar — only while searching */}
+      {isSearching && (
+        <div className="h-0.5 bg-white/10 rounded-full overflow-hidden mt-2.5">
+          <div
+            className="h-full bg-white/50 rounded-full"
+            style={{
+              width: "100%",
+              transition: `width ${agent.duration}ms cubic-bezier(0.4,0,0.2,1)`,
+            }}
+          />
         </div>
       )}
     </div>
@@ -269,12 +210,12 @@ function PDFMock({ visible }: { visible: boolean }) {
             Resumen de costos
           </p>
           {[
-            { label: "✈️ Transporte", pct: 17, color: "#1565C0", amount: "$320K" },
-            { label: "🏨 Alojamiento", pct: 42, color: "#7B1FA2", amount: "$780K" },
-            { label: "🍽️ Comida",      pct: 21, color: "#FF7043", amount: "$390K" },
-            { label: "🎭 Actividades", pct: 10, color: "#F9A825", amount: "$180K" },
-            { label: "🚇 Local + extras", pct: 10, color: "#2E7D32", amount: "$172K" },
-          ].map(({ label, pct, color, amount }) => (
+            { label: "✈️ Transporte",    pct: 17, amount: "$320K" },
+            { label: "🏨 Alojamiento",   pct: 42, amount: "$780K" },
+            { label: "🍽️ Comida",        pct: 21, amount: "$390K" },
+            { label: "🎭 Actividades",   pct: 10, amount: "$180K" },
+            { label: "🚇 Local + extras",pct: 10, amount: "$172K" },
+          ].map(({ label, pct, amount }) => (
             <div key={label} className="mb-2">
               <div className="flex justify-between mb-0.5">
                 <span className="text-[8px] text-[#37474F]">{label}</span>
@@ -282,10 +223,9 @@ function PDFMock({ visible }: { visible: boolean }) {
               </div>
               <div className="h-1 bg-[#F5F0E8] rounded-full overflow-hidden">
                 <div
-                  className="h-full rounded-full"
+                  className="h-full rounded-full bg-ocean"
                   style={{
                     width: visible ? `${pct}%` : "0%",
-                    backgroundColor: color,
                     transition: `width 1s ease-out ${200 + pct * 10}ms`,
                   }}
                 />
