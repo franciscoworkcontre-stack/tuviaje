@@ -4,18 +4,83 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Download, FileSpreadsheet, ChevronDown, ChevronUp,
-  MapPin, Clock, Users
+  MapPin, Clock, Users, ExternalLink, Star, ThumbsUp, ThumbsDown
 } from "lucide-react";
 import { useTripStore } from "@/stores/tripStore";
 import { CostSummary } from "@/components/trip/CostSummary";
 import { CostSplitter } from "@/components/trip/CostSplitter";
-import type { DayPlan } from "@/types/trip";
+import type { DayPlan, HotelRecommendation } from "@/types/trip";
 
 function fmt(n: number) {
   return "$" + n.toLocaleString("es-CL");
 }
 
-function DayCard({ day }: { day: DayPlan }) {
+function HotelCard({ hotel, rank }: { hotel: HotelRecommendation; rank: number }) {
+  const [open, setOpen] = useState(rank === 0);
+  return (
+    <div className="border border-[#E3F2FD] rounded-xl overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-[#F5F0E8]/40 transition-colors text-left"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${rank === 0 ? "bg-sunset text-white" : "bg-[#F5F0E8] text-[#78909C]"}`}>
+            {rank + 1}
+          </div>
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold text-[#1A2332] truncate">{hotel.name}</p>
+            <p className="text-[11px] text-[#78909C]">
+              {"★".repeat(hotel.stars)} · {hotel.neighborhood}
+              {hotel.rating && ` · ${hotel.rating}/10`}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 ml-2">
+          <p className="text-[13px] font-bold text-sunset tabular-nums">{fmt(hotel.pricePerNightClp)}<span className="text-[10px] text-[#78909C] font-normal">/noche</span></p>
+          {open ? <ChevronUp size={14} className="text-[#B0BEC5]" /> : <ChevronDown size={14} className="text-[#B0BEC5]" />}
+        </div>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 bg-[#FAFAFA] border-t border-[#F0EBE3]">
+          <div className="grid grid-cols-2 gap-3 mt-3 mb-3">
+            <div>
+              <p className="text-[10px] font-bold text-[#2E7D32] flex items-center gap-1 mb-1.5 uppercase tracking-wide">
+                <ThumbsUp size={10} /> A favor
+              </p>
+              {hotel.pros.map((pro, i) => (
+                <p key={i} className="text-[11px] text-[#37474F] flex items-start gap-1.5 mb-1">
+                  <span className="text-[#2E7D32] mt-0.5 shrink-0">✓</span>{pro}
+                </p>
+              ))}
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-[#E64A19] flex items-center gap-1 mb-1.5 uppercase tracking-wide">
+                <ThumbsDown size={10} /> A tener en cuenta
+              </p>
+              {hotel.cons.map((con, i) => (
+                <p key={i} className="text-[11px] text-[#37474F] flex items-start gap-1.5 mb-1">
+                  <span className="text-[#E64A19] mt-0.5 shrink-0">·</span>{con}
+                </p>
+              ))}
+            </div>
+          </div>
+          <a
+            href={hotel.bookingSearchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg bg-[#003580] hover:bg-[#00267a] text-white text-[12px] font-semibold transition-colors"
+          >
+            <ExternalLink size={12} />
+            Ver en Booking.com
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DayCard({ day, flightSearchUrl }: { day: DayPlan; flightSearchUrl?: string }) {
   const [open, setOpen] = useState(day.dayNumber <= 2);
   const activities = [...(day.morning ?? []), ...(day.afternoon ?? [])];
 
@@ -53,10 +118,21 @@ function DayCard({ day }: { day: DayPlan }) {
       {open && (
         <div>
           {day.isTravelDay ? (
-            <div className="p-5 text-center text-[#78909C]">
+            <div className="p-5 text-center">
               <span className="text-[32px]">✈️</span>
-              <p className="font-semibold text-[#1A2332] mt-2">Día de viaje</p>
-              <p className="text-[13px]">Revisa los detalles del transporte en tu itinerario</p>
+              <p className="font-semibold text-[#1A2332] mt-2">Día de viaje a {day.city}</p>
+              <p className="text-[13px] text-[#78909C] mb-4">Busca el vuelo con precios en tiempo real</p>
+              {flightSearchUrl && (
+                <a
+                  href={flightSearchUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-ocean text-white text-[13px] font-semibold hover:bg-ocean-dark transition-colors"
+                >
+                  <ExternalLink size={14} />
+                  Buscar vuelos en Google Flights
+                </a>
+              )}
             </div>
           ) : (
             <div>
@@ -126,7 +202,7 @@ function DayCard({ day }: { day: DayPlan }) {
   );
 }
 
-type ExportTab = "itinerary" | "split";
+type ExportTab = "itinerary" | "hotels" | "split";
 
 export default function TripPage() {
   const { trip } = useTripStore();
@@ -230,17 +306,21 @@ export default function TripPage() {
 
         {/* Tabs */}
         <div className="max-w-6xl mx-auto px-6 flex border-t border-[#E0D5C5]">
-          {(["itinerary", "split"] as ExportTab[]).map((tab) => (
+          {([
+            { id: "itinerary", label: "📅 Itinerario" },
+            { id: "hotels",    label: "🏨 Vuelos & Hoteles" },
+            { id: "split",     label: "👥 Dividir costos" },
+          ] as { id: ExportTab; label: string }[]).map(({ id, label }) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
+              key={id}
+              onClick={() => setActiveTab(id)}
               className={`px-5 py-2.5 text-[13px] font-semibold border-b-2 transition-colors ${
-                activeTab === tab
+                activeTab === id
                   ? "border-ocean text-ocean"
                   : "border-transparent text-[#78909C] hover:text-[#37474F]"
               }`}
             >
-              {tab === "itinerary" ? "📅 Itinerario" : "👥 Dividir costos"}
+              {label}
             </button>
           ))}
         </div>
@@ -252,27 +332,94 @@ export default function TripPage() {
           <div className="grid lg:grid-cols-[1fr_300px] gap-6">
             {/* Days */}
             <div className="space-y-3">
-              {trip.days.map((day) => (
-                <DayCard key={day.dayNumber} day={day} />
-              ))}
+              {trip.days.map((day) => {
+                const leg = trip.transportLegs.find((l) => l.toCity === day.city && day.isTravelDay);
+                return <DayCard key={day.dayNumber} day={day} flightSearchUrl={leg?.flightSearchUrl} />;
+              })}
             </div>
             {/* Sidebar */}
             <div className="space-y-4">
               <CostSummary />
-              {/* Accommodations */}
-              {trip.accommodations.length > 0 && (
+              {/* Quick flights */}
+              {trip.transportLegs.length > 0 && (
                 <div className="card p-5 border border-[#E3F2FD]">
-                  <p className="section-label mb-3">Alojamiento</p>
-                  {trip.accommodations.map((acc, i) => (
-                    <div key={i} className="py-3 border-b border-[#F5F0E8] last:border-0">
-                      <p className="text-[13px] font-semibold text-[#1A2332]">🏨 {acc.name}</p>
-                      <p className="text-[11px] text-[#78909C]">{acc.city} · {acc.nights} noches</p>
-                      <p className="text-[12px] font-bold text-sunset tabular-nums mt-0.5">{fmt(acc.totalCost)}</p>
-                    </div>
-                  ))}
+                  <p className="section-label mb-3">Vuelos</p>
+                  <div className="space-y-2">
+                    {trip.transportLegs.map((leg, i) => (
+                      <a
+                        key={i}
+                        href={leg.flightSearchUrl ?? "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-3 rounded-xl bg-[#F5F0E8] hover:bg-[#E3F2FD] transition-colors group"
+                      >
+                        <div>
+                          <p className="text-[12px] font-semibold text-[#1A2332]">{leg.fromCity} → {leg.toCity}</p>
+                          {leg.fromIata && leg.toIata && (
+                            <p className="text-[10px] text-[#78909C] font-mono">{leg.fromIata} → {leg.toIata}</p>
+                          )}
+                        </div>
+                        <ExternalLink size={13} className="text-ocean opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </a>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === "hotels" && (
+          <div className="max-w-3xl mx-auto space-y-8">
+            {/* Transport legs */}
+            <div>
+              <p className="font-serif text-[22px] font-bold text-[#1A2332] mb-1">Vuelos</p>
+              <p className="text-[13px] text-[#78909C] mb-4">Precios en tiempo real directo en Google Flights</p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                {trip.transportLegs.map((leg, i) => (
+                  <a
+                    key={i}
+                    href={leg.flightSearchUrl ?? "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-4 rounded-2xl bg-white border border-[#E3F2FD] hover:border-ocean hover:shadow-md transition-all group"
+                  >
+                    <div>
+                      <p className="text-[14px] font-bold text-[#1A2332]">{leg.fromCity} → {leg.toCity}</p>
+                      {leg.fromIata && leg.toIata && (
+                        <p className="text-[11px] text-[#78909C] font-mono mt-0.5">{leg.fromIata} · {leg.toIata}</p>
+                      )}
+                      {leg.date && <p className="text-[11px] text-[#78909C] mt-0.5">📅 {leg.date}</p>}
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <div className="bg-ocean text-white text-[11px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 group-hover:bg-ocean-dark transition-colors">
+                        <ExternalLink size={11} />
+                        Google Flights
+                      </div>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            {/* Hotel recommendations per city */}
+            {trip.cities.map((city) => {
+              const recs = trip.hotelRecommendations?.[city.name] ?? [];
+              if (recs.length === 0) return null;
+              return (
+                <div key={city.name}>
+                  <p className="font-serif text-[22px] font-bold text-[#1A2332] mb-1">Hoteles en {city.name}</p>
+                  <p className="text-[13px] text-[#78909C] mb-4">
+                    Top {recs.length} opciones para estilo {trip.travelStyle} · ordenados por mejor relación calidad/precio
+                  </p>
+                  <div className="space-y-2">
+                    {recs.map((hotel, i) => (
+                      <HotelCard key={i} hotel={hotel} rank={i} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 

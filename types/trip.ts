@@ -40,6 +40,10 @@ export interface TransportOption {
 export interface TransportLeg {
   fromCity: string;
   toCity: string;
+  fromIata?: string;
+  toIata?: string;
+  date?: string; // ISO date of travel
+  flightSearchUrl?: string; // pre-built Google Flights URL
   selected?: TransportOption;
   options: TransportOption[];
 }
@@ -117,6 +121,20 @@ export interface CostBreakdown {
   byCityClp: Record<string, number>;
 }
 
+// ─── Hotel recommendations ─────────────────────────────────────
+
+export interface HotelRecommendation {
+  name: string;
+  neighborhood: string;
+  stars: number;
+  pricePerNightClp: number;
+  rating?: number;
+  style?: string; // "boutique" | "business" | "hostal" | "apart-hotel"
+  pros: string[];
+  cons: string[];
+  bookingSearchUrl: string;
+}
+
 // ─── Cost splitting ────────────────────────────────────────────
 
 export type SplitMode = "equal" | "custom" | "itemized";
@@ -165,6 +183,7 @@ export interface Trip {
   budgetMaxClp?: number;
   transportLegs: TransportLeg[];
   accommodations: Accommodation[];
+  hotelRecommendations: Record<string, HotelRecommendation[]>; // keyed by city name
   days: DayPlan[];
   costs: CostBreakdown;
   travelers_list: Traveler[]; // for cost splitting

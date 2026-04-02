@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
-import type { Trip, PlanningInput, DayPlan, CostBreakdown, Traveler } from "@/types/trip";
+import type { Trip, PlanningInput, DayPlan, CostBreakdown, Traveler, HotelRecommendation } from "@/types/trip";
 
 const client = new Anthropic();
 
@@ -46,9 +46,22 @@ Viajeros: ${adults} adultos
 Estilo: ${travelStyle}
 Días por ciudad: ~${daysPerCity} días cada una
 
-Genera el JSON completo del viaje. Estructura:
+Genera el JSON completo del viaje. Estructura EXACTA (sin texto extra):
 {
   "title": "...",
+  "cityIataCodes": {
+    "${originCity}": "SCL",
+    "${allCities[0]}": "EZE"
+  },
+  "transportLegs": [
+    {
+      "fromCity": "${originCity}",
+      "toCity": "${allCities[0]}",
+      "fromIata": "SCL",
+      "toIata": "EZE",
+      "date": "${startDate}"
+    }
+  ],
   "days": [
     {
       "dayNumber": 1,
@@ -68,9 +81,31 @@ Genera el JSON completo del viaje. Estructura:
   "accommodations": [
     {"city":"...","name":"...","stars":3,"rating":4.2,"pricePerNight":45000,"nights":3,"totalCost":135000,"neighborhood":"..."}
   ],
+  "hotelRecommendations": {
+    "${allCities[0]}": [
+      {
+        "name": "Hotel Ejemplo",
+        "neighborhood": "Palermo Soho",
+        "stars": 4,
+        "pricePerNightClp": 85000,
+        "rating": 8.6,
+        "style": "boutique",
+        "pros": ["Excelente ubicación en el barrio más trendy", "Desayuno incluido con productos locales", "Personal súper amable y con tips de viaje"],
+        "cons": ["Los cuartos son algo pequeños", "Sin piscina ni gimnasio"]
+      }
+    ]
+  },
   "savingsTip": "...",
   "optimizerTips": ["Si viajas el jueves ahorras $18.000 en el vuelo","El museo X es gratis los miércoles"]
-}`;
+}
+
+IMPORTANTE para hotelRecommendations:
+- Genera 5 hoteles reales y reconocidos por ciudad de destino
+- Ordenados de mejor a peor relación calidad/precio para estilo ${travelStyle}
+- pricePerNightClp acorde al estilo: mochilero 15-40k, comfort 50-120k, premium 150k+
+- pros: 3 puntos específicos y útiles (no genéricos)
+- cons: 2 puntos honestos
+- Solo ciudades de destino, no origen`;
 
     const message = await client.messages.create({
       model: "claude-opus-4-6",
@@ -119,6 +154,20 @@ Genera el JSON completo del viaje. Estructura:
       byCityClp: Object.fromEntries(allCities.map((c) => [c, Math.round(total / allCities.length)])),
     };
 
+    // Build Google Flights URLs for each transport leg
+    function buildFlightUrl(from: string, to: string, fromIata: string | undefined, toIata: string | undefined, date: string, pax: number): string {
+      const dateStr = date.slice(0, 10); // YYYY-MM-DD
+      if (fromIata && toIata) {
+        // Structured Google Flights URL with IATA codes
+        return `https://www.google.com/travel/flights#flt=${fromIata}.${toIata}.${dateStr};c:CLP;e:${pax};sd:1;t:f`;
+      }
+      // Fallback: text search
+      const q = encodeURIComponent(`vuelos de ${from} a ${to} el ${dateStr}`);
+      return `https://www.google.com/travel/flights/search?q=${q}&hl=es`;
+    }
+
+    const generatedLegs = (generated.transportLegs ?? []) as Array<{ fromCity: string; toCity: string; fromIata?: string; toIata?: string; date?: string }>;
+
     // Build traveler list from adults count
     const travelers_list: Traveler[] = Array.from({ length: adults }, (_, i) => ({
       id: `t-${i}`,
@@ -144,13 +193,31 @@ Genera el JSON completo del viaje. Estructura:
       travelers: { adults, children: input.children },
       travelStyle,
       budgetMaxClp: input.budgetMaxClp,
-      transportLegs: allCities.map((city, i) => ({
-        fromCity: i === 0 ? originCity : allCities[i - 1],
-        toCity: city,
-        selected: undefined,
-        options: [],
-      })),
+      transportLegs: allCities.map((city, i) => {
+        const legData = generatedLegs.find(
+          (l) => l.toCity === city || l.toCity?.toLowerCase() === city.toLowerCase()
+        );
+        const fromCity = i === 0 ? originCity : allCities[i - 1];
+        // Find travel day for this leg to get the date
+        const travelDay = (generated.days as DayPlan[]).find(
+          (d) => d.isTravelDay && d.city === city
+        );
+        const legDate = legData?.date ?? travelDay?.date ?? startDate;
+        const fromIata = legData?.fromIata;
+        const toIata = legData?.toIata;
+        return {
+          fromCity,
+          toCity: city,
+          fromIata,
+          toIata,
+          date: legDate,
+          flightSearchUrl: buildFlightUrl(fromCity, city, fromIata, toIata, legDate, adults),
+          selected: undefined,
+          options: [],
+        };
+      }),
       accommodations: generated.accommodations ?? [],
+      hotelRecommendations: (generated.hotelRecommendations ?? {}) as Record<string, HotelRecommendation[]>,
       days: generated.days ?? [],
       costs,
       travelers_list,
