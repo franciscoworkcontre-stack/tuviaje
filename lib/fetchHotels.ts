@@ -33,7 +33,7 @@ async function scrapeCity(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         search: city,
-        maxItems: 4,
+        maxItems: 20,
         extractAdditionalHotelData: false,
         sortBy: STYLE_SORT[travelStyle] ?? "class_asc",
         currency: "USD",
@@ -66,7 +66,7 @@ async function scrapeCity(
   }
 
   const itemsRes = await fetch(
-    `https://api.apify.com/v2/datasets/${datasetId}/items?token=${APIFY_TOKEN}&limit=4`
+    `https://api.apify.com/v2/datasets/${datasetId}/items?token=${APIFY_TOKEN}&limit=20`
   );
   if (!itemsRes.ok) return [];
 
@@ -76,13 +76,18 @@ async function scrapeCity(
     price?: number;
     currency?: string;
     rating?: number;
+    reviews?: number;
     address?: { full?: string; region?: string };
     url?: string;
     type?: string;
   }>;
 
-  const mapped = items
-    .filter(h => h.name && h.price)
+  // Require at least 1000 reviews — fall back to any with name+price if none qualify
+  const MIN_REVIEWS = 1000;
+  const withEnoughReviews = items.filter(h => h.name && h.price && (h.reviews ?? 0) >= MIN_REVIEWS);
+  const candidates = withEnoughReviews.length >= 2 ? withEnoughReviews : items.filter(h => h.name && h.price);
+
+  const mapped = candidates
     .map(h => {
       const priceUsd = h.price ?? 0;
       const priceClp = Math.round(priceUsd * USD_TO_CLP);
@@ -96,8 +101,9 @@ async function scrapeCity(
 
       const pros: string[] = [];
       const cons: string[] = [];
-      if (h.rating && h.rating >= 9) pros.push(`Valoración excelente: ${h.rating}/10`);
-      else if (h.rating && h.rating >= 8) pros.push(`Buena valoración: ${h.rating}/10`);
+      if (h.rating && h.rating >= 9) pros.push(`Valoración excelente: ${h.rating}/10 · ${(h.reviews ?? 0).toLocaleString("es-CL")} reseñas`);
+      else if (h.rating && h.rating >= 8) pros.push(`Buena valoración: ${h.rating}/10 · ${(h.reviews ?? 0).toLocaleString("es-CL")} reseñas`);
+      else if (h.reviews) pros.push(`${(h.reviews ?? 0).toLocaleString("es-CL")} reseñas verificadas`);
       if (stars >= 4) pros.push(`Hotel ${stars}★`);
       pros.push("Precio real verificado en Booking");
       if (priceUsd < 80) pros.push("Muy económico para la zona");
