@@ -22,7 +22,7 @@ const AGENTS: Agent[] = [
     task: "Comparando 1.247 vuelos y rutas...",
     resultHighlight: "Sky LA482 — $32.000 / persona",
     completionMessage: "¡Te conseguí el mejor vuelo al mejor precio! ✈️",
-    duration: 1200,
+    duration: 900,
   },
   {
     id: "buses",
@@ -31,7 +31,7 @@ const AGENTS: Agent[] = [
     task: "Escaneando Pullman, Andesmar, Rome2Rio...",
     resultHighlight: "Pullman cama suite — $22.000",
     completionMessage: "¡Encontré la mejor opción en bus! 🚌",
-    duration: 1000,
+    duration: 800,
   },
   {
     id: "hotels",
@@ -40,7 +40,7 @@ const AGENTS: Agent[] = [
     task: "Revisando 3.820 hoteles y hostales...",
     resultHighlight: "Hotel Clasico BA ⭐ 4.2 — $38.000/noche",
     completionMessage: "¡Te conseguí el mejor hotel de la zona! 🏨",
-    duration: 1300,
+    duration: 1000,
   },
   {
     id: "itinerary",
@@ -49,7 +49,7 @@ const AGENTS: Agent[] = [
     task: "Generando plan día a día con IA...",
     resultHighlight: "14 días · 42 actividades · 9 restaurantes",
     completionMessage: "¡Planeé tu viaje para que sea inolvidable! 🗺️",
-    duration: 1500,
+    duration: 1100,
   },
   {
     id: "optimizer",
@@ -58,16 +58,16 @@ const AGENTS: Agent[] = [
     task: "Buscando ahorros y combinaciones...",
     resultHighlight: "Volar el jueves ahorra $18.000 ↓",
     completionMessage: "¡Calculé todo para que gastes lo justo! 💰",
-    duration: 1100,
+    duration: 850,
   },
 ];
 
-// Each agent runs fully before the next one starts.
-// TOAST_MS: how long the completion message stays visible.
-// GAP: pause after agent finishes before next one activates.
-const TOAST_MS   = 1100;
-const GAP        = 400;
-const LOOP_DURATION = 14000;
+// Sequential timing constants
+const TOAST_MS      = 950;  // how long each completion message stays
+const GAP           = 300;  // pause between toast end and next agent start
+// Total agent time ≈ 600 + 5×(~950 + 950 + 300) = ~12 000ms
+// PDF shows at ~12 600ms, loop restarts at 17 500ms → ~5s of PDF visible
+const LOOP_DURATION = 17500;
 
 // ─── Agent card — fixed height, no layout shift ───────────────
 function AgentCard({ agent, status }: { agent: Agent; status: AgentStatus }) {
@@ -402,7 +402,7 @@ export function AgentDemo() {
         </div>
 
         {/* Demo grid */}
-        <div className="grid lg:grid-cols-[1fr_340px] gap-8 items-center">
+        <div className="grid lg:grid-cols-[1fr_320px] gap-10 items-center">
 
           {/* Left: agents panel — fixed height, relative for toast */}
           <div className="bg-white/4 border border-white/8 rounded-2xl p-5 backdrop-blur-sm relative">
@@ -465,8 +465,8 @@ export function AgentDemo() {
             </div>
           </div>
 
-          {/* Right: PDF */}
-          <div className="flex items-center justify-center">
+          {/* Right: PDF — hidden on mobile, shown on lg+ */}
+          <div className="hidden lg:flex items-center justify-center">
             <PDFMock visible={pdfVisible} />
           </div>
         </div>
