@@ -92,8 +92,8 @@ Reglas: IATA codes reales, precios en CLP para ${travelStyle}, 1 hotel por ciuda
       const arrival = arrivalDates[city] ?? startDate;
 
       const msg = await client.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 4000,
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 3000,
         messages: [{
           role: "user",
           content: `Genera itinerario detallado para ${cityDays} días en ${city}.
@@ -122,13 +122,11 @@ SOLO JSON válido, sin markdown.
       "theme": "Barrio histórico y arte",
       "isTravelDay": false,
       "morning": [
-        {"time":"09:00","durationMin":90,"name":"...","category":"culture","costClp":0,"tip":"tip concreto y útil","emoji":"🏛️"},
-        {"time":"11:00","durationMin":60,"name":"...","category":"culture","costClp":5000,"tip":"...","emoji":"🎨"}
+        {"time":"09:00","durationMin":120,"name":"...","category":"culture","costClp":0,"tip":"tip concreto y útil","emoji":"🏛️"}
       ],
       "lunch": {"options":[{"name":"...","cuisine":"...","priceTier":"$$","costClp":14000}],"recommended":"..."},
       "afternoon": [
-        {"time":"15:00","durationMin":120,"name":"...","category":"culture","costClp":8000,"tip":"...","emoji":"🎭"},
-        {"time":"17:30","durationMin":60,"name":"...","category":"food","costClp":0,"tip":"...","emoji":"🍷"}
+        {"time":"15:00","durationMin":120,"name":"...","category":"culture","costClp":8000,"tip":"...","emoji":"🎭"}
       ],
       "dinner": {"options":[{"name":"...","cuisine":"...","priceTier":"$$$","costClp":22000}],"recommended":"..."},
       "localTransportCostClp": 4000,
@@ -140,7 +138,7 @@ SOLO JSON válido, sin markdown.
 REGLAS IMPORTANTES:
 - Exactamente ${cityDays} días
 - Día 1: isTravelDay=true, morning=[], afternoon=[]
-- Días normales: 2 actividades en morning, 2 en afternoon
+- Días normales: 1 actividad en morning, 1 en afternoon
 - 1 sola opción en lunch y dinner
 - Fechas consecutivas desde ${arrival}
 - Actividades y restaurantes reales y específicos de ${city}
