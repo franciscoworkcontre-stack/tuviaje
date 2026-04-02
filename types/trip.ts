@@ -215,6 +215,7 @@ export interface PlanningInput {
   originCity: string;
   destinationCities: string[];
   daysPerCity: number[]; // days to spend in each destination city
+  firstTimeCities?: Record<string, boolean>; // true = first visit (default)
   startDate: string;
   endDate: string;
   adults: number;

@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
   try {
     const input: PlanningInput = await req.json();
     const { adults, travelStyle, originCity, destinationCities, startDate, endDate } = input;
+    const firstTimeCities = input.firstTimeCities ?? {};
 
     const totalDays = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000);
     const allCities = destinationCities;
@@ -95,6 +96,8 @@ Reglas: IATA codes reales, precios en CLP para ${travelStyle}, 1 hotel por ciuda
     const cityDayResults = await Promise.all(allCities.map(async (city, idx) => {
       const cityDays = daysPerCity(idx);
       const arrival = arrivalDates[city] ?? startDate;
+      const isFirstTime = firstTimeCities[city] !== false; // default true
+      const prevCity = idx === 0 ? originCity : allCities[idx - 1];
 
       const msg = await client.messages.create({
         model: "claude-sonnet-4-6",
@@ -103,6 +106,8 @@ Reglas: IATA codes reales, precios en CLP para ${travelStyle}, 1 hotel por ciuda
           role: "user",
           content: `Genera itinerario detallado para ${cityDays} días en ${city}.
 Estilo: ${travelStyle} | Llegada: ${arrival} | ${adults} viajeros
+Vienen desde: ${prevCity} (vuelo típico ${prevCity}→${city})
+¿Primera vez en ${city}?: ${isFirstTime ? "SÍ — incluir imperdibles clásicos" : "NO — enfocarse en lugares menos conocidos, joya oculta, experiencias locales"}
 SOLO JSON válido, sin markdown.
 
 {
@@ -111,11 +116,13 @@ SOLO JSON válido, sin markdown.
       "dayNumber": 1,
       "city": "${city}",
       "date": "${arrival}",
-      "theme": "Llegada y primer barrio",
+      "theme": "Llegada a ${city}",
       "isTravelDay": true,
       "morning": [],
       "lunch": {"options":[{"name":"...","cuisine":"...","priceTier":"$$","costClp":12000}],"recommended":"..."},
-      "afternoon": [],
+      "afternoon": [
+        {"time":"15:00","durationMin":90,"name":"Paseo por barrio del hotel","category":"culture","costClp":0,"tip":"Oriéntate y conoce el entorno","emoji":"🚶"}
+      ],
       "dinner": {"options":[{"name":"...","cuisine":"...","priceTier":"$$","costClp":18000}],"recommended":"..."},
       "localTransportCostClp": 3000,
       "dayTotalClp": 40000
@@ -144,13 +151,19 @@ SOLO JSON válido, sin markdown.
 
 REGLAS IMPORTANTES:
 - Exactamente ${cityDays} días
-- Día 1: isTravelDay=true, morning=[], afternoon=[]
+- Día 1 (día de viaje/llegada): isTravelDay=true, morning=[]
+  * Estima hora de llegada según vuelo típico ${prevCity}→${city} (suma ~1.5h transporte al hotel + check-in)
+  * Si llegada estimada antes de 13:00: incluye 1-2 actividades en afternoon livianas
+  * Si llegada estimada 13:00-17:00: incluye 1 actividad de tarde tranquila (paseo/orientación)
+  * Si llegada después de 17:00: afternoon=[]
+  * lunch y dinner siempre presentes el día 1
 - Días normales: 2 actividades en morning, 2 en afternoon
 - 1 sola opción en lunch y dinner
 - Fechas consecutivas desde ${arrival}
-- Actividades y restaurantes reales y específicos de ${city}
-- Tips útiles, concretos, no genéricos ("llega antes de las 10", "pide el menú del día")
-- Costos en CLP realistas para ${travelStyle}
+- Actividades y restaurantes REALES y específicos de ${city} (nombres reales, direcciones si es posible)
+- ${isFirstTime ? "Primera visita: incluir los íconos imperdibles de la ciudad" : "Viajero que ya conoce: evitar los sitios turísticos obvios, priorizar barrios locales, mercados, bares de barrio"}
+- Tips útiles y concretos ("llega antes de las 10am, hay menos fila", "pide el menú del mediodía que es más barato")
+- Costos en CLP realistas y actualizados para ${travelStyle}
 - dayTotalClp = suma real de todos los costos del día`
         }],
       });

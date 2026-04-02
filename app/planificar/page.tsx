@@ -22,7 +22,7 @@ const EXAMPLES = [
   "Mochilero por Brasil: São Paulo, Río y Florianópolis, 3 semanas",
 ];
 
-interface CityRow { name: string; days: number }
+interface CityRow { name: string; days: number; firstTime: boolean }
 
 function addDays(dateStr: string, n: number): string {
   const d = new Date(dateStr + "T12:00:00");
@@ -124,7 +124,7 @@ export default function PlanificarPage() {
       const p = await res.json();
       const cities: string[] = p.destinationCities ?? ["Buenos Aires"];
       const days: number[] = p.daysPerCity ?? cities.map(() => 4);
-      setCityRows(cities.map((name: string, i: number) => ({ name, days: days[i] ?? 4 })));
+      setCityRows(cities.map((name: string, i: number) => ({ name, days: days[i] ?? 4, firstTime: true })));
       setAdults(p.adults ?? 2);
       setStyle(p.travelStyle ?? "comfort");
 
@@ -133,7 +133,7 @@ export default function PlanificarPage() {
         setClarificationQuestion(p.clarificationQuestion);
         const cities: string[] = p.destinationCities ?? [];
         const days: number[] = p.daysPerCity ?? cities.map(() => 4);
-        setCityRows(cities.map((name: string, i: number) => ({ name, days: days[i] ?? 4 })));
+        setCityRows(cities.map((name: string, i: number) => ({ name, days: days[i] ?? 4, firstTime: true })));
         setAdults(p.adults ?? 2);
         setStyle(p.travelStyle ?? "comfort");
         setParsing(false);
@@ -186,7 +186,7 @@ export default function PlanificarPage() {
         setStep("confirm");
       }
     } catch {
-      setCityRows([{ name: "Buenos Aires", days: 4 }]);
+      setCityRows([{ name: "Buenos Aires", days: 4, firstTime: true }]);
       setParsing(false);
       setStep("confirm");
     }
@@ -224,6 +224,7 @@ export default function PlanificarPage() {
       originCity: origin,
       destinationCities: cityRows.map((r) => r.name),
       daysPerCity: cityRows.map((r) => r.days),
+      firstTimeCities: Object.fromEntries(cityRows.map((r) => [r.name, r.firstTime])),
       startDate: departureDate,
       endDate: computedEndDate,
       adults,
@@ -251,6 +252,7 @@ export default function PlanificarPage() {
 
     // Animate steps in sync with estimated timeline
     let done = false;
+    const genStartMs = Date.now();
     apiPromise.finally(() => { done = true; });
 
     const msPerStep = estimatedMs / dynSteps.length;
@@ -260,10 +262,16 @@ export default function PlanificarPage() {
       if (done) break;
     }
 
-    // If API is still running, loop last step
+    // If API is still running, show countdown in last step
     while (!done) {
-      setGeneratingStep("✨ Preparando tu plan completo...");
-      await new Promise((r) => setTimeout(r, 800));
+      const elapsed = Date.now() - genStartMs;
+      const remaining = Math.max(0, Math.ceil((estimatedMs - elapsed) / 1000));
+      if (remaining > 0) {
+        setGeneratingStep(`✨ Finalizando tu plan... (~${remaining}s)`);
+      } else {
+        setGeneratingStep("✨ Casi listo, revisando detalles...");
+      }
+      await new Promise((r) => setTimeout(r, 1000));
     }
 
     try {
@@ -302,7 +310,7 @@ export default function PlanificarPage() {
   function addCity() {
     const name = newCity.trim();
     if (name && !cityRows.find((r) => r.name.toLowerCase() === name.toLowerCase())) {
-      setCityRows((rows) => [...rows, { name, days: 4 }]);
+      setCityRows((rows) => [...rows, { name, days: 4, firstTime: true }]);
       setNewCity("");
     }
   }
@@ -609,12 +617,22 @@ export default function PlanificarPage() {
                       </button>
                     </div>
 
-                    {/* City name + dates */}
+                    {/* City name + dates + firstTime */}
                     <div className="flex-1 min-w-0">
                       <p className="text-[15px] font-semibold text-white truncate">{row.name}</p>
                       <p className="text-[11px] text-white/35 mt-0.5">
                         {dates[i]?.arrival ? `${fmtDate(dates[i].arrival)} → ${fmtDate(dates[i].departure)}` : "Agrega fecha de salida"}
                       </p>
+                      <button
+                        onClick={() => setCityRows((rows) => rows.map((r, idx) => idx === i ? { ...r, firstTime: !r.firstTime } : r))}
+                        className={`mt-1.5 text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                          row.firstTime
+                            ? "border-ocean-light/40 bg-ocean/20 text-ocean-light"
+                            : "border-white/15 text-white/35 hover:text-white/55"
+                        }`}
+                      >
+                        {row.firstTime ? "✨ Primera vez" : "↩ Ya la conozco"}
+                      </button>
                     </div>
 
                     {/* Days counter */}
