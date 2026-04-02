@@ -195,9 +195,10 @@ export interface Trip {
 // ─── Planning flow state ────────────────────────────────────────
 
 export interface PlanningInput {
-  rawText: string; // "Quiero ir de Santiago a BA y Montevideo en julio"
+  rawText: string;
   originCity: string;
   destinationCities: string[];
+  daysPerCity: number[]; // days to spend in each destination city
   startDate: string;
   endDate: string;
   adults: number;

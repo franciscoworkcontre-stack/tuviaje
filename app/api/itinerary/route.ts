@@ -24,7 +24,9 @@ export async function POST(req: NextRequest) {
       (new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)
     );
     const allCities = destinationCities;
-    const daysPerCity = Math.floor((totalDays - allCities.length) / allCities.length);
+    const inputDaysPerCity = input.daysPerCity ?? [];
+    const daysPerCity = (i: number) =>
+      inputDaysPerCity[i] ?? Math.floor((totalDays - allCities.length) / allCities.length);
     const budget = STYLE_BUDGETS[travelStyle];
 
     const systemPrompt = `Eres el planificador de viajes de tu[viaje]. Generas itinerarios día a día para viajeros latinoamericanos.
@@ -46,7 +48,7 @@ Ciudades: ${allCities.join(" → ")}
 Fechas: ${startDate} al ${endDate} (${totalDays} días)
 Viajeros: ${adults} adultos
 Estilo: ${travelStyle}
-Días por ciudad: ~${daysPerCity} días cada una
+Días por ciudad: ${allCities.map((c, i) => `${c}: ${daysPerCity(i)} días`).join(", ")}
 
 Genera el JSON completo del viaje. Estructura EXACTA (sin texto extra):
 {
@@ -185,7 +187,7 @@ IMPORTANTE para hotelRecommendations:
       cities: allCities.map((name, i) => ({
         name,
         country: "",
-        days: daysPerCity,
+        days: daysPerCity(i),
         firstTime: true,
         interests: [],
       })),

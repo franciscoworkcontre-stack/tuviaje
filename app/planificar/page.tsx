@@ -1,41 +1,73 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Sparkles, Loader2, X, Plus, Minus } from "lucide-react";
+import {
+  ArrowRight, Sparkles, Loader2, X, Plus, Minus,
+  ChevronUp, ChevronDown, MapPin, Calendar,
+} from "lucide-react";
 import { useTripStore } from "@/stores/tripStore";
 import type { TravelStyle } from "@/types/trip";
 
-const STYLE_OPTIONS: { value: TravelStyle; emoji: string; label: string; desc: string; price: string }[] = [
-  { value: "mochilero", emoji: "🎒", label: "Mochilero",  desc: "Hostales, comida callejera, transporte público", price: "$30K–50K/día" },
-  { value: "comfort",   emoji: "🧳", label: "Comfort",    desc: "Hotel 3–4★, buenos restaurantes, mix de transporte",  price: "$80K–150K/día" },
-  { value: "premium",   emoji: "✨", label: "Premium",    desc: "Hotel 5★, restaurantes top, taxis y experiencias privadas", price: "$200K–400K/día" },
+const STYLE_OPTIONS: { value: TravelStyle; emoji: string; label: string; range: string; desc: string }[] = [
+  { value: "mochilero", emoji: "🎒", label: "Mochilero", range: "$30–50K/día", desc: "Hostales · buses · street food" },
+  { value: "comfort",   emoji: "🧳", label: "Comfort",   range: "$80–150K/día", desc: "Hotel 3–4★ · buenos restós" },
+  { value: "premium",   emoji: "✨", label: "Premium",   range: "$200K+/día", desc: "Hotel 5★ · privado · top" },
 ];
 
-const EXAMPLE_PROMPTS = [
+const EXAMPLES = [
   "Quiero ir de Santiago a Buenos Aires y Montevideo, 2 semanas en julio, somos 2",
-  "Viaje a Lima y Cartagena, 10 días en agosto, mi esposa y yo, comfort",
+  "Viaje a Lima y Cartagena, 10 días en agosto, mi esposa y yo",
   "Mochilero por Brasil: São Paulo, Río y Florianópolis, 3 semanas",
 ];
 
+interface CityRow { name: string; days: number }
+
+function addDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr + "T12:00:00");
+  d.setDate(d.getDate() + n);
+  return d.toISOString().split("T")[0];
+}
+
+function fmtDate(dateStr: string): string {
+  if (!dateStr) return "—";
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  return `${day} ${months[month - 1]} ${year}`;
+}
 
 export default function PlanificarPage() {
   const router = useRouter();
-  const { planningInput, setPlanningInput, setTrip, setIsGenerating, setGeneratingStep } = useTripStore();
+  const { setPlanningInput, setTrip, setIsGenerating, setGeneratingStep } = useTripStore();
 
   const [step, setStep] = useState<"input" | "confirm" | "generating" | "error">("input");
   const [errorMsg, setErrorMsg] = useState("");
   const [rawText, setRawText] = useState("");
   const [parsing, setParsing] = useState(false);
 
-  // Confirmed fields
+  // Route state
   const [origin] = useState("Santiago");
-  const [cities, setCities] = useState<string[]>([]);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [cityRows, setCityRows] = useState<CityRow[]>([]);
+  const [departureDate, setDepartureDate] = useState("");
   const [adults, setAdults] = useState(2);
   const [style, setStyle] = useState<TravelStyle>("comfort");
   const [newCity, setNewCity] = useState("");
+
+  // Computed: arrival/departure date per city
+  const cityDates = useCallback(() => {
+    if (!departureDate) return cityRows.map(() => ({ arrival: "", departure: "" }));
+    let cursor = departureDate;
+    return cityRows.map((row) => {
+      const arrival = cursor;
+      const departure = addDays(cursor, row.days);
+      cursor = addDays(departure, 1); // 1 day transit
+      return { arrival, departure };
+    });
+  }, [departureDate, cityRows]);
+
+  const endDate = cityRows.length > 0
+    ? cityDates()[cityRows.length - 1]?.departure ?? ""
+    : "";
 
   const GENERATING_STEPS = [
     "✈️ Buscando vuelos entre ciudades...",
@@ -54,15 +86,15 @@ export default function PlanificarPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: rawText }),
       });
-      const parsed = await res.json();
-      setCities(parsed.destinationCities?.length ? parsed.destinationCities : ["Buenos Aires"]);
-      setAdults(parsed.adults ?? 2);
-      setStyle(parsed.travelStyle ?? "comfort");
-      setStartDate(parsed.startDate ?? "");
-      setEndDate(parsed.endDate ?? "");
+      const p = await res.json();
+      const cities: string[] = p.destinationCities ?? ["Buenos Aires"];
+      const days: number[] = p.daysPerCity ?? cities.map(() => 4);
+      setCityRows(cities.map((name: string, i: number) => ({ name, days: days[i] ?? 4 })));
+      setDepartureDate(p.departureDate ?? "");
+      setAdults(p.adults ?? 2);
+      setStyle(p.travelStyle ?? "comfort");
     } catch {
-      // fallback: just go to confirm with defaults
-      setCities(["Buenos Aires"]);
+      setCityRows([{ name: "Buenos Aires", days: 4 }]);
     } finally {
       setParsing(false);
       setStep("confirm");
@@ -70,14 +102,16 @@ export default function PlanificarPage() {
   }
 
   async function handleGenerate() {
-    if (!cities.length || !startDate || !endDate) return;
+    if (!cityRows.length || !departureDate) return;
     setStep("generating");
 
+    const dates = cityDates();
     const input = {
       rawText,
       originCity: origin,
-      destinationCities: cities,
-      startDate,
+      destinationCities: cityRows.map((r) => r.name),
+      daysPerCity: cityRows.map((r) => r.days),
+      startDate: departureDate,
       endDate,
       adults,
       children: 0,
@@ -88,23 +122,20 @@ export default function PlanificarPage() {
     setPlanningInput(input);
     setIsGenerating(true);
 
-    // Start API call immediately — don't wait for animation
     const apiPromise = fetch("/api/itinerary", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
 
-    // Run animation in parallel
     for (const s of GENERATING_STEPS) {
       setGeneratingStep(s);
-      await new Promise((r) => setTimeout(r, 2200));
+      await new Promise((r) => setTimeout(r, 2400));
     }
 
-    // Now wait for the API (likely already done or close)
     try {
       const res = await apiPromise;
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(`Error ${res.status}`);
       const data = await res.json();
       if (data.trip) {
         setTrip(data.trip);
@@ -115,20 +146,30 @@ export default function PlanificarPage() {
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      console.error("[generate]", msg);
       setErrorMsg(msg);
       setIsGenerating(false);
       setStep("error");
     }
   }
 
-  function removeCity(i: number) {
-    setCities((c) => c.filter((_, idx) => idx !== i));
+  function moveCity(i: number, dir: -1 | 1) {
+    setCityRows((rows) => {
+      const next = [...rows];
+      const j = i + dir;
+      if (j < 0 || j >= next.length) return rows;
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
   }
+
+  function setDays(i: number, d: number) {
+    setCityRows((rows) => rows.map((r, idx) => idx === i ? { ...r, days: Math.max(1, d) } : r));
+  }
+
   function addCity() {
-    const trimmed = newCity.trim();
-    if (trimmed && !cities.includes(trimmed)) {
-      setCities((c) => [...c, trimmed]);
+    const name = newCity.trim();
+    if (name && !cityRows.find((r) => r.name.toLowerCase() === name.toLowerCase())) {
+      setCityRows((rows) => [...rows, { name, days: 4 }]);
       setNewCity("");
     }
   }
@@ -141,18 +182,13 @@ export default function PlanificarPage() {
         <div className="text-center max-w-sm">
           <p className="text-[48px] mb-4">😵</p>
           <p className="font-serif text-[22px] font-bold text-white mb-2">Algo salió mal</p>
-          <p className="text-[14px] text-white/50 mb-2">
-            No pudimos generar el itinerario.
-          </p>
+          <p className="text-[14px] text-white/50 mb-2">No pudimos generar el itinerario.</p>
           {errorMsg && (
-            <p className="text-[11px] text-white/25 font-mono mb-4 px-3 py-2 bg-white/5 rounded-lg max-w-xs mx-auto break-all">
+            <p className="text-[11px] text-white/25 font-mono mb-4 px-3 py-2 bg-white/5 rounded-lg break-all">
               {errorMsg}
             </p>
           )}
-          <button
-            onClick={() => setStep("confirm")}
-            className="btn btn-accent px-6"
-          >
+          <button onClick={() => setStep("confirm")} className="btn btn-accent px-6">
             Intentar de nuevo
           </button>
         </div>
@@ -160,194 +196,294 @@ export default function PlanificarPage() {
     );
   }
 
+  const dates = cityDates();
+  const canGenerate = cityRows.length > 0 && !!departureDate;
+
   return (
-    <div className="min-h-screen bg-[#0D1F3C] flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-2xl">
+    <div className="min-h-screen bg-[#0D1F3C] flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-lg">
+
         {/* Logo */}
-        <div className="text-center mb-10" style={{ animation: "fadeInDown 0.4s ease-out both" }}>
-          <p className="font-serif text-[28px] font-bold text-white mb-1">
+        <div className="text-center mb-8" style={{ animation: "fadeInDown 0.4s ease-out both" }}>
+          <p className="font-serif text-[26px] font-bold text-white mb-1">
             tu<span className="text-ocean-light">[viaje]</span>
           </p>
-          <p className="text-white/50 text-[14px]">Cuéntanos tu viaje y lo planificamos todo</p>
+          <p className="text-white/40 text-[13px]">Cuéntanos tu viaje y lo planificamos todo</p>
         </div>
 
-        {/* ─── Step 1: conversacional ─── */}
+        {/* ── Step 1: input ── */}
         {step === "input" && (
-          <div
-            className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm"
-            style={{ animation: "scaleIn 0.5s ease-out 0.1s both" }}
-          >
-            <p className="text-white/80 text-[15px] font-semibold mb-3">
-              ✏️ Describe tu viaje
-            </p>
-            <textarea
-              value={rawText}
-              onChange={(e) => setRawText(e.target.value)}
-              placeholder="Quiero ir de Santiago a Buenos Aires y Montevideo, 2 semanas en julio, somos 2 personas..."
-              rows={4}
-              className="w-full bg-white/8 border border-white/15 rounded-xl px-4 py-3 text-white placeholder-white/30 text-[15px] resize-none focus:outline-none focus:border-ocean-light/60 transition-colors"
-              onKeyDown={(e) => e.key === "Enter" && e.metaKey && handleParse()}
-            />
-
-            {/* Example prompts */}
-            <div className="mt-3 flex flex-col gap-2">
-              <p className="text-white/30 text-[11px] font-semibold uppercase tracking-wide">Ejemplos</p>
-              {EXAMPLE_PROMPTS.map((p) => (
+          <div style={{ animation: "scaleIn 0.4s ease-out 0.1s both" }}>
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-sm">
+              <textarea
+                value={rawText}
+                onChange={(e) => setRawText(e.target.value)}
+                placeholder="Quiero ir de Santiago a Buenos Aires y Montevideo, 2 semanas en julio, somos 2 personas..."
+                rows={4}
+                className="w-full bg-transparent text-white placeholder-white/25 text-[15px] resize-none focus:outline-none leading-relaxed"
+                onKeyDown={(e) => e.key === "Enter" && e.metaKey && handleParse()}
+                autoFocus
+              />
+              <div className="border-t border-white/8 pt-4 mt-3 flex items-center justify-between gap-3">
+                <p className="text-white/25 text-[12px]">⌘↵ para continuar</p>
                 <button
-                  key={p}
-                  onClick={() => setRawText(p)}
-                  className="text-left text-[12px] text-white/45 hover:text-white/75 transition-colors px-3 py-2 rounded-lg border border-white/8 hover:border-white/20"
+                  onClick={handleParse}
+                  disabled={!rawText.trim() || parsing}
+                  className="btn btn-accent text-[14px] min-h-[42px] px-5 disabled:opacity-40"
                 >
-                  "{p}"
+                  {parsing
+                    ? <><Loader2 size={14} className="animate-spin" /> Interpretando...</>
+                    : <><Sparkles size={14} /> Continuar <ArrowRight size={14} /></>
+                  }
+                </button>
+              </div>
+            </div>
+
+            {/* Examples */}
+            <div className="mt-4 space-y-2">
+              <p className="text-white/20 text-[10px] font-semibold uppercase tracking-widest px-1">Ejemplos</p>
+              {EXAMPLES.map((e) => (
+                <button
+                  key={e}
+                  onClick={() => setRawText(e)}
+                  className="w-full text-left text-[12px] text-white/35 hover:text-white/65 transition-colors px-4 py-2.5 rounded-xl border border-white/6 hover:border-white/15 hover:bg-white/3"
+                >
+                  "{e}"
                 </button>
               ))}
             </div>
-
-            <button
-              onClick={handleParse}
-              disabled={!rawText.trim() || parsing}
-              className="btn btn-accent w-full mt-5 text-[15px] min-h-[50px] disabled:opacity-40"
-            >
-              {parsing ? (
-                <><Loader2 size={16} className="animate-spin" /> Interpretando...</>
-              ) : (
-                <><Sparkles size={16} /> Planificar mi viaje <ArrowRight size={16} /></>
-              )}
-            </button>
           </div>
         )}
 
-        {/* ─── Step 2: confirmación estructurada ─── */}
+        {/* ── Step 2: confirm route ── */}
         {step === "confirm" && (
-          <div
-            className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm space-y-6"
-            style={{ animation: "scaleIn 0.4s ease-out both" }}
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-white font-semibold text-[16px]">✅ ¿Se entiende así tu viaje?</p>
+          <div style={{ animation: "scaleIn 0.35s ease-out both" }} className="space-y-3">
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-1">
+              <p className="text-white font-semibold text-[15px]">Confirma tu ruta</p>
               <button
                 onClick={() => setStep("input")}
-                className="text-white/40 hover:text-white/70 text-[13px] flex items-center gap-1"
+                className="text-white/35 hover:text-white/65 text-[12px] flex items-center gap-1 transition-colors"
               >
-                <X size={13} /> Reescribir
+                <X size={12} /> Reescribir
               </button>
             </div>
 
-            {/* Origin (fixed) */}
-            <div>
-              <p className="text-white/50 text-[11px] font-semibold uppercase tracking-wide mb-2">Origen</p>
-              <div className="bg-white/8 rounded-xl px-4 py-3 text-white/70 text-[14px] border border-white/10">
-                📍 {origin}
-              </div>
-            </div>
+            {/* Route card */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
 
-            {/* Cities */}
-            <div>
-              <p className="text-white/50 text-[11px] font-semibold uppercase tracking-wide mb-2">Ciudades de destino</p>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {cities.map((c, i) => (
-                  <div
-                    key={c}
-                    className="flex items-center gap-2 bg-ocean/30 border border-ocean/40 rounded-full px-3 py-1.5 text-[13px] text-white"
-                  >
-                    <span>{i + 1}. {c}</span>
-                    <button onClick={() => removeCity(i)} className="text-white/50 hover:text-white">
-                      <X size={12} />
+              {/* Departure date row */}
+              <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/8">
+                <div className="w-8 h-8 rounded-full bg-ocean/30 border border-ocean/50 flex items-center justify-center shrink-0">
+                  <MapPin size={14} className="text-ocean-light" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[11px] text-white/40 uppercase tracking-wide font-semibold">Origen</p>
+                  <p className="text-[14px] font-semibold text-white">📍 {origin}</p>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <p className="text-[10px] text-white/35 uppercase tracking-wide flex items-center gap-1">
+                    <Calendar size={9} /> Sale el
+                  </p>
+                  <input
+                    type="date"
+                    value={departureDate}
+                    onChange={(e) => setDepartureDate(e.target.value)}
+                    className="bg-white/8 border border-white/15 rounded-lg px-2.5 py-1.5 text-white text-[13px] font-semibold focus:outline-none focus:border-ocean-light/50 [color-scheme:dark] w-[148px]"
+                  />
+                </div>
+              </div>
+
+              {/* City rows */}
+              {cityRows.map((row, i) => (
+                <div
+                  key={i}
+                  className="border-b border-white/8 last:border-b-0"
+                  style={{ animation: `fadeInUp 0.25s ease-out ${i * 0.05}s both` }}
+                >
+                  {/* Transit indicator */}
+                  <div className="flex items-center gap-2 px-4 py-1.5 bg-white/2">
+                    <div className="w-8 flex justify-center">
+                      <div className="w-[1px] h-4 bg-white/15" />
+                    </div>
+                    <p className="text-[10px] text-white/25">✈️ vuelo / traslado</p>
+                  </div>
+
+                  {/* City */}
+                  <div className="flex items-start gap-3 px-4 py-3.5">
+                    {/* Number + reorder */}
+                    <div className="flex flex-col items-center gap-0.5 shrink-0">
+                      <button
+                        onClick={() => moveCity(i, -1)}
+                        disabled={i === 0}
+                        className="text-white/20 hover:text-white/50 disabled:opacity-0 transition-colors p-0.5"
+                      >
+                        <ChevronUp size={13} />
+                      </button>
+                      <div className="w-7 h-7 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[12px] font-bold text-white/70">
+                        {i + 1}
+                      </div>
+                      <button
+                        onClick={() => moveCity(i, 1)}
+                        disabled={i === cityRows.length - 1}
+                        className="text-white/20 hover:text-white/50 disabled:opacity-0 transition-colors p-0.5"
+                      >
+                        <ChevronDown size={13} />
+                      </button>
+                    </div>
+
+                    {/* City name + dates */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[15px] font-semibold text-white truncate">{row.name}</p>
+                      <p className="text-[11px] text-white/35 mt-0.5">
+                        {dates[i]?.arrival ? `${fmtDate(dates[i].arrival)} → ${fmtDate(dates[i].departure)}` : "Agrega fecha de salida"}
+                      </p>
+                    </div>
+
+                    {/* Days counter */}
+                    <div className="flex items-center gap-0 shrink-0 bg-white/8 border border-white/12 rounded-xl overflow-hidden">
+                      <button
+                        onClick={() => setDays(i, row.days - 1)}
+                        className="w-8 h-8 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                      >
+                        <Minus size={12} />
+                      </button>
+                      <div className="w-12 text-center">
+                        <p className="text-[14px] font-bold text-white tabular-nums">{row.days}</p>
+                        <p className="text-[9px] text-white/35 -mt-0.5">días</p>
+                      </div>
+                      <button
+                        onClick={() => setDays(i, row.days + 1)}
+                        className="w-8 h-8 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                      >
+                        <Plus size={12} />
+                      </button>
+                    </div>
+
+                    {/* Remove */}
+                    <button
+                      onClick={() => setCityRows((rows) => rows.filter((_, idx) => idx !== i))}
+                      className="text-white/20 hover:text-white/50 transition-colors ml-1 mt-0.5 shrink-0"
+                    >
+                      <X size={14} />
                     </button>
                   </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
+                </div>
+              ))}
+
+              {/* Return row */}
+              {cityRows.length > 0 && endDate && (
+                <div className="border-t border-white/8">
+                  <div className="flex items-center gap-2 px-4 py-1.5 bg-white/2">
+                    <div className="w-8 flex justify-center">
+                      <div className="w-[1px] h-4 bg-white/15" />
+                    </div>
+                    <p className="text-[10px] text-white/25">✈️ vuelo de regreso</p>
+                  </div>
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div className="w-7 h-7 rounded-full bg-ocean/20 border border-ocean/30 flex items-center justify-center shrink-0">
+                      <MapPin size={12} className="text-ocean-light/60" />
+                    </div>
+                    <div>
+                      <p className="text-[13px] text-white/50">📍 {origin}</p>
+                      <p className="text-[11px] text-white/30">{fmtDate(endDate)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Add city */}
+              <div className="border-t border-white/8 flex gap-2 p-3">
                 <input
                   value={newCity}
                   onChange={(e) => setNewCity(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addCity()}
-                  placeholder="Agregar ciudad..."
-                  className="flex-1 bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-white placeholder-white/30 text-[13px] focus:outline-none focus:border-ocean-light/60"
+                  placeholder="+ Agregar ciudad..."
+                  className="flex-1 bg-transparent text-white/60 placeholder-white/25 text-[13px] focus:outline-none px-2"
                 />
                 <button
                   onClick={addCity}
-                  className="bg-ocean/40 hover:bg-ocean/60 border border-ocean/40 rounded-xl px-3 py-2 text-white transition-colors"
+                  disabled={!newCity.trim()}
+                  className="bg-ocean/30 hover:bg-ocean/50 disabled:opacity-30 border border-ocean/40 rounded-lg px-3 py-1.5 text-white text-[12px] font-semibold transition-colors"
                 >
-                  <Plus size={14} />
+                  Agregar
                 </button>
               </div>
             </div>
 
-            {/* Dates */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-white/50 text-[11px] font-semibold uppercase tracking-wide mb-2">Fecha de ida</p>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-3 text-white text-[14px] focus:outline-none focus:border-ocean-light/60 [color-scheme:dark]"
-                />
+            {/* Travelers + style */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+              {/* Adults */}
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-white/60 text-[13px] font-semibold">Viajeros</p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setAdults((a) => Math.max(1, a - 1))}
+                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                  >
+                    <Minus size={13} />
+                  </button>
+                  <span className="text-white font-bold text-[18px] w-6 text-center tabular-nums">{adults}</span>
+                  <button
+                    onClick={() => setAdults((a) => Math.min(10, a + 1))}
+                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                  >
+                    <Plus size={13} />
+                  </button>
+                  <span className="text-white/35 text-[12px]">adultos</span>
+                </div>
               </div>
-              <div>
-                <p className="text-white/50 text-[11px] font-semibold uppercase tracking-wide mb-2">Fecha de vuelta</p>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-3 text-white text-[14px] focus:outline-none focus:border-ocean-light/60 [color-scheme:dark]"
-                />
-              </div>
-            </div>
 
-            {/* Adults */}
-            <div>
-              <p className="text-white/50 text-[11px] font-semibold uppercase tracking-wide mb-2">Viajeros</p>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => setAdults((a) => Math.max(1, a - 1))}
-                  className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
-                >
-                  <Minus size={14} />
-                </button>
-                <span className="text-white font-bold text-[20px] w-8 text-center tabular-nums">{adults}</span>
-                <button
-                  onClick={() => setAdults((a) => Math.min(10, a + 1))}
-                  className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
-                >
-                  <Plus size={14} />
-                </button>
-                <span className="text-white/50 text-[13px]">adultos</span>
-              </div>
-            </div>
-
-            {/* Style */}
-            <div>
-              <p className="text-white/50 text-[11px] font-semibold uppercase tracking-wide mb-2">Estilo de viaje</p>
+              {/* Style selector */}
+              <p className="text-white/60 text-[13px] font-semibold mb-2.5">Estilo de viaje</p>
               <div className="grid grid-cols-3 gap-2">
                 {STYLE_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() => setStyle(opt.value)}
-                    className={`rounded-xl border p-3 text-left transition-all ${
+                    className={`relative rounded-xl p-3 text-left transition-all border ${
                       style === opt.value
-                        ? "border-ocean-light/60 bg-ocean/25 text-white"
-                        : "border-white/10 bg-white/5 text-white/60 hover:border-white/25"
+                        ? "border-ocean-light/50 bg-ocean/20 shadow-[0_0_12px_rgba(66,165,245,0.15)]"
+                        : "border-white/8 bg-white/3 hover:border-white/20 hover:bg-white/6"
                     }`}
                   >
-                    <span className="text-[20px] block mb-1">{opt.emoji}</span>
-                    <p className="text-[12px] font-semibold">{opt.label}</p>
-                    <p className="text-[10px] opacity-60 mt-0.5">{opt.price}</p>
+                    <p className="text-[22px] mb-1.5">{opt.emoji}</p>
+                    <p className={`text-[13px] font-bold ${style === opt.value ? "text-white" : "text-white/60"}`}>
+                      {opt.label}
+                    </p>
+                    <p className={`text-[10px] mt-0.5 ${style === opt.value ? "text-ocean-light/80" : "text-white/30"}`}>
+                      {opt.range}
+                    </p>
+                    <p className={`text-[9px] mt-1 leading-tight ${style === opt.value ? "text-white/50" : "text-white/20"}`}>
+                      {opt.desc}
+                    </p>
+                    {style === opt.value && (
+                      <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-ocean-light flex items-center justify-center">
+                        <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                      </div>
+                    )}
                   </button>
                 ))}
               </div>
             </div>
 
+            {/* CTA */}
             <button
               onClick={handleGenerate}
-              disabled={!cities.length || !startDate || !endDate}
-              className="btn btn-accent w-full text-[15px] min-h-[52px] disabled:opacity-40"
+              disabled={!canGenerate}
+              className="btn btn-accent w-full text-[15px] min-h-[52px] disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <Sparkles size={16} />
-              Generar mi itinerario completo
+              Generar itinerario completo
               <ArrowRight size={16} />
             </button>
+
+            {!departureDate && cityRows.length > 0 && (
+              <p className="text-center text-[12px] text-white/30">
+                Agrega la fecha de salida para continuar
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -367,9 +503,9 @@ function GeneratingScreen() {
 
   return (
     <div className="min-h-screen bg-[#0D1F3C] flex items-center justify-center px-6">
-      <div className="text-center max-w-sm">
+      <div className="text-center max-w-sm w-full">
         <div className="relative w-20 h-20 mx-auto mb-8">
-          <div className="absolute inset-0 rounded-full border-4 border-ocean/20" />
+          <div className="absolute inset-0 rounded-full border-4 border-ocean/15" />
           <div
             className="absolute inset-0 rounded-full border-4 border-transparent border-t-ocean-light"
             style={{ animation: "spin 1s linear infinite" }}
@@ -378,20 +514,20 @@ function GeneratingScreen() {
         </div>
         <p className="font-serif text-[22px] font-bold text-white mb-2">Armando tu viaje...</p>
         <p
-          className="text-[14px] text-white/60 mb-8 min-h-[20px] transition-all"
+          className="text-[14px] text-white/50 mb-8 min-h-[20px]"
           key={generatingStep}
           style={{ animation: "fadeInUp 0.3s ease-out both" }}
         >
           {generatingStep}
         </p>
-        <div className="flex flex-col gap-2">
+        <div className="space-y-2">
           {steps.map((s) => (
             <div
               key={s}
-              className={`text-[12px] px-4 py-2 rounded-lg border transition-all ${
+              className={`text-[12px] px-4 py-2.5 rounded-xl border transition-all duration-500 ${
                 s === generatingStep
-                  ? "border-ocean-light/40 bg-ocean/20 text-white"
-                  : "border-white/8 text-white/25"
+                  ? "border-ocean-light/30 bg-ocean/15 text-white"
+                  : "border-white/6 text-white/20"
               }`}
             >
               {s}

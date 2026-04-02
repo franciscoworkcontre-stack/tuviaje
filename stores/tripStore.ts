@@ -50,6 +50,7 @@ const defaultPlanningInput: PlanningInput = {
   rawText: "",
   originCity: "",
   destinationCities: [],
+  daysPerCity: [],
   startDate: "",
   endDate: "",
   adults: 2,
