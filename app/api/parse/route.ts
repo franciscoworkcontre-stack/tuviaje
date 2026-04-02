@@ -27,21 +27,29 @@ JSON a devolver:
   "originCity": "Santiago",
   "destinationCities": ["Buenos Aires", "Montevideo"],
   "daysPerCity": [4, 3],
-  "departureDate": "YYYY-MM-DD",
+  "departureDate": null,
   "adults": 2,
   "travelStyle": "comfort",
-  "flexible": false,
-  "flexibleMonth": null,
-  "flexibleYear": null,
-  "flexibleDurationDays": null
+  "flexible": true,
+  "flexibleMonth": "julio",
+  "flexibleYear": 2026,
+  "flexibleDurationDays": 14
 }
 
-Reglas:
-- flexible: true si el usuario dice "en julio", "en agosto", "vacaciones de invierno", "cualquier semana de X", "las mejores fechas en X" — es decir, NO especifica días exactos, solo el mes o período general.
-- Si flexible=true: pon flexibleMonth (nombre del mes en español minúscula), flexibleYear (número), flexibleDurationDays (total de días del viaje). departureDate puede ser null.
-- Si flexible=false: departureDate es la fecha exacta. Si dice "julio" sin día específico usa el 10. Año futuro más cercano.
+REGLA MÁS IMPORTANTE — flexible vs exacto:
+- flexible=TRUE cuando el usuario dice solo el MES sin día específico: "en julio", "2 semanas en julio", "agosto", "vacaciones de invierno", "en verano". NO sabe qué días exactos dentro del mes.
+- flexible=FALSE solo cuando el usuario da días EXACTOS: "del 10 al 24 de julio", "el 15 de agosto", "saliendo el 3 de julio". Sabe exactamente qué días.
+
+Ejemplos:
+- "2 semanas en julio" → flexible=true, flexibleMonth="julio", flexibleDurationDays=14, departureDate=null
+- "en agosto, 10 días" → flexible=true, flexibleMonth="agosto", flexibleDurationDays=10, departureDate=null
+- "del 10 al 24 de julio" → flexible=false, departureDate="2026-07-10"
+- "saliendo el 15 de julio" → flexible=false, departureDate="2026-07-15"
+
+Otras reglas:
+- flexibleYear: año futuro más cercano para ese mes desde hoy (${today})
 - daysPerCity: si dice "2 semanas" para 2 ciudades → [7, 7]. Si dice "4 días en BA y 3 en Montevideo" → [4, 3]. Default: 4 días por ciudad.
-- adults: "mi esposa y yo"/"nosotros dos" → 2, "somos 3" → 3. Default: 2.
+- adults: "mi esposa y yo"/"nosotros dos"/"somos 2" → 2, "somos 3" → 3. Default: 2.
 - travelStyle: "mochilero" si dice mochilero/hostal/económico. "premium" si dice lujo/5 estrellas. Default: "comfort".
 - destinationCities: nombres correctamente capitalizados. Máximo 5.`
     }],

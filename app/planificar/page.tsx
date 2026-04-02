@@ -99,9 +99,28 @@ export default function PlanificarPage() {
       setAdults(p.adults ?? 2);
       setStyle(p.travelStyle ?? "comfort");
 
-      if (p.flexible && p.flexibleMonth && p.flexibleDurationDays) {
+      // Fallback: if no departure date but has a month, treat as flexible
+      const isFlexible = p.flexible ||
+        (!p.departureDate && p.flexibleMonth) ||
+        (!p.departureDate && /\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b/i.test(rawText) && !/\bdel?\s+\d+\b/i.test(rawText));
+
+      // Extract month from raw text as last resort
+      const MONTHS: Record<string, number> = { enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11 };
+      const monthMatch = rawText.toLowerCase().match(/\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b/i);
+      const detectedMonth = p.flexibleMonth ?? monthMatch?.[1]?.toLowerCase() ?? null;
+      const weeksMatch = rawText.match(/(\d+)\s*semanas?/i);
+      const daysMatch = rawText.match(/(\d+)\s*d[ií]as?/i);
+      const detectedDuration = p.flexibleDurationDays ?? (weeksMatch ? parseInt(weeksMatch[1]) * 7 : daysMatch ? parseInt(daysMatch[1]) : null);
+      const detectedYear = p.flexibleYear ?? (() => {
+        if (!detectedMonth) return new Date().getFullYear();
+        const mIdx = MONTHS[detectedMonth] ?? 0;
+        const now = new Date();
+        return mIdx < now.getMonth() ? now.getFullYear() + 1 : now.getFullYear();
+      })();
+
+      if (isFlexible && detectedMonth && detectedDuration) {
         // Flexible dates — go to suggestions step
-        const ctx = { month: p.flexibleMonth, year: p.flexibleYear ?? new Date().getFullYear(), duration: p.flexibleDurationDays };
+        const ctx = { month: detectedMonth, year: detectedYear, duration: detectedDuration };
         setFlexibleContext(ctx);
         setLoadingSuggestions(true);
         setStep("dates");
