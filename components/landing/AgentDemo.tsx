@@ -22,7 +22,7 @@ const AGENTS: Agent[] = [
     task: "Comparando 1.247 vuelos y rutas...",
     resultHighlight: "Sky LA482 — $32.000 / persona",
     completionMessage: "¡Te conseguí el mejor vuelo al mejor precio! ✈️",
-    duration: 2600,
+    duration: 1200,
   },
   {
     id: "buses",
@@ -31,7 +31,7 @@ const AGENTS: Agent[] = [
     task: "Escaneando Pullman, Andesmar, Rome2Rio...",
     resultHighlight: "Pullman cama suite — $22.000",
     completionMessage: "¡Encontré la mejor opción en bus! 🚌",
-    duration: 2000,
+    duration: 1000,
   },
   {
     id: "hotels",
@@ -40,7 +40,7 @@ const AGENTS: Agent[] = [
     task: "Revisando 3.820 hoteles y hostales...",
     resultHighlight: "Hotel Clasico BA ⭐ 4.2 — $38.000/noche",
     completionMessage: "¡Te conseguí el mejor hotel de la zona! 🏨",
-    duration: 3200,
+    duration: 1300,
   },
   {
     id: "itinerary",
@@ -49,7 +49,7 @@ const AGENTS: Agent[] = [
     task: "Generando plan día a día con IA...",
     resultHighlight: "14 días · 42 actividades · 9 restaurantes",
     completionMessage: "¡Planeé tu viaje para que sea inolvidable! 🗺️",
-    duration: 3800,
+    duration: 1500,
   },
   {
     id: "optimizer",
@@ -58,11 +58,16 @@ const AGENTS: Agent[] = [
     task: "Buscando ahorros y combinaciones...",
     resultHighlight: "Volar el jueves ahorra $18.000 ↓",
     completionMessage: "¡Calculé todo para que gastes lo justo! 💰",
-    duration: 2800,
+    duration: 1100,
   },
 ];
 
-const LOOP_DURATION = 13000;
+// Each agent runs fully before the next one starts.
+// TOAST_MS: how long the completion message stays visible.
+// GAP: pause after agent finishes before next one activates.
+const TOAST_MS   = 1100;
+const GAP        = 400;
+const LOOP_DURATION = 14000;
 
 // ─── Agent card — fixed height, no layout shift ───────────────
 function AgentCard({ agent, status }: { agent: Agent; status: AgentStatus }) {
@@ -318,37 +323,50 @@ export function AgentDemo() {
     setStatuses(AGENTS.map(() => "idle"));
     setToast(null);
 
-    // Phase 1: agents activate at 800ms
-    schedule(() => {
-      setPhase(1);
-      AGENTS.forEach((agent, i) => {
-        // start searching
-        schedule(() => {
-          setStatuses((prev) => {
-            const next = [...prev];
-            next[i] = "searching";
-            return next;
-          });
-        }, i * 250);
+    setPhase(1);
 
-        // finish + toast
-        const finishAt = i * 250 + agent.duration;
-        schedule(() => {
-          setStatuses((prev) => {
-            const next = [...prev];
-            next[i] = "done";
-            return next;
-          });
-          showToast(agent.completionMessage);
-        }, finishAt);
-      });
-    }, 800);
+    // Sequential: each agent starts only after the previous one's toast ends.
+    // cursor tracks the absolute ms offset from now.
+    let cursor = 600; // initial pause before first agent
 
-    // Phase 2: summary at 5 500ms
-    schedule(() => setPhase(2), 5500);
+    AGENTS.forEach((agent, i) => {
+      const startAt  = cursor;
+      const finishAt = startAt + agent.duration;
 
-    // Phase 3: PDF at 6 300ms
-    schedule(() => setPhase(3), 6300);
+      // activate this agent
+      schedule(() => {
+        setStatuses((prev) => {
+          const next = [...prev];
+          next[i] = "searching";
+          return next;
+        });
+      }, startAt);
+
+      // finish + show toast
+      schedule(() => {
+        setStatuses((prev) => {
+          const next = [...prev];
+          next[i] = "done";
+          return next;
+        });
+        setToast(agent.completionMessage);
+      }, finishAt);
+
+      // hide toast
+      schedule(() => setToast(null), finishAt + TOAST_MS);
+
+      // next agent starts after toast + small gap
+      cursor = finishAt + TOAST_MS + GAP;
+    });
+
+    // All agents done: cursor is after the last toast+gap
+    const allDoneAt = cursor - GAP; // last finishAt + TOAST_MS
+
+    // Summary bar
+    schedule(() => setPhase(2), allDoneAt);
+
+    // PDF slides in
+    schedule(() => setPhase(3), allDoneAt + 600);
 
     // Restart
     schedule(run, LOOP_DURATION);
