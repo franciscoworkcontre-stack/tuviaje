@@ -4,10 +4,11 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight, Sparkles, Loader2, X, Plus, Minus,
-  ChevronUp, ChevronDown, MapPin, Calendar,
+  ChevronUp, ChevronDown, MapPin, Calendar, Wand2,
 } from "lucide-react";
 import { useTripStore } from "@/stores/tripStore";
 import type { TravelStyle } from "@/types/trip";
+import type { DateSuggestion } from "@/app/api/suggest-dates/route";
 
 const STYLE_OPTIONS: { value: TravelStyle; emoji: string; label: string; range: string; desc: string }[] = [
   { value: "mochilero", emoji: "🎒", label: "Mochilero", range: "$30–50K/día", desc: "Hostales · buses · street food" },
@@ -40,10 +41,15 @@ export default function PlanificarPage() {
   const router = useRouter();
   const { setPlanningInput, setTrip, setIsGenerating, setGeneratingStep } = useTripStore();
 
-  const [step, setStep] = useState<"input" | "confirm" | "generating" | "error">("input");
+  const [step, setStep] = useState<"input" | "dates" | "confirm" | "generating" | "error">("input");
   const [errorMsg, setErrorMsg] = useState("");
   const [rawText, setRawText] = useState("");
   const [parsing, setParsing] = useState(false);
+
+  // Flexible date suggestions
+  const [suggestions, setSuggestions] = useState<DateSuggestion[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [flexibleContext, setFlexibleContext] = useState<{month: string; year: number; duration: number} | null>(null);
 
   // Route state
   const [origin] = useState("Santiago");
@@ -90,15 +96,54 @@ export default function PlanificarPage() {
       const cities: string[] = p.destinationCities ?? ["Buenos Aires"];
       const days: number[] = p.daysPerCity ?? cities.map(() => 4);
       setCityRows(cities.map((name: string, i: number) => ({ name, days: days[i] ?? 4 })));
-      setDepartureDate(p.departureDate ?? "");
       setAdults(p.adults ?? 2);
       setStyle(p.travelStyle ?? "comfort");
+
+      if (p.flexible && p.flexibleMonth && p.flexibleDurationDays) {
+        // Flexible dates — go to suggestions step
+        const ctx = { month: p.flexibleMonth, year: p.flexibleYear ?? new Date().getFullYear(), duration: p.flexibleDurationDays };
+        setFlexibleContext(ctx);
+        setLoadingSuggestions(true);
+        setStep("dates");
+        const sugRes = await fetch("/api/suggest-dates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            month: ctx.month,
+            year: ctx.year,
+            durationDays: ctx.duration,
+            destinations: cities,
+            travelStyle: p.travelStyle ?? "comfort",
+            originCity: "Santiago",
+          }),
+        });
+        const sugData = await sugRes.json();
+        setSuggestions(sugData.suggestions ?? []);
+        setLoadingSuggestions(false);
+      } else {
+        setDepartureDate(p.departureDate ?? "");
+        setStep("confirm");
+      }
     } catch {
       setCityRows([{ name: "Buenos Aires", days: 4 }]);
+      setStep("confirm");
     } finally {
       setParsing(false);
-      setStep("confirm");
     }
+  }
+
+  function pickSuggestion(s: DateSuggestion) {
+    setDepartureDate(s.startDate);
+    // Distribute total days across cities
+    const totalTripDays = Math.ceil(
+      (new Date(s.endDate).getTime() - new Date(s.startDate).getTime()) / 86400000
+    );
+    const transitDays = cityRows.length;
+    const availableDays = totalTripDays - transitDays;
+    const basePerCity = Math.floor(availableDays / cityRows.length);
+    const remainder = availableDays % cityRows.length;
+    setCityRows((rows) => rows.map((r, i) => ({ ...r, days: basePerCity + (i < remainder ? 1 : 0) })));
+    setStep("confirm");
   }
 
   async function handleGenerate() {
@@ -175,6 +220,93 @@ export default function PlanificarPage() {
   }
 
   if (step === "generating") return <GeneratingScreen />;
+
+  if (step === "dates") {
+    return (
+      <div className="min-h-screen bg-[#0D1F3C] flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-lg">
+          <div className="text-center mb-8" style={{ animation: "fadeInDown 0.4s ease-out both" }}>
+            <p className="font-serif text-[26px] font-bold text-white mb-1">
+              tu<span className="text-ocean-light">[viaje]</span>
+            </p>
+          </div>
+
+          <div style={{ animation: "scaleIn 0.35s ease-out both" }}>
+            <div className="flex items-center justify-between px-1 mb-3">
+              <div>
+                <p className="text-white font-semibold text-[15px] flex items-center gap-2">
+                  <Wand2 size={15} className="text-ocean-light" />
+                  Mejor ventana en {flexibleContext?.month} {flexibleContext?.year}
+                </p>
+                <p className="text-white/40 text-[12px] mt-0.5">
+                  {flexibleContext?.duration} días · {cityRows.map(r => r.name).join(" → ")}
+                </p>
+              </div>
+              <button
+                onClick={() => setStep("input")}
+                className="text-white/35 hover:text-white/65 text-[12px] flex items-center gap-1 transition-colors"
+              >
+                <X size={12} /> Volver
+              </button>
+            </div>
+
+            {loadingSuggestions ? (
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-4">
+                <div className="relative w-12 h-12">
+                  <div className="absolute inset-0 rounded-full border-3 border-ocean/20" />
+                  <div className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-ocean-light"
+                    style={{ animation: "spin 1s linear infinite" }} />
+                </div>
+                <div className="text-center">
+                  <p className="text-white/70 text-[14px] font-semibold">Analizando {flexibleContext?.month}...</p>
+                  <p className="text-white/30 text-[12px] mt-1">Revisando feriados, temporadas y precios</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    onClick={() => pickSuggestion(s)}
+                    className="w-full text-left bg-white/5 hover:bg-white/8 border border-white/10 hover:border-ocean-light/30 rounded-2xl p-4 transition-all group"
+                    style={{ animation: `fadeInUp 0.3s ease-out ${i * 0.08}s both` }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        {s.badge && (
+                          <p className="text-[11px] font-bold text-ocean-light mb-1.5">{s.badge}</p>
+                        )}
+                        <p className="text-[16px] font-bold text-white mb-1">{s.title}</p>
+                        <p className="text-[12px] text-white/50 leading-relaxed">{s.reason}</p>
+                        {s.warnings && (
+                          <p className="text-[11px] text-sunset/70 mt-1.5 flex items-start gap-1">
+                            <span className="shrink-0">⚠️</span> {s.warnings}
+                          </p>
+                        )}
+                      </div>
+                      <div className="shrink-0 mt-1">
+                        <div className="w-8 h-8 rounded-full bg-white/5 group-hover:bg-ocean/30 border border-white/10 group-hover:border-ocean/50 flex items-center justify-center transition-all">
+                          <ArrowRight size={14} className="text-white/30 group-hover:text-ocean-light transition-colors" />
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+
+                {/* Manual option */}
+                <button
+                  onClick={() => setStep("confirm")}
+                  className="w-full text-center text-[12px] text-white/25 hover:text-white/50 transition-colors py-2"
+                >
+                  Prefiero elegir las fechas yo mismo →
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (step === "error") {
     return (
