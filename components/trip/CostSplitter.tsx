@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   PlusIcon as Plus,
   XIcon as X,
@@ -9,10 +9,7 @@ import {
   ArrowRightIcon as ArrowRight,
 } from "@/components/ui/AnimatedIcons";
 import { useTripStore } from "@/stores/tripStore";
-
-function fmt(n: number) {
-  return "$" + Math.abs(Math.round(n)).toLocaleString("es-CL");
-}
+import { fmtCurrency } from "@/lib/currency";
 
 function computeBalances(
   travelers: { id: string; name: string; emoji: string; color: string }[],
@@ -62,17 +59,23 @@ const CATEGORIES = [
 ] as const;
 
 export function CostSplitter() {
-  const { trip, addTraveler, removeTraveler, renameTraveler, setSplitAssignment, setSplitEqualBetweenAll } = useTripStore();
+  const { trip, addTraveler, removeTraveler, renameTraveler, setSplitAssignment, setSplitEqualBetweenAll, displayCurrency } = useTripStore();
+  const fmt = (n: number) => fmtCurrency(Math.abs(n), displayCurrency);
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
 
-  if (!trip) return null;
-  const { travelers_list, splitAssignments, costs } = trip;
+  const travelers_list = trip?.travelers_list ?? [];
+  const splitAssignments = trip?.splitAssignments ?? [];
+  const costs = trip?.costs;
 
-  if (travelers_list.length >= 1 && splitAssignments.length === 0) {
-    setTimeout(() => setSplitEqualBetweenAll(), 0);
-  }
+  useEffect(() => {
+    if (travelers_list.length >= 1 && splitAssignments.length === 0) {
+      setSplitEqualBetweenAll();
+    }
+  }, [travelers_list.length, splitAssignments.length, setSplitEqualBetweenAll]);
+
+  if (!trip) return null;
 
   const balances = computeBalances(travelers_list, splitAssignments);
   const transactions = computeTransactions(balances);
@@ -288,7 +291,7 @@ export function CostSplitter() {
       {/* Total */}
       <div className="flex items-center justify-between px-1">
         <p className="text-[12px] text-white/30">Total del viaje</p>
-        <p className="text-[15px] font-bold text-[#FF7043] tabular-nums">{fmt(costs.total)}</p>
+        <p className="text-[15px] font-bold text-[#FF7043] tabular-nums">{fmt(trip.costs.total)}</p>
       </div>
     </div>
   );

@@ -87,7 +87,20 @@ async function scrapeCity(
   const withEnoughReviews = items.filter(h => h.name && h.price && (h.reviews ?? 0) >= MIN_REVIEWS);
   const candidates = withEnoughReviews.length >= 2 ? withEnoughReviews : items.filter(h => h.name && h.price);
 
-  const mapped = candidates
+  // Hard price cap by travel style (CLP/night)
+  const PRICE_CAP_CLP: Record<string, number> = {
+    mochilero: 80_000,
+    comfort:   180_000,
+    premium:   450_000,
+  };
+  const capClp = PRICE_CAP_CLP[travelStyle];
+  let cappedCandidates = candidates;
+  if (capClp !== undefined) {
+    const withinCap = candidates.filter(h => Math.round((h.price ?? 0) * USD_TO_CLP) <= capClp);
+    cappedCandidates = withinCap.length >= 2 ? withinCap : candidates.slice().sort((a, b) => (a.price ?? 0) - (b.price ?? 0)).slice(0, Math.max(candidates.length, 2));
+  }
+
+  const mapped = cappedCandidates
     .map(h => {
       const priceUsd = h.price ?? 0;
       const priceClp = Math.round(priceUsd * USD_TO_CLP);

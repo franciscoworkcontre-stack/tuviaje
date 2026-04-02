@@ -53,17 +53,17 @@ const s = StyleSheet.create({
 
   // Route map
   routeMap:        { backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 10, paddingHorizontal: 18, paddingVertical: 14, marginBottom: 20 },
-  routeMapLabel:   { fontSize: 7, fontFamily: FONTB, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 },
-  routeMapLine:    { fontSize: 11, fontFamily: FONTB, color: c.white, letterSpacing: 0.5, marginBottom: 10 },
-  routeStops:      { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  routeStop:       { backgroundColor: "rgba(255,112,67,0.18)", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5 },
+  routeMapLabel:   { fontSize: 7, fontFamily: FONTB, color: "rgba(255,255,255,0.35)", marginBottom: 8 },
+  routeMapLine:    { fontSize: 11, fontFamily: FONTB, color: c.white, marginBottom: 10 },
+  routeStops:      { flexDirection: "row", flexWrap: "wrap" },
+  routeStop:       { backgroundColor: "rgba(255,112,67,0.18)", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5, marginRight: 6, marginBottom: 6 },
   routeStopText:   { fontSize: 9, fontFamily: FONTB, color: c.sunset },
   routeStopDays:   { fontSize: 8, fontFamily: FONT, color: "rgba(255,255,255,0.45)", marginTop: 1 },
 
   // Cover meta grid
-  coverMetaGrid:   { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 36 },
-  coverMetaItem:   { backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, minWidth: 100 },
-  coverMetaLabel:  { fontSize: 8, color: "rgba(255,255,255,0.4)", fontFamily: FONT, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 },
+  coverMetaGrid:   { flexDirection: "row", flexWrap: "wrap", marginBottom: 36 },
+  coverMetaItem:   { backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, minWidth: 100, marginRight: 10, marginBottom: 10 },
+  coverMetaLabel:  { fontSize: 8, color: "rgba(255,255,255,0.4)", fontFamily: FONT, marginBottom: 3 },
   coverMetaValue:  { fontSize: 15, color: c.white, fontFamily: FONTB },
   coverMetaAccent: { color: c.sunset },
 
@@ -82,10 +82,10 @@ const s = StyleSheet.create({
   // Content pages
   page:            { backgroundColor: c.white, paddingHorizontal: 40, paddingVertical: 36, fontFamily: FONT },
   pageHeader:      { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
-  pageHeaderBrand: { fontSize: 8, color: c.muted, fontFamily: FONTB, letterSpacing: 0.5 },
+  pageHeaderBrand: { fontSize: 8, color: c.muted, fontFamily: FONTB },
   pageHeaderTitle: { fontSize: 8, color: c.muted, fontFamily: FONT },
 
-  sectionLabel:    { fontSize: 8, fontFamily: FONTB, textTransform: "uppercase", letterSpacing: 1.2, color: c.secondary, marginBottom: 6 },
+  sectionLabel:    { fontSize: 8, fontFamily: FONTB, color: c.secondary, marginBottom: 6 },
   h2:              { fontSize: 22, fontFamily: FONTB, color: c.text, marginBottom: 2 },
   h3:              { fontSize: 14, fontFamily: FONTB, color: c.text },
   h4:              { fontSize: 11, fontFamily: FONTB, color: c.text },
@@ -105,8 +105,8 @@ const s = StyleSheet.create({
   perPersonText:   { fontSize: 10, fontFamily: FONTB, color: c.ocean },
 
   // Split
-  splitCard:       { borderRadius: 8, padding: 12, marginBottom: 8, flexDirection: "row", alignItems: "center", gap: 12 },
-  splitEmoji:      { fontSize: 20, width: 28 },
+  splitCard:       { borderRadius: 8, padding: 12, marginBottom: 8, flexDirection: "row", alignItems: "center" },
+  splitEmoji:      { fontSize: 20, width: 28, marginRight: 12 },
   splitName:       { fontSize: 12, fontFamily: FONTB, color: c.text },
   splitDetail:     { fontSize: 9, fontFamily: FONT, color: c.secondary },
   splitOwes:       { fontSize: 13, fontFamily: FONTB, color: c.sunsetDark },
@@ -115,18 +115,18 @@ const s = StyleSheet.create({
 
   // Day card
   dayHeader:       { backgroundColor: c.ocean, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 4, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  dayNum:          { fontSize: 9, fontFamily: FONTB, color: "rgba(255,255,255,0.55)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 1 },
+  dayNum:          { fontSize: 9, fontFamily: FONTB, color: "rgba(255,255,255,0.55)", marginBottom: 1 },
   dayTitle:        { fontSize: 14, fontFamily: FONTB, color: c.white },
   dayCity:         { fontSize: 9, fontFamily: FONT, color: "rgba(255,255,255,0.6)", marginTop: 1 },
   dayCost:         { fontSize: 16, fontFamily: FONTB, color: c.white },
 
   // Travel day
   travelDayBox:    { backgroundColor: c.amberLight, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 8, borderLeftWidth: 3, borderLeftColor: c.amber },
-  travelDayTag:    { fontSize: 8, fontFamily: FONTB, color: c.amber, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 2 },
+  travelDayTag:    { fontSize: 8, fontFamily: FONTB, color: c.amber, marginBottom: 2 },
   travelDayText:   { fontSize: 10, fontFamily: FONT, color: c.body, lineHeight: 1.5 },
 
-  actRow:          { flexDirection: "row", paddingVertical: 5, paddingHorizontal: 2, borderBottomWidth: 1, borderBottomColor: "#F0EBE3", gap: 8, alignItems: "flex-start" },
-  actTime:         { fontSize: 9, fontFamily: FONT, color: c.secondary, width: 32, paddingTop: 1 },
+  actRow:          { flexDirection: "row", paddingVertical: 5, paddingHorizontal: 2, borderBottomWidth: 1, borderBottomColor: "#F0EBE3", alignItems: "flex-start" },
+  actTime:         { fontSize: 9, fontFamily: FONT, color: c.secondary, width: 32, paddingTop: 1, marginRight: 8 },
   actName:         { fontSize: 10, fontFamily: FONTB, color: c.text, flex: 1 },
   actTip:          { fontSize: 9, fontFamily: FONT, color: c.secondary, flex: 2, lineHeight: 1.4 },
   actCost:         { fontSize: 10, fontFamily: FONTB, color: c.sunset, width: 58, textAlign: "right" },
@@ -134,15 +134,15 @@ const s = StyleSheet.create({
 
   // Accommodations table
   tableHeader:     { flexDirection: "row", backgroundColor: c.ocean, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 8, marginBottom: 2 },
-  tableHeaderCell: { fontSize: 8, fontFamily: FONTB, color: "rgba(255,255,255,0.85)", textTransform: "uppercase", letterSpacing: 0.6 },
+  tableHeaderCell: { fontSize: 8, fontFamily: FONTB, color: "rgba(255,255,255,0.85)" },
   tableRow:        { flexDirection: "row", paddingHorizontal: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: c.sandDark, alignItems: "center" },
   tableRowAlt:     { backgroundColor: c.sand },
   tableCell:       { fontSize: 10, fontFamily: FONT, color: c.body },
   tableCellBold:   { fontSize: 10, fontFamily: FONTB, color: c.text },
 
   // Optimizer tips
-  tipCard:         { backgroundColor: c.oceanLighter, borderRadius: 8, padding: 12, marginBottom: 8, flexDirection: "row", gap: 10, alignItems: "flex-start" },
-  tipNum:          { fontSize: 14, fontFamily: FONTB, color: c.ocean, width: 22 },
+  tipCard:         { backgroundColor: c.oceanLighter, borderRadius: 8, padding: 12, marginBottom: 8, flexDirection: "row", alignItems: "flex-start" },
+  tipNum:          { fontSize: 14, fontFamily: FONTB, color: c.ocean, width: 22, marginRight: 10 },
   tipText:         { fontSize: 10, fontFamily: FONT, color: c.body, lineHeight: 1.55, flex: 1 },
 
   // Back cover
@@ -151,8 +151,8 @@ const s = StyleSheet.create({
   backSub:         { fontSize: 12, fontFamily: FONT, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, maxWidth: 340 },
   backUrl:         { fontSize: 26, fontFamily: FONTB, color: c.sunset, marginTop: 28 },
   backUrlSub:      { fontSize: 11, fontFamily: FONT, color: "rgba(255,255,255,0.4)", marginTop: 4 },
-  backFeatures:    { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 32 },
-  backFeaturePill: { backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
+  backFeatures:    { flexDirection: "row", flexWrap: "wrap", marginTop: 32 },
+  backFeaturePill: { backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 10, marginBottom: 10 },
   backFeatureText: { fontSize: 11, fontFamily: FONT, color: "rgba(255,255,255,0.8)" },
   backFooter:      { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)", paddingTop: 16 },
   backFooterText:  { fontSize: 9, fontFamily: FONT, color: "rgba(255,255,255,0.25)" },
@@ -295,7 +295,7 @@ function TripPDF({ trip }: { trip: Trip }) {
 
           {/* Route map */}
           <View style={s.routeMap}>
-            <Text style={s.routeMapLabel}>Ruta del viaje</Text>
+            <Text style={s.routeMapLabel}>{"Ruta del viaje".toUpperCase()}</Text>
             <Text style={s.routeMapLine}>{buildRouteText(trip)}</Text>
             <View style={s.routeStops}>
               {trip.cities.map((city) => (
@@ -310,19 +310,19 @@ function TripPDF({ trip }: { trip: Trip }) {
           {/* Meta grid */}
           <View style={s.coverMetaGrid}>
             <View style={s.coverMetaItem}>
-              <Text style={s.coverMetaLabel}>Costo total</Text>
+              <Text style={s.coverMetaLabel}>{"Costo total".toUpperCase()}</Text>
               <Text style={[s.coverMetaValue, s.coverMetaAccent]}>{fmt(trip.costs.total)}</Text>
             </View>
             <View style={s.coverMetaItem}>
-              <Text style={s.coverMetaLabel}>Por persona</Text>
+              <Text style={s.coverMetaLabel}>{"Por persona".toUpperCase()}</Text>
               <Text style={s.coverMetaValue}>{fmt(trip.costs.perPerson)}</Text>
             </View>
             <View style={s.coverMetaItem}>
-              <Text style={s.coverMetaLabel}>Por dia / persona</Text>
+              <Text style={s.coverMetaLabel}>{"Por dia / persona".toUpperCase()}</Text>
               <Text style={s.coverMetaValue}>{fmt(trip.costs.perDayPerPerson)}</Text>
             </View>
             <View style={s.coverMetaItem}>
-              <Text style={s.coverMetaLabel}>Ciudades</Text>
+              <Text style={s.coverMetaLabel}>{"Ciudades".toUpperCase()}</Text>
               <Text style={s.coverMetaValue}>{trip.cities.length}</Text>
             </View>
           </View>
@@ -359,7 +359,7 @@ function TripPDF({ trip }: { trip: Trip }) {
       <Page size="A4" style={s.page}>
         <PageHeader title="Presupuesto" tripTitle={trip.title} />
 
-        <Text style={s.sectionLabel}>Resumen de costos</Text>
+        <Text style={s.sectionLabel}>{"Resumen de costos".toUpperCase()}</Text>
         <Text style={s.h2}>Cuanto cuesta el viaje?</Text>
         <View style={s.divider} />
 
@@ -387,7 +387,7 @@ function TripPDF({ trip }: { trip: Trip }) {
         {/* Cost split summary */}
         {balances.length >= 2 && (
           <>
-            <Text style={[s.sectionLabel, { marginTop: 20 }]}>Division de gastos</Text>
+            <Text style={[s.sectionLabel, { marginTop: 20 }]}>{"Division de gastos".toUpperCase()}</Text>
             <Text style={s.h2}>Quien le debe a quien?</Text>
             <View style={s.divider} />
             {balances.map((b) => (
@@ -428,7 +428,7 @@ function TripPDF({ trip }: { trip: Trip }) {
           {/* Day header bar */}
           <View style={s.dayHeader}>
             <View>
-              <Text style={s.dayNum}>Dia {day.dayNumber}  ·  {day.date}</Text>
+              <Text style={s.dayNum}>{`DIA ${day.dayNumber}  ·  ${day.date}`}</Text>
               <Text style={s.dayTitle}>{day.isTravelDay ? "Dia de viaje" : day.theme}</Text>
               <Text style={s.dayCity}>Pin {day.city}</Text>
             </View>
@@ -441,7 +441,7 @@ function TripPDF({ trip }: { trip: Trip }) {
           {/* Travel day notice */}
           {day.isTravelDay && (
             <View style={s.travelDayBox}>
-              <Text style={s.travelDayTag}>Dia de traslado</Text>
+              <Text style={s.travelDayTag}>{"Dia de traslado".toUpperCase()}</Text>
               <Text style={s.travelDayText}>
                 Hoy viajas hacia {day.city}. Revisa tu itinerario de transporte y ten a mano tus documentos.
                 {day.morning?.length > 0 || day.afternoon?.length > 0
@@ -454,7 +454,7 @@ function TripPDF({ trip }: { trip: Trip }) {
           {/* Morning — always show if exists */}
           {(day.morning?.length > 0) && (
             <>
-              <Text style={[s.sectionLabel, { marginTop: 10 }]}>Manana</Text>
+              <Text style={[s.sectionLabel, { marginTop: 10 }]}>{"Manana".toUpperCase()}</Text>
               {day.morning.map((act, i) => (
                 <ActRow key={i} act={act} />
               ))}
@@ -464,7 +464,7 @@ function TripPDF({ trip }: { trip: Trip }) {
           {/* Lunch — skip on travel days with no data */}
           {day.lunch?.options?.[0] && (
             <>
-              <Text style={[s.sectionLabel, { marginTop: 8 }]}>Almuerzo</Text>
+              <Text style={[s.sectionLabel, { marginTop: 8 }]}>{"Almuerzo".toUpperCase()}</Text>
               <View style={s.actRow}>
                 <Text style={s.actTime}>13:00</Text>
                 <Text style={s.actName}>{day.lunch.recommended}</Text>
@@ -477,7 +477,7 @@ function TripPDF({ trip }: { trip: Trip }) {
           {/* Afternoon — always show if exists */}
           {(day.afternoon?.length > 0) && (
             <>
-              <Text style={[s.sectionLabel, { marginTop: 8 }]}>Tarde</Text>
+              <Text style={[s.sectionLabel, { marginTop: 8 }]}>{"Tarde".toUpperCase()}</Text>
               {day.afternoon.map((act, i) => (
                 <ActRow key={i} act={act} />
               ))}
@@ -487,7 +487,7 @@ function TripPDF({ trip }: { trip: Trip }) {
           {/* Dinner */}
           {day.dinner?.options?.[0] && (
             <>
-              <Text style={[s.sectionLabel, { marginTop: 8 }]}>Cena</Text>
+              <Text style={[s.sectionLabel, { marginTop: 8 }]}>{"Cena".toUpperCase()}</Text>
               <View style={s.actRow}>
                 <Text style={s.actTime}>20:00</Text>
                 <Text style={s.actName}>{day.dinner.recommended}</Text>
@@ -500,7 +500,7 @@ function TripPDF({ trip }: { trip: Trip }) {
           {/* Evening */}
           {day.eveningActivity && (
             <>
-              <Text style={[s.sectionLabel, { marginTop: 8 }]}>Noche</Text>
+              <Text style={[s.sectionLabel, { marginTop: 8 }]}>{"Noche".toUpperCase()}</Text>
               <ActRow act={day.eveningActivity} />
             </>
           )}
@@ -524,18 +524,18 @@ function TripPDF({ trip }: { trip: Trip }) {
       {/* ─── ALOJAMIENTO ──────────────────────────────────────────── */}
       <Page size="A4" style={s.page}>
         <PageHeader title="Alojamiento" tripTitle={trip.title} />
-        <Text style={s.sectionLabel}>Alojamiento</Text>
+        <Text style={s.sectionLabel}>{"Alojamiento".toUpperCase()}</Text>
         <Text style={s.h2}>Donde te quedas?</Text>
         <View style={s.divider} />
 
         {/* Table header */}
         <View style={s.tableHeader}>
-          <Text style={[s.tableHeaderCell, { flex: 3 }]}>Hotel</Text>
-          <Text style={[s.tableHeaderCell, { flex: 2 }]}>Ciudad / Barrio</Text>
-          <Text style={[s.tableHeaderCell, { flex: 1, textAlign: "center" }]}>Estrellas</Text>
-          <Text style={[s.tableHeaderCell, { flex: 1, textAlign: "center" }]}>Noches</Text>
-          <Text style={[s.tableHeaderCell, { flex: 2, textAlign: "right" }]}>Precio / noche</Text>
-          <Text style={[s.tableHeaderCell, { flex: 2, textAlign: "right" }]}>Total</Text>
+          <Text style={[s.tableHeaderCell, { flex: 3 }]}>{"Hotel".toUpperCase()}</Text>
+          <Text style={[s.tableHeaderCell, { flex: 2 }]}>{"Ciudad / Barrio".toUpperCase()}</Text>
+          <Text style={[s.tableHeaderCell, { flex: 1, textAlign: "center" }]}>{"Estrellas".toUpperCase()}</Text>
+          <Text style={[s.tableHeaderCell, { flex: 1, textAlign: "center" }]}>{"Noches".toUpperCase()}</Text>
+          <Text style={[s.tableHeaderCell, { flex: 2, textAlign: "right" }]}>{"Precio / noche".toUpperCase()}</Text>
+          <Text style={[s.tableHeaderCell, { flex: 2, textAlign: "right" }]}>{"Total".toUpperCase()}</Text>
         </View>
 
         {trip.accommodations.map((acc, i) => (
@@ -574,7 +574,7 @@ function TripPDF({ trip }: { trip: Trip }) {
         {/* Booking links */}
         {trip.accommodations.some((a) => a.bookingUrl) && (
           <View style={{ marginTop: 16 }}>
-            <Text style={[s.sectionLabel, { marginBottom: 8 }]}>Links de reserva</Text>
+            <Text style={[s.sectionLabel, { marginBottom: 8 }]}>{"Links de reserva".toUpperCase()}</Text>
             {trip.accommodations.filter((a) => a.bookingUrl).map((acc, i) => (
               <Text key={i} style={[s.caption, { color: c.ocean, marginBottom: 3 }]}>
                 {acc.name}: {acc.bookingUrl}
@@ -590,7 +590,7 @@ function TripPDF({ trip }: { trip: Trip }) {
       {hasTips && (
         <Page size="A4" style={s.page}>
           <PageHeader title="Consejos" tripTitle={trip.title} />
-          <Text style={s.sectionLabel}>Optimizacion del viaje</Text>
+          <Text style={s.sectionLabel}>{"Optimizacion del viaje".toUpperCase()}</Text>
           <Text style={s.h2}>Consejos para ahorrar y disfrutar mas</Text>
           <View style={s.divider} />
 

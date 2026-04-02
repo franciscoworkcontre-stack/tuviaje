@@ -9,6 +9,7 @@ import type {
   DayPlan,
   TransportLeg,
 } from "@/types/trip";
+import type { DisplayCurrency } from "@/lib/currency";
 
 const TRAVELER_EMOJIS = ["🧑", "👩", "🧔", "👱", "🧕", "👨‍🦱", "👩‍🦰", "🧒"];
 const TRAVELER_COLORS = [
@@ -43,6 +44,10 @@ interface TripStore {
   updateDay: (dayNumber: number, day: Partial<DayPlan>) => void;
   updateTransportLeg: (fromCity: string, toCity: string, selectedIndex: number) => void;
   selectFlight: (fromCity: string, toCity: string, flightIndex: number, priceClp: number) => void;
+
+  // Currency display
+  displayCurrency: DisplayCurrency;
+  setDisplayCurrency: (currency: DisplayCurrency) => void;
 
   // Cost splitting
   addTraveler: (name: string) => void;
@@ -81,6 +86,10 @@ export const useTripStore = create<TripStore>()(
       trip: null,
       setTrip: (trip) => set({ trip }),
       clearTrip: () => set({ trip: null }),
+
+      // ─── Currency ──────────────────────────────────────────────
+      displayCurrency: "CLP",
+      setDisplayCurrency: (currency) => set({ displayCurrency: currency }),
 
       // ─── Loading ───────────────────────────────────────────────
       isGenerating: false,

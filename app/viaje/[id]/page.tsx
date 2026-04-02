@@ -19,6 +19,9 @@ import {
 import { useTripStore } from "@/stores/tripStore";
 import { CostSummary } from "@/components/trip/CostSummary";
 import { CostSplitter } from "@/components/trip/CostSplitter";
+import { OptimizerTips } from "@/components/trip/OptimizerTips";
+import { CurrencySelector } from "@/components/ui/CurrencySelector";
+import { fmtCurrency } from "@/lib/currency";
 import type { DayPlan, HotelRecommendation, FlightOption } from "@/types/trip";
 
 function fmt(n: number) {
@@ -35,6 +38,7 @@ function HotelCard({
 }) {
   const [open, setOpen] = useState(rank === 0);
   const isTop = rank === 0;
+  const { displayCurrency } = useTripStore();
 
   return (
     <div className={`rounded-xl overflow-hidden border-2 transition-all duration-200 ${
@@ -74,7 +78,7 @@ function HotelCard({
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-2">
           <p className="text-[13px] font-bold text-sunset tabular-nums">
-            {fmt(hotel.pricePerNightClp)}<span className="text-[10px] text-[#78909C] font-normal">/noche</span>
+            {fmtCurrency(hotel.pricePerNightClp, displayCurrency)}<span className="text-[10px] text-[#78909C] font-normal">/noche</span>
           </p>
           {open ? <ChevronUp size={14} className="text-[#B0BEC5]" /> : <ChevronDown size={14} className="text-[#B0BEC5]" />}
         </div>
@@ -379,10 +383,10 @@ function DayCard({ day, flightSearchUrl }: { day: DayPlan; flightSearchUrl?: str
   );
 }
 
-type ExportTab = "itinerary" | "hotels" | "split";
+type ExportTab = "itinerary" | "hotels" | "split" | "optimize";
 
 export default function TripPage() {
-  const { trip, selectFlight } = useTripStore();
+  const { trip, selectFlight, displayCurrency } = useTripStore();
   const [activeTab, setActiveTab] = useState<ExportTab>("hotels");
   const [downloading, setDownloading] = useState<"sheet" | "pdf" | null>(null);
   const [hotelRecs, setHotelRecs] = useState<Record<string, HotelRecommendation[]>>(
@@ -523,9 +527,13 @@ export default function TripPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {/* Currency selector */}
+            <CurrencySelector />
             {/* Total pill */}
             <div className="hidden sm:block bg-sunset-lighter border border-sunset/20 rounded-full px-3 py-1">
-              <span className="text-[13px] font-bold text-sunset tabular-nums">{fmt(trip.costs.total)}</span>
+              <span className="text-[13px] font-bold text-sunset tabular-nums">
+                {fmtCurrency(trip.costs.total, displayCurrency)}
+              </span>
             </div>
             {/* Export buttons */}
             <button
@@ -553,6 +561,7 @@ export default function TripPage() {
           {([
             { id: "hotels",    label: "✈️ Vuelos & Hoteles" },
             { id: "itinerary", label: "📅 Itinerario" },
+            { id: "optimize",  label: "✨ Optimizar" },
             { id: "split",     label: "👥 Dividir costos" },
           ] as { id: ExportTab; label: string }[]).map(({ id, label }) => (
             <button
@@ -649,7 +658,7 @@ export default function TripPage() {
                         <p className="text-[12px] font-semibold text-[#1A2332]">✈️ {leg.fromCity} → {leg.toCity}</p>
                         <p className="text-[11px] text-[#78909C]">{f.airline} · {f.departure}→{f.arrival}{f.stops === 0 ? " · directo" : ` · ${f.stops} escala`}</p>
                       </div>
-                      <p className="text-[13px] font-bold text-sunset tabular-nums shrink-0 ml-4">{fmt(f.priceClp)}</p>
+                      <p className="text-[13px] font-bold text-sunset tabular-nums shrink-0 ml-4">{fmtCurrency(f.priceClp, displayCurrency)}</p>
                     </div>
                   );
                 })}
@@ -664,7 +673,7 @@ export default function TripPage() {
                         <p className="text-[12px] font-semibold text-[#1A2332]">🏨 {city.name}</p>
                         <p className="text-[11px] text-[#78909C]">{h.name} · {h.neighborhood}</p>
                       </div>
-                      <p className="text-[13px] font-bold text-sunset tabular-nums shrink-0 ml-4">{fmt(h.pricePerNightClp)}<span className="text-[10px] font-normal text-[#78909C]">/noche</span></p>
+                      <p className="text-[13px] font-bold text-sunset tabular-nums shrink-0 ml-4">{fmtCurrency(h.pricePerNightClp, displayCurrency)}<span className="text-[10px] font-normal text-[#78909C]">/noche</span></p>
                     </div>
                   );
                 })}
@@ -823,6 +832,20 @@ export default function TripPage() {
                 })()}
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === "optimize" && (
+          <div className="max-w-2xl mx-auto">
+            <div className="mb-6">
+              <p className="font-serif text-[24px] font-bold text-[#1A2332] mb-1">
+                Optimiza tu viaje ✨
+              </p>
+              <p className="text-[14px] text-[#78909C]">
+                Análisis personalizado con IA para ahorrar dinero y vivir mejor el viaje.
+              </p>
+            </div>
+            <OptimizerTips />
           </div>
         )}
 
