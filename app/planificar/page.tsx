@@ -227,51 +227,36 @@ export default function PlanificarPage() {
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let accumulated = "";
-      let stepIdx = 0;
+      let buf = "";
 
-      // Advance steps as tokens arrive
-      const stepIntervalMs = 3000;
-      let lastStepAt = Date.now();
       setGeneratingStep(GENERATING_STEPS[0]);
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        buf += decoder.decode(value, { stream: true });
 
-        accumulated += decoder.decode(value, { stream: true });
+        // Parse SSE lines
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
 
-        // Advance loading step based on time
-        const now = Date.now();
-        if (now - lastStepAt > stepIntervalMs && stepIdx < GENERATING_STEPS.length - 1) {
-          stepIdx++;
-          setGeneratingStep(GENERATING_STEPS[stepIdx]);
-          lastStepAt = now;
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const { event, data } = JSON.parse(line.slice(6));
+
+          if (event === "status") {
+            setGeneratingStep(data as string);
+          } else if (event === "done") {
+            setGeneratingStep("✨ ¡Listo!");
+            await new Promise((r) => setTimeout(r, 300));
+            setTrip((data as { trip: Parameters<typeof setTrip>[0] }).trip);
+            setIsGenerating(false);
+            router.push(`/viaje/${(data as { trip: { id: string } }).trip.id}`);
+            return;
+          } else if (event === "error") {
+            throw new Error(data as string);
+          }
         }
-      }
-
-      // Extract the final trip JSON from the stream
-      const delimIdx = accumulated.indexOf("___TRIP_JSON___");
-      const errIdx = accumulated.indexOf("___ERROR___");
-
-      if (errIdx !== -1) {
-        throw new Error(accumulated.slice(errIdx + "___ERROR___".length).trim());
-      }
-      if (delimIdx === -1) {
-        throw new Error("Respuesta incompleta del servidor");
-      }
-
-      const tripJsonStr = accumulated.slice(delimIdx + "___TRIP_JSON___".length);
-      const data = JSON.parse(tripJsonStr);
-
-      if (data.trip) {
-        setGeneratingStep(GENERATING_STEPS[GENERATING_STEPS.length - 1]);
-        await new Promise((r) => setTimeout(r, 400)); // brief pause on last step
-        setTrip(data.trip);
-        setIsGenerating(false);
-        router.push(`/viaje/${data.trip.id}`);
-      } else {
-        throw new Error(data.error ?? "Sin respuesta");
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

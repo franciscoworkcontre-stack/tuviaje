@@ -2,7 +2,6 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import type { PlanningInput, DayPlan, CostBreakdown, Traveler, HotelRecommendation } from "@/types/trip";
 
-// Edge runtime: no 10s Node.js limit, better streaming support
 export const runtime = "edge";
 
 const STYLE_BUDGETS = {
@@ -14,36 +13,37 @@ const STYLE_BUDGETS = {
 const TRAVELER_EMOJIS = ["🧑","👩","🧔","👱","🧕","👨‍🦱","👩‍🦰","🧒"];
 const TRAVELER_COLORS = ["#1565C0","#FF7043","#2E7D32","#7B1FA2","#F9A825","#546E7A","#E64A19","#0D47A1"];
 
-// Claude sometimes emits literal control characters inside JSON strings.
-// This walks char-by-char and escapes them only while inside a string value.
-function sanitizeJson(raw: string): string {
-  let out = "";
-  let inString = false;
-  let escaped = false;
-  for (let i = 0; i < raw.length; i++) {
-    const ch = raw[i];
-    const code = raw.charCodeAt(i);
-    if (escaped) { out += ch; escaped = false; continue; }
-    if (ch === "\\" && inString) { out += ch; escaped = true; continue; }
-    if (ch === '"') { inString = !inString; out += ch; continue; }
-    if (inString && code < 0x20) {
-      if (code === 0x0a) out += "\\n";
-      else if (code === 0x0d) out += "\\r";
-      else if (code === 0x09) out += "\\t";
-      // drop other control chars
-      continue;
-    }
-    out += ch;
-  }
-  return out;
+function buildFlightUrl(from: string, to: string, fromIata?: string, toIata?: string, date?: string, pax?: number): string {
+  const d = (date ?? "").slice(0, 10);
+  if (fromIata && toIata && d)
+    return `https://www.google.com/travel/flights#flt=${fromIata}.${toIata}.${d};c:CLP;e:${pax ?? 1};sd:1;t:f`;
+  return `https://www.google.com/travel/flights/search?q=${encodeURIComponent(`vuelos ${from} ${to}${d ? ` ${d}` : ""}`)}&hl=es`;
 }
 
-function buildFlightUrl(from: string, to: string, fromIata?: string, toIata?: string, date?: string, pax?: number): string {
-  const dateStr = (date ?? "").slice(0, 10);
-  if (fromIata && toIata && dateStr) {
-    return `https://www.google.com/travel/flights#flt=${fromIata}.${toIata}.${dateStr};c:CLP;e:${pax ?? 1};sd:1;t:f`;
+function safeParseJson(raw: string): unknown {
+  const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+  // Escape literal control chars inside strings
+  let s = "";
+  let inStr = false, esc = false;
+  for (let i = 0; i < cleaned.length; i++) {
+    const ch = cleaned[i], code = cleaned.charCodeAt(i);
+    if (esc) { s += ch; esc = false; continue; }
+    if (ch === "\\" && inStr) { s += ch; esc = true; continue; }
+    if (ch === '"') { inStr = !inStr; s += ch; continue; }
+    if (inStr && code < 0x20) { if (code===10) s+="\\n"; else if (code===13) s+="\\r"; else if (code===9) s+="\\t"; continue; }
+    s += ch;
   }
-  return `https://www.google.com/travel/flights/search?q=${encodeURIComponent(`vuelos de ${from} a ${to}${dateStr ? ` el ${dateStr}` : ""}`)}&hl=es`;
+  return JSON.parse(s);
+}
+
+async function callHaiku(client: Anthropic, prompt: string, maxTokens: number): Promise<unknown> {
+  const msg = await client.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: maxTokens,
+    messages: [{ role: "user", content: prompt }],
+  });
+  const text = (msg.content[0] as { type: string; text: string }).text;
+  return safeParseJson(text);
 }
 
 export async function POST(req: NextRequest) {
@@ -58,170 +58,192 @@ export async function POST(req: NextRequest) {
   const daysPerCity = (i: number) =>
     inputDaysPerCity[i] ?? Math.floor((totalDays - allCities.length) / Math.max(allCities.length, 1));
   const budget = STYLE_BUDGETS[travelStyle];
+  const client = new Anthropic();
 
-  // Simplified prompt — fewer tokens, faster generation
-  const prompt = `Planifica este viaje y devuelve SOLO JSON válido, sin markdown.
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream({
+    async start(controller) {
+      const send = (event: string, data: unknown) => {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ event, data })}\n\n`));
+      };
 
-Origen: ${originCity}
-Ciudades: ${allCities.join(" → ")}
-Fechas: ${startDate} al ${endDate} (${totalDays} días)
-Viajeros: ${adults} adultos · Estilo: ${travelStyle}
-Días por ciudad: ${allCities.map((c, i) => `${c}: ${daysPerCity(i)} días`).join(", ")}
+      try {
+        // ── LLAMADA 1: Estructura del viaje ──────────────────────────
+        send("status", "Armando la estructura del viaje...");
 
-Estructura JSON:
+        const structurePrompt = `Planifica la estructura de este viaje. Devuelve SOLO JSON.
+
+Origen: ${originCity} | Destinos: ${allCities.join(" → ")}
+Fechas: ${startDate} → ${endDate} (${totalDays} días)
+Viajeros: ${adults} | Estilo: ${travelStyle}
+Días por ciudad: ${allCities.map((c, i) => `${c}=${daysPerCity(i)}d`).join(", ")}
+
+JSON exacto:
 {
   "title": "Santiago → Buenos Aires → Montevideo",
-  "transportLegs": [{"fromCity":"Santiago","toCity":"Buenos Aires","fromIata":"SCL","toIata":"EZE","date":"YYYY-MM-DD"}],
+  "transportLegs": [
+    {"fromCity":"Santiago","toCity":"Buenos Aires","fromIata":"SCL","toIata":"EZE","date":"${startDate}"}
+  ],
+  "accommodations": [
+    {"city":"Buenos Aires","name":"Hotel Boutique Palermo","stars":4,"rating":8.5,"pricePerNight":65000,"nights":${daysPerCity(0)},"totalCost":${daysPerCity(0) * 65000},"neighborhood":"Palermo Soho"}
+  ],
+  "cityDates": {
+    "${allCities[0]}": {"arrival":"${startDate}","departure":"YYYY-MM-DD"}
+  },
+  "savingsTip": "Tip concreto de ahorro para este viaje",
+  "optimizerTips": ["tip1","tip2"]
+}
+
+Reglas:
+- IATA codes correctos para ${originCity} y cada destino
+- 1 accommodation por ciudad destino
+- Precios de hotel en CLP para ${travelStyle}: mochilero 20-40k, comfort 50-120k, premium 150k+
+- cityDates: fechas reales de llegada/salida en cada ciudad`;
+
+        const structure = await callHaiku(client, structurePrompt, 1200) as Record<string, unknown>;
+        send("structure", structure);
+
+        // ── LLAMADAS 2-N: Actividades por ciudad EN PARALELO ─────────
+        send("status", `Generando itinerario para ${allCities.join(" y ")}...`);
+
+        const cityDatesMap = (structure.cityDates ?? {}) as Record<string, { arrival: string; departure: string }>;
+
+        const cityPromises = allCities.map(async (city, cityIdx) => {
+          const cityDays = daysPerCity(cityIdx);
+          const arrival = cityDatesMap[city]?.arrival ?? startDate;
+
+          const daysPrompt = `Genera el itinerario para ${city} (${cityDays} días, estilo ${travelStyle}).
+Llegada: ${arrival} | Viajeros: ${adults}
+Devuelve SOLO JSON.
+
+{
   "days": [
     {
       "dayNumber": 1,
-      "city": "Buenos Aires",
-      "date": "YYYY-MM-DD",
-      "theme": "Llegada y Palermo",
+      "city": "${city}",
+      "date": "${arrival}",
+      "theme": "Llegada y primer barrio",
       "isTravelDay": true,
       "morning": [],
       "lunch": {"options":[{"name":"...","cuisine":"...","priceTier":"$$","costClp":12000}],"recommended":"..."},
       "afternoon": [],
       "dinner": {"options":[{"name":"...","cuisine":"...","priceTier":"$$","costClp":18000}],"recommended":"..."},
       "localTransportCostClp": 3000,
-      "dayTotalClp": 45000
+      "dayTotalClp": 40000
     },
     {
       "dayNumber": 2,
-      "city": "Buenos Aires",
+      "city": "${city}",
       "date": "YYYY-MM-DD",
-      "theme": "San Telmo y La Boca",
+      "theme": "Barrio histórico",
       "isTravelDay": false,
-      "morning": [{"time":"09:00","durationMin":90,"name":"Feria de San Telmo","category":"culture","costClp":0,"tip":"Llega antes de las 10 para evitar las multitudes","emoji":"🎨"}],
-      "lunch": {"options":[{"name":"...","cuisine":"argentina","priceTier":"$$","costClp":14000}],"recommended":"..."},
-      "afternoon": [{"time":"15:00","durationMin":120,"name":"Caminito","category":"culture","costClp":0,"tip":"...","emoji":"🎭"}],
-      "dinner": {"options":[{"name":"...","cuisine":"parrilla","priceTier":"$$$","costClp":22000}],"recommended":"..."},
+      "morning": [
+        {"time":"09:00","durationMin":90,"name":"Actividad","category":"culture","costClp":0,"tip":"tip útil","emoji":"🏛️"}
+      ],
+      "lunch": {"options":[{"name":"...","cuisine":"...","priceTier":"$$","costClp":14000}],"recommended":"..."},
+      "afternoon": [
+        {"time":"15:00","durationMin":120,"name":"Actividad tarde","category":"culture","costClp":5000,"tip":"tip","emoji":"🎭"}
+      ],
+      "dinner": {"options":[{"name":"...","cuisine":"...","priceTier":"$$$","costClp":22000}],"recommended":"..."},
       "localTransportCostClp": 4000,
       "dayTotalClp": 85000
     }
-  ],
-  "accommodations": [
-    {"city":"Buenos Aires","name":"Hotel Boutique Palermo","stars":4,"rating":8.6,"pricePerNight":65000,"nights":4,"totalCost":260000,"neighborhood":"Palermo Soho"}
-  ],
-  "savingsTip": "Compra la SUBE el primer día, ahorra en transporte",
-  "optimizerTips": ["El Museo Nacional de Bellas Artes es gratis","Los vuelos del martes son 20% más baratos"]
+  ]
 }
 
-REGLAS:
-- morning: 2 actividades por día normal (no días de viaje)
-- afternoon: 2 actividades por día normal
-- Solo 1 opción en lunch.options y dinner.options (la mejor para ${travelStyle})
-- Días de viaje: morning=[], afternoon=[], solo lunch y dinner
-- Costos en CLP realistas para ${travelStyle}
-- IATA codes correctos para todas las ciudades
-- Español chileno, tips útiles y específicos
-- NO incluir hotelRecommendations en este JSON`;
+Reglas:
+- Día 1 siempre isTravelDay=true con morning=[] afternoon=[]
+- Días normales: 2 actividades en morning, 2 en afternoon
+- 1 sola opción en lunch y dinner (la mejor para ${travelStyle})
+- dayTotalClp = suma realista de todo el día
+- Actividades reales y específicas de ${city}
+- Tips útiles y concretos, no genéricos
+- Fechas consecutivas desde ${arrival}
+- ${cityDays} días en total`;
 
-  const client = new Anthropic();
+          const result = await callHaiku(client, daysPrompt, 2000) as { days: DayPlan[] };
+          return { city, days: result.days ?? [] };
+        });
 
-  // Stream the Claude response directly to the client
-  const stream = await client.messages.stream({
-    model: "claude-sonnet-4-6",
-    max_tokens: 5000,
-    messages: [{ role: "user", content: prompt }],
-  });
+        const cityResults = await Promise.all(cityPromises);
+        send("status", "Calculando costos...");
 
-  const encoder = new TextEncoder();
-
-  const readable = new ReadableStream({
-    async start(controller) {
-      try {
-        for await (const chunk of stream) {
-          if (
-            chunk.type === "content_block_delta" &&
-            chunk.delta.type === "text_delta"
-          ) {
-            controller.enqueue(encoder.encode(chunk.delta.text));
+        // ── Ensamblar todo ────────────────────────────────────────────
+        const allDays: DayPlan[] = [];
+        let dayCounter = 1;
+        for (const { days } of cityResults) {
+          for (const day of days) {
+            allDays.push({ ...day, dayNumber: dayCounter++ });
           }
         }
-        // After streaming the raw JSON, stream the metadata as a JSON suffix
-        // We use a separator the client can detect
-        const finalMessage = await stream.finalMessage();
-        const rawText = finalMessage.content[0].type === "text" ? finalMessage.content[0].text : "";
 
-        // Parse and build trip, then send as final chunk
-        const jsonText = sanitizeJson(
-          rawText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim()
-        );
-        const generated = JSON.parse(jsonText);
+        const accommodations = (structure.accommodations ?? []) as Array<{ totalCost: number; city: string; name: string; stars: number; rating: number; pricePerNight: number; nights: number; neighborhood: string }>;
+        const transportLegs = (structure.transportLegs ?? []) as Array<{ fromCity: string; toCity: string; fromIata?: string; toIata?: string; date?: string }>;
 
-        const hotelTotal = (generated.accommodations ?? []).reduce(
-          (sum: number, a: { totalCost: number }) => sum + (a.totalCost ?? 0), 0
-        );
-        const foodTotal = (generated.days as DayPlan[]).reduce((sum, d) => {
-          if (d.isTravelDay) return sum;
-          return sum + (d.lunch?.options?.[0]?.costClp ?? budget.food / 2) + (d.dinner?.options?.[0]?.costClp ?? budget.food / 2);
+        const hotelTotal = accommodations.reduce((s, a) => s + (a.totalCost ?? 0), 0);
+        const foodTotal = allDays.reduce((s, d) => {
+          if (d.isTravelDay) return s;
+          return s + (d.lunch?.options?.[0]?.costClp ?? budget.food / 2) + (d.dinner?.options?.[0]?.costClp ?? budget.food / 2);
         }, 0) * adults;
-        const activitiesTotal = (generated.days as DayPlan[]).reduce((sum, d) => {
-          return sum + [...(d.morning ?? []), ...(d.afternoon ?? [])].reduce((s: number, a: { costClp?: number }) => s + (a.costClp ?? 0), 0);
-        }, 0) * adults;
-        const localTotal = (generated.days as DayPlan[]).reduce((sum, d) => sum + (d.localTransportCostClp ?? 0), 0) * adults;
+        const activitiesTotal = allDays.reduce((s, d) =>
+          s + [...(d.morning ?? []), ...(d.afternoon ?? [])].reduce((ss: number, a: { costClp?: number }) => ss + (a.costClp ?? 0), 0), 0
+        ) * adults;
+        const localTotal = allDays.reduce((s, d) => s + (d.localTransportCostClp ?? 0), 0) * adults;
         const transportEstimate = allCities.length * 45000 * adults;
         const extras = Math.round((hotelTotal + foodTotal + activitiesTotal) * 0.06);
         const total = transportEstimate + hotelTotal + foodTotal + activitiesTotal + localTotal + extras;
 
         const costs: CostBreakdown = {
-          transport: transportEstimate, accommodation: hotelTotal, food: foodTotal,
-          activities: activitiesTotal, localTransport: localTotal, extras, total,
+          transport: transportEstimate, accommodation: hotelTotal,
+          food: foodTotal, activities: activitiesTotal,
+          localTransport: localTotal, extras, total,
           perPerson: Math.round(total / adults),
           perDayPerPerson: Math.round(total / adults / Math.max(totalDays, 1)),
           byCityClp: Object.fromEntries(allCities.map((c) => [c, Math.round(total / allCities.length)])),
         };
 
-        const generatedLegs = (generated.transportLegs ?? []) as Array<{ fromCity: string; toCity: string; fromIata?: string; toIata?: string; date?: string }>;
-
         const travelers_list: Traveler[] = Array.from({ length: adults }, (_, i) => ({
-          id: `t-${i}`,
-          name: i === 0 ? "Tú" : `Persona ${i + 1}`,
+          id: `t-${i}`, name: i === 0 ? "Tú" : `Persona ${i + 1}`,
           emoji: TRAVELER_EMOJIS[i % TRAVELER_EMOJIS.length],
           color: TRAVELER_COLORS[i % TRAVELER_COLORS.length],
         }));
 
         const trip = {
           id: `trip-${Date.now()}`,
-          title: generated.title ?? `${originCity} → ${allCities.join(" → ")}`,
+          title: (structure.title as string) ?? `${originCity} → ${allCities.join(" → ")}`,
           originCity,
           cities: allCities.map((name, i) => ({ name, country: "", days: daysPerCity(i), firstTime: true, interests: [] })),
           startDate, endDate, totalDays,
           travelers: { adults, children: input.children ?? 0 },
-          travelStyle,
-          budgetMaxClp: input.budgetMaxClp,
+          travelStyle, budgetMaxClp: input.budgetMaxClp,
           transportLegs: allCities.map((city, i) => {
-            const legData = generatedLegs.find((l) => l.toCity?.toLowerCase() === city.toLowerCase());
+            const leg = transportLegs.find(l => l.toCity?.toLowerCase() === city.toLowerCase());
             const fromCity = i === 0 ? originCity : allCities[i - 1];
-            const travelDay = (generated.days as DayPlan[]).find((d) => d.isTravelDay && d.city === city);
-            const legDate = legData?.date ?? travelDay?.date ?? startDate;
+            const travelDay = allDays.find(d => d.isTravelDay && d.city === city);
+            const legDate = leg?.date ?? travelDay?.date ?? startDate;
             return {
               fromCity, toCity: city,
-              fromIata: legData?.fromIata, toIata: legData?.toIata, date: legDate,
-              flightSearchUrl: buildFlightUrl(fromCity, city, legData?.fromIata, legData?.toIata, legDate, adults),
+              fromIata: leg?.fromIata, toIata: leg?.toIata, date: legDate,
+              flightSearchUrl: buildFlightUrl(fromCity, city, leg?.fromIata, leg?.toIata, legDate, adults),
               selected: undefined, options: [],
             };
           }),
-          accommodations: generated.accommodations ?? [],
-          hotelRecommendations: {} as Record<string, HotelRecommendation[]>, // loaded lazily on hotels tab
-          days: generated.days ?? [],
-          costs,
-          travelers_list,
-          splitAssignments: [],
-          currency: "CLP",
+          accommodations,
+          hotelRecommendations: {} as Record<string, HotelRecommendation[]>,
+          days: allDays, costs, travelers_list,
+          splitAssignments: [], currency: "CLP",
           createdAt: new Date().toISOString(),
-          savingsTip: generated.savingsTip,
-          optimizerTips: generated.optimizerTips ?? [],
+          savingsTip: structure.savingsTip,
+          optimizerTips: (structure.optimizerTips as string[]) ?? [],
         };
 
-        // Send the final trip object as a special delimiter chunk
-        const finalChunk = `\n___TRIP_JSON___${JSON.stringify({ trip })}`;
-        controller.enqueue(encoder.encode(finalChunk));
+        send("done", { trip });
         controller.close();
+
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        controller.enqueue(encoder.encode(`\n___ERROR___${msg}`));
+        console.error("[itinerary]", msg);
+        send("error", msg);
         controller.close();
       }
     },
@@ -229,9 +251,9 @@ REGLAS:
 
   return new Response(readable, {
     headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "X-Accel-Buffering": "no", // disable nginx buffering
+      "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
+      "X-Accel-Buffering": "no",
     },
   });
 }
