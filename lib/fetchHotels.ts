@@ -17,6 +17,12 @@ const STYLE_PRICE: Record<string, string> = {
 
 const USD_TO_CLP = 950;
 
+function nightsBetween(checkIn: string, checkOut: string): number {
+  const msPerDay = 86_400_000;
+  const nights = (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / msPerDay;
+  return Math.max(1, Math.round(nights));
+}
+
 async function scrapeCity(
   city: string,
   checkIn: string,
@@ -82,27 +88,38 @@ async function scrapeCity(
     type?: string;
   }>;
 
+  // Apify voyager returns the TOTAL price for the stay, not per-night.
+  // We must divide by number of nights to get the per-night price.
+  const nights = nightsBetween(checkIn, checkOut);
+
   // Require at least 1000 reviews — fall back to any with name+price if none qualify
   const MIN_REVIEWS = 1000;
   const withEnoughReviews = items.filter(h => h.name && h.price && (h.reviews ?? 0) >= MIN_REVIEWS);
   const candidates = withEnoughReviews.length >= 2 ? withEnoughReviews : items.filter(h => h.name && h.price);
 
-  // Hard price cap by travel style (CLP/night)
+  // Hard per-night price cap by travel style (CLP/night after dividing by nights)
   const PRICE_CAP_CLP: Record<string, number> = {
-    mochilero: 80_000,
-    comfort:   180_000,
-    premium:   450_000,
+    mochilero: 80_000,   // ~$84 USD/night
+    comfort:   180_000,  // ~$189 USD/night
+    premium:   450_000,  // ~$473 USD/night
   };
   const capClp = PRICE_CAP_CLP[travelStyle];
   let cappedCandidates = candidates;
   if (capClp !== undefined) {
-    const withinCap = candidates.filter(h => Math.round((h.price ?? 0) * USD_TO_CLP) <= capClp);
-    cappedCandidates = withinCap.length >= 2 ? withinCap : candidates.slice().sort((a, b) => (a.price ?? 0) - (b.price ?? 0)).slice(0, Math.max(candidates.length, 2));
+    const withinCap = candidates.filter(h => {
+      const perNightClp = Math.round(((h.price ?? 0) / nights) * USD_TO_CLP);
+      return perNightClp <= capClp;
+    });
+    // If fewer than 2 qualify, take the 2 cheapest (by per-night price)
+    cappedCandidates = withinCap.length >= 2
+      ? withinCap
+      : candidates.slice().sort((a, b) => (a.price ?? 0) - (b.price ?? 0)).slice(0, 2);
   }
 
   const mapped = cappedCandidates
     .map(h => {
-      const priceUsd = h.price ?? 0;
+      // Divide total stay price by nights to get per-night price
+      const priceUsd = (h.price ?? 0) / nights;
       const priceClp = Math.round(priceUsd * USD_TO_CLP);
       const neighborhood = h.address?.region || h.address?.full?.split(",")[1]?.trim() || city;
       const stars = h.stars ?? (travelStyle === "premium" ? 5 : travelStyle === "comfort" ? 3 : 1);
@@ -136,19 +153,15 @@ async function scrapeCity(
       } satisfies HotelRecommendation;
     });
 
-  // Filter to rating >= 7 if we have enough options, then sort by best value (rating/price)
+  // Keep only hotels with rating >= 7 and reviews >= 1000 if we have enough
   const goodOnes = mapped.filter(h => (h.rating ?? 0) >= 7);
   const pool = goodOnes.length >= 2 ? goodOnes : mapped;
 
-  // Score: higher rating = better, higher price = worse. Normalize price to 0-1 range.
-  const prices = pool.map(h => h.pricePerNightClp);
-  const minP = Math.min(...prices), maxP = Math.max(...prices);
-  const range = maxP - minP || 1;
-
+  // Sort priority: 1) rating descending  2) price ascending (cheapest first when tied)
   pool.sort((a, b) => {
-    const scoreA = (a.rating ?? 7) - ((a.pricePerNightClp - minP) / range) * 2;
-    const scoreB = (b.rating ?? 7) - ((b.pricePerNightClp - minP) / range) * 2;
-    return scoreB - scoreA;
+    const ratingDiff = (b.rating ?? 0) - (a.rating ?? 0);
+    if (Math.abs(ratingDiff) >= 0.5) return ratingDiff; // clear rating difference
+    return a.pricePerNightClp - b.pricePerNightClp;     // same rating → cheapest first
   });
 
   // Mark the top pick

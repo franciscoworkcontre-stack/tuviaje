@@ -151,13 +151,26 @@ export async function fetchLegFlights(
   const options = buildFlightOptions(allGroups, fromIata, toIata, date, adults, allPrices).filter(o => o.priceClp > 0);
   if (options.length === 0) return [];
 
-  options.sort((a, b) => {
-    const scoreA = a.priceClp * (1 + a.stops * 0.25) + a.durationMin * 8;
-    const scoreB = b.priceClp * (1 + b.stops * 0.25) + b.durationMin * 8;
-    return scoreA - scoreB;
-  });
+  // Sort: direct flights first (if price ≤ 150% of cheapest direct or any direct exists),
+  // then by price ascending, then by duration ascending.
+  const directOptions  = options.filter(o => o.stops === 0);
+  const connectOptions = options.filter(o => o.stops > 0);
 
-  if (options[0]) options[0].pros = ["⭐ Mejor opción: más barato y rápido", ...options[0].pros];
+  // If there are direct flights, put them first sorted by price
+  if (directOptions.length > 0) {
+    directOptions.sort((a, b) => a.priceClp - b.priceClp);
+    connectOptions.sort((a, b) => a.priceClp - b.priceClp);
+    options.length = 0;
+    options.push(...directOptions, ...connectOptions);
+  } else {
+    // No direct flights — sort by price only
+    options.sort((a, b) => a.priceClp - b.priceClp);
+  }
+
+  if (options[0]) {
+    const label = options[0].stops === 0 ? "⭐ Más barato directo" : "⭐ Más económico disponible";
+    options[0].pros = [label, ...options[0].pros];
+  }
 
   return options;
 }
