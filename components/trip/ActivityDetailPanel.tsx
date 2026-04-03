@@ -9,18 +9,6 @@ import type { DayPlan, Activity } from "@/types/trip";
 
 type FilterTab = "actividades" | "comidas" | "todo";
 
-const ACT_CAT_META: Record<string, { label: string; emoji: string; color: string }> = {
-  culture:       { label: "Cultura",        emoji: "🏛️", color: "#1565C0" },
-  nature:        { label: "Naturaleza",     emoji: "🌿", color: "#2E7D32" },
-  adventure:     { label: "Aventura",       emoji: "🧗", color: "#E65100" },
-  food:          { label: "Gastronomía",    emoji: "🍜", color: "#F9A825" },
-  nightlife:     { label: "Nocturno",       emoji: "🎭", color: "#6A1B9A" },
-  shopping:      { label: "Compras",        emoji: "🛍️", color: "#AD1457" },
-  wellness:      { label: "Bienestar",      emoji: "🧘", color: "#00838F" },
-  entertainment: { label: "Entretenimiento",emoji: "🎪", color: "#558B2F" },
-  transport:     { label: "Traslados",      emoji: "🚕", color: "#546E7A" },
-};
-
 interface ActivityDetailPanelProps {
   day: DayPlan | null;
   skipped: Set<string>;
@@ -51,7 +39,6 @@ export function ActivityDetailPanel({
   const { displayCurrency, trip } = useTripStore();
   const adults = trip?.travelers.adults ?? 1;
   const [filter, setFilter] = useState<FilterTab>("actividades");
-  const [catFilter, setCatFilter] = useState<string | null>(null);
 
   const activities: Activity[] = day
     ? [...(day.morning ?? []), ...(day.afternoon ?? [])].sort((a, b) => b.costClp - a.costClp)
@@ -68,20 +55,9 @@ export function ActivityDetailPanel({
       ].filter(Boolean).sort((a, b) => b!.costClp - a!.costClp) as Activity[]
     : [];
 
-  const baseList = filter === "actividades" ? activities
+  const allActivities = filter === "actividades" ? activities
     : filter === "comidas" ? meals
     : [...activities, ...meals].sort((a, b) => b.costClp - a.costClp);
-
-  const allActivities = catFilter && filter === "actividades"
-    ? baseList.filter(a => a.category === catFilter)
-    : baseList;
-
-  // Unique categories present in activities, sorted by total cost
-  const catTotals = activities.reduce<Record<string, number>>((acc, a) => {
-    if (a.category) acc[a.category] = (acc[a.category] ?? 0) + a.costClp;
-    return acc;
-  }, {});
-  const sortedCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]).map(([c]) => c);
 
   const skippedSavings = activities
     .filter((a) => skipped.has(activityKey(day?.dayNumber ?? -1, a.name)))
@@ -139,11 +115,11 @@ export function ActivityDetailPanel({
               </p>
 
               {/* Filter tabs */}
-              <div className="flex gap-1.5 mt-3 flex-wrap">
+              <div className="flex gap-1.5 mt-3">
                 {(["actividades", "comidas", "todo"] as FilterTab[]).map(tab => (
                   <button
                     key={tab}
-                    onClick={() => { setFilter(tab); setCatFilter(null); }}
+                    onClick={() => setFilter(tab)}
                     className={`text-[11px] font-bold px-3 py-1 rounded-full transition-all ${
                       filter === tab
                         ? "bg-white text-[#0D1F3C]"
@@ -154,30 +130,6 @@ export function ActivityDetailPanel({
                   </button>
                 ))}
               </div>
-
-              {/* Category chips — only when in actividades tab */}
-              {filter === "actividades" && sortedCats.length > 1 && (
-                <div className="flex gap-1.5 mt-2 flex-wrap">
-                  {sortedCats.map(cat => {
-                    const m = ACT_CAT_META[cat];
-                    if (!m) return null;
-                    const active = catFilter === cat;
-                    return (
-                      <button
-                        key={cat}
-                        onClick={() => setCatFilter(active ? null : cat)}
-                        className="text-[10px] font-semibold px-2 py-0.5 rounded-full transition-all"
-                        style={{
-                          background: active ? m.color : m.color + "30",
-                          color: active ? "white" : m.color,
-                        }}
-                      >
-                        {m.emoji} {m.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
             </div>
 
             {/* Activity list */}

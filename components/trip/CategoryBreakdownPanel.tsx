@@ -4,8 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { useTripStore } from "@/stores/tripStore";
 import { fmtCurrency } from "@/lib/currency";
-import { useState } from "react";
-import type { Trip, ActivityCategory } from "@/types/trip";
+import type { Trip } from "@/types/trip";
 
 export type CostCategory = "transport" | "accommodation" | "food" | "activities" | "localTransport" | "extras";
 
@@ -15,20 +14,8 @@ interface BreakdownItem {
   costClp: number;
   emoji?: string;
   badge?: string;
-  activityCategory?: ActivityCategory;
 }
 
-const ACTIVITY_CATEGORY_META: Record<ActivityCategory, { label: string; emoji: string; color: string }> = {
-  culture:       { label: "Cultura",        emoji: "🏛️", color: "#1565C0" },
-  nature:        { label: "Naturaleza",     emoji: "🌿", color: "#2E7D32" },
-  adventure:     { label: "Aventura",       emoji: "🧗", color: "#E65100" },
-  food:          { label: "Gastronomía",    emoji: "🍜", color: "#F9A825" },
-  nightlife:     { label: "Vida nocturna",  emoji: "🎭", color: "#6A1B9A" },
-  shopping:      { label: "Compras",        emoji: "🛍️", color: "#AD1457" },
-  wellness:      { label: "Bienestar",      emoji: "🧘", color: "#00838F" },
-  entertainment: { label: "Entretenimiento",emoji: "🎪", color: "#558B2F" },
-  transport:     { label: "Traslados",      emoji: "🚕", color: "#546E7A" },
-};
 
 function buildItems(trip: Trip, category: CostCategory, selectedHotels: Record<string, number>): BreakdownItem[] {
   switch (category) {
@@ -42,8 +29,6 @@ function buildItems(trip: Trip, category: CostCategory, selectedHotels: Record<s
               sublabel: `Día ${day.dayNumber} · ${day.city} · ${act.time}`,
               costClp: act.costClp,
               emoji: act.emoji ?? "📍",
-              badge: act.category,
-              activityCategory: act.category as ActivityCategory,
             });
           }
         }
@@ -171,33 +156,11 @@ interface CategoryBreakdownPanelProps {
 export function CategoryBreakdownPanel({ category, selectedHotels, onClose }: CategoryBreakdownPanelProps) {
   const { trip, displayCurrency } = useTripStore();
   const fmt = (n: number) => fmtCurrency(n, displayCurrency);
-  const [actFilter, setActFilter] = useState<ActivityCategory | "all">("all");
-
-  const allItems = trip && category ? buildItems(trip, category, selectedHotels) : [];
+  const items = trip && category ? buildItems(trip, category, selectedHotels) : [];
   const meta = category ? CATEGORY_META[category] : null;
-  const categoryTotal = allItems.reduce((s, i) => s + i.costClp, 0);
+  const categoryTotal = items.reduce((s, i) => s + i.costClp, 0);
   const tripTotal = trip?.costs.total ?? 1;
   const pct = Math.round((categoryTotal / tripTotal) * 100);
-
-  // Sub-category breakdown for activities — sorted by total cost desc
-  const activitySubTotals: { cat: ActivityCategory; total: number; count: number }[] = [];
-  if (category === "activities") {
-    const map = new Map<ActivityCategory, { total: number; count: number }>();
-    for (const item of allItems) {
-      if (!item.activityCategory) continue;
-      const cur = map.get(item.activityCategory) ?? { total: 0, count: 0 };
-      map.set(item.activityCategory, { total: cur.total + item.costClp, count: cur.count + 1 });
-    }
-    activitySubTotals.push(
-      ...[...map.entries()]
-        .map(([cat, { total, count }]) => ({ cat, total, count }))
-        .sort((a, b) => b.total - a.total)
-    );
-  }
-
-  const items = category === "activities" && actFilter !== "all"
-    ? allItems.filter(i => i.activityCategory === actFilter)
-    : allItems;
 
   return (
     <AnimatePresence>
@@ -266,69 +229,6 @@ export function CategoryBreakdownPanel({ category, selectedHotels, onClose }: Ca
               </p>
             </div>
 
-            {/* Activity sub-category summary + filter — only for activities */}
-            {category === "activities" && activitySubTotals.length > 0 && (
-              <div className="bg-[#F0EDE6] border-b border-[#E0D5C5] px-4 py-3 shrink-0">
-                <p className="text-[10px] font-bold text-[#78909C] uppercase tracking-widest mb-2">
-                  Por tipo de actividad
-                </p>
-
-                {/* Sub-category summary bars */}
-                <div className="space-y-1.5 mb-3">
-                  {activitySubTotals.map(({ cat, total, count }) => {
-                    const subMeta = ACTIVITY_CATEGORY_META[cat];
-                    const subPct = categoryTotal > 0 ? (total / categoryTotal) * 100 : 0;
-                    return (
-                      <button
-                        key={cat}
-                        onClick={() => setActFilter(actFilter === cat ? "all" : cat)}
-                        className={`w-full text-left rounded-lg px-2.5 py-1.5 transition-all ${
-                          actFilter === cat
-                            ? "bg-white shadow-sm"
-                            : "hover:bg-white/60"
-                        }`}
-                        style={actFilter === cat ? { outline: `2px solid ${subMeta.color}` } : undefined}
-                      >
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[14px] leading-none">{subMeta.emoji}</span>
-                            <span className="text-[11px] font-semibold text-[#1A2332]">{subMeta.label}</span>
-                            <span className="text-[10px] text-[#90A4AE]">({count})</span>
-                          </div>
-                          <span className="text-[11px] font-bold tabular-nums" style={{ color: subMeta.color }}>
-                            {fmt(total)}
-                          </span>
-                        </div>
-                        <div className="h-1 bg-[#E0D5C5] rounded-full overflow-hidden">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${subPct}%` }}
-                            transition={{ duration: 0.4 }}
-                            className="h-full rounded-full"
-                            style={{ background: subMeta.color }}
-                          />
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Active filter chip */}
-                {actFilter !== "all" && (
-                  <button
-                    onClick={() => setActFilter("all")}
-                    className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
-                    style={{
-                      background: (ACTIVITY_CATEGORY_META[actFilter]?.color ?? "#1565C0") + "20",
-                      color: ACTIVITY_CATEGORY_META[actFilter]?.color ?? "#1565C0",
-                    }}
-                  >
-                    {ACTIVITY_CATEGORY_META[actFilter]?.emoji} {ACTIVITY_CATEGORY_META[actFilter]?.label}
-                    <span className="ml-0.5 opacity-60">✕</span>
-                  </button>
-                )}
-              </div>
-            )}
 
             {/* Items list */}
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -341,8 +241,7 @@ export function CategoryBreakdownPanel({ category, selectedHotels, onClose }: Ca
 
               {items.map((item, i) => {
                 const barPct = categoryTotal > 0 ? (item.costClp / categoryTotal) * 100 : 0;
-                const subMeta = item.activityCategory ? ACTIVITY_CATEGORY_META[item.activityCategory] : null;
-                const itemColor = subMeta?.color ?? meta?.color ?? "#1565C0";
+                const itemColor = meta?.color ?? "#1565C0";
                 return (
                   <motion.div
                     key={i}
@@ -366,16 +265,7 @@ export function CategoryBreakdownPanel({ category, selectedHotels, onClose }: Ca
                           <p className="text-[11px] text-[#78909C] mt-0.5">{item.sublabel}</p>
                         )}
 
-                        {/* Activity sub-category badge */}
-                        {subMeta && (
-                          <span
-                            className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                            style={{ background: itemColor + "15", color: itemColor }}
-                          >
-                            {subMeta.emoji} {subMeta.label}
-                          </span>
-                        )}
-                        {!subMeta && item.badge && (
+                        {item.badge && (
                           <span
                             className="mt-1 inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full"
                             style={{ background: (meta?.color ?? "#1565C0") + "15", color: meta?.color ?? "#1565C0" }}
