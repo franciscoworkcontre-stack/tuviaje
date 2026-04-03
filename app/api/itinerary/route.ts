@@ -288,6 +288,61 @@ REGLAS ESTRICTAS:
       strategyPromise,
     ]);
 
+    // ── Generar razones de selección con haiku (una sola llamada batch) ──
+    try {
+      type SelectionItem =
+        | { kind: "hotel"; city: string; name: string; rating: number; reviews: number; priceUsd: number; stars: number }
+        | { kind: "flight"; leg: string; airline: string; stops: number; departure: string; arrival: string; durationMin: number; priceUsd: number };
+
+      const items: SelectionItem[] = [
+        ...Object.entries(hotelRecommendations).flatMap(([city, recs]) => {
+          const h = recs[0];
+          if (!h) return [];
+          return [{ kind: "hotel" as const, city, name: h.name, rating: h.rating ?? 0, reviews: (h as { reviews?: number }).reviews ?? 0, priceUsd: Math.round(h.pricePerNightClp / 950), stars: h.stars }];
+        }),
+        ...Object.entries(flightOptions).flatMap(([leg, opts]) => {
+          const f = opts[0];
+          if (!f) return [];
+          return [{ kind: "flight" as const, leg, airline: f.airline, stops: f.stops, departure: f.departure, arrival: f.arrival, durationMin: f.durationMin, priceUsd: Math.round(f.priceClp / 950) }];
+        }),
+      ];
+
+      if (items.length > 0) {
+        const reasonsMsg = await client.messages.create({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 1024,
+          messages: [{
+            role: "user",
+            content: `Para un viaje de estilo "${travelStyle}" con ${adults} adulto(s), explica en 1-2 oraciones simples y directas por qué escogiste cada hotel y vuelo de la lista. Habla en español, en segunda persona ("escogí este hotel porque..."), sin tecnicismos. Sé específico con los números (rating, precio, tiempo).
+
+Items seleccionados:
+${JSON.stringify(items, null, 2)}
+
+Responde SOLO con JSON: { "reasons": { "<hotel:ciudad>" : "razón", "<flight:leg>" : "razón" } }`,
+          }],
+        });
+        const rawReasons = (reasonsMsg.content[0] as { type: string; text: string }).text;
+        const parsed = safeParseJson(rawReasons) as { reasons?: Record<string, string> };
+        const reasons = parsed?.reasons ?? {};
+
+        // Attach reasons to hotel recommendations
+        for (const [city, recs] of Object.entries(hotelRecommendations)) {
+          if (recs[0] && reasons[`hotel:${city}`]) {
+            recs[0] = { ...recs[0], selectionReason: reasons[`hotel:${city}`] };
+          }
+        }
+        // Attach reasons to flight options
+        for (const [leg, opts] of Object.entries(flightOptions)) {
+          if (opts[0] && reasons[`flight:${leg}`]) {
+            opts[0] = { ...opts[0], selectionReason: reasons[`flight:${leg}`] };
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[itinerary] selection reasons error:", e instanceof Error ? e.message : e);
+      // non-fatal — reasons are optional
+    }
+
     // ── Ensamblar ────────────────────────────────────────────────
     const allDays: DayPlan[] = [];
     let counter = 1;

@@ -136,6 +136,7 @@ export interface FlightOption {
   pros: string[];
   cons: string[];
   bookingSearchUrl: string;
+  selectionReason?: string; // why this was picked
 }
 
 // ─── Hotel recommendations ─────────────────────────────────────
@@ -146,10 +147,12 @@ export interface HotelRecommendation {
   stars: number;
   pricePerNightClp: number;
   rating?: number;
+  reviews?: number;
   style?: string; // "boutique" | "business" | "hostal" | "apart-hotel"
   pros: string[];
   cons: string[];
   bookingSearchUrl: string;
+  selectionReason?: string; // why this was picked over others
 }
 
 // ─── Cost splitting ────────────────────────────────────────────

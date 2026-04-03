@@ -3,31 +3,32 @@ import type { HotelRecommendation } from "@/types/trip";
 const SERPAPI_KEY = process.env.SERPAPI_KEY;
 const USD_TO_CLP = 950;
 
-// Minimum reviews to consider a hotel well-reviewed
-const MIN_REVIEWS = 1_000;
+// Quality tiers — try strict first, relax if not enough results
+const QUALITY_TIERS = [
+  { minRating: 8.5, minReviews: 500 },
+  { minRating: 8.0, minReviews: 200 },
+  { minRating: 7.5, minReviews: 100 },
+  { minRating: 0,   minReviews: 0   }, // last resort: anything with price
+];
 
-// Hard per-night price cap by travel style (CLP/night)
+// Hard per-night price cap by style (CLP)
 const PRICE_CAP_CLP: Record<string, number> = {
-  mochilero: 80_000,   // ~$84 USD/night
-  comfort:   180_000,  // ~$189 USD/night
-  premium:   450_000,  // ~$473 USD/night
+  mochilero: 80_000,
+  comfort:   200_000,
+  premium:   500_000,
 };
 
 interface SerpHotel {
   name: string;
-  overall_rating?: number;       // 0–10
+  overall_rating?: number;
   reviews?: number;
   stars?: number;
-  rate_per_night?: { extracted_lowest?: number }; // USD
-  prices?: { extracted_lowest?: number }[];
-  hotel_class?: string;          // "3-star hotel" etc.
+  rate_per_night?: { extracted_lowest?: number };
+  hotel_class?: string;
   amenities?: string[];
   link?: string;
-  gps_coordinates?: { latitude: number; longitude: number };
+  type?: string;
   description?: string;
-  check_in_time?: string;
-  check_out_time?: string;
-  images?: { thumbnail?: string }[];
 }
 
 async function scrapeCity(
@@ -36,136 +37,118 @@ async function scrapeCity(
   checkOut: string,
   adults: number,
   travelStyle: string
-): Promise<HotelRecommendation[]> {
-  if (!SERPAPI_KEY) {
-    console.warn("SERPAPI_KEY not set");
-    return [];
-  }
+): Promise<HotelRecommendation | null> {
+  if (!SERPAPI_KEY) return null;
 
   const params = new URLSearchParams({
-    engine:        "google_hotels",
-    q:             city,
+    engine:         "google_hotels",
+    q:              city,
     check_in_date:  checkIn,
     check_out_date: checkOut,
-    adults:        String(adults),
-    currency:      "USD",
-    gl:            "us",
-    hl:            "es",
-    num:           "20",
-    api_key:       SERPAPI_KEY,
+    adults:         String(adults),
+    currency:       "USD",
+    gl:             "us",
+    hl:             "es",
+    num:            "40",       // fetch more to have better candidates
+    sort_by:        "8",        // top rated — always, regardless of style
+    api_key:        SERPAPI_KEY,
   });
 
-  // Style-based sort
-  if (travelStyle === "mochilero") {
-    params.set("sort_by", "3"); // lowest price
-  } else {
-    params.set("sort_by", "8"); // top rated
-  }
+  // Price ceiling from Google's side (rough USD/night)
+  if (travelStyle === "mochilero") params.set("max_price", "90");
+  else if (travelStyle === "comfort") params.set("max_price", "220");
+  // premium: no ceiling — let rating/reviews decide
 
-  // Price filter (USD/night)
-  if (travelStyle === "mochilero") {
-    params.set("max_price", "85");
-  } else if (travelStyle === "comfort") {
-    params.set("max_price", "200");
-  }
-
-  // Minimum rating filter (SerpAPI: 1=Any, 7=7+, 8=8+, 9=9+)
-  params.set("min_rating", travelStyle === "mochilero" ? "7" : "8");
-
-  const url = `https://serpapi.com/search.json?${params.toString()}`;
+  // Start with strictest rating filter the API supports
+  params.set("min_rating", "8"); // SerpAPI: 7=7+, 8=8+, 9=9+
 
   let data: { properties?: SerpHotel[]; error?: string };
   try {
-    const res = await fetch(url, { next: { revalidate: 3600 } }); // cache 1h
-    if (!res.ok) return [];
+    const res = await fetch(`https://serpapi.com/search.json?${params}`, {
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return null;
     data = await res.json();
   } catch {
-    return [];
+    return null;
   }
 
-  if (data.error || !data.properties?.length) return [];
+  if (data.error || !data.properties?.length) return null;
 
-  const items = data.properties;
+  const withPrice = data.properties.filter(h => h.rate_per_night?.extracted_lowest && h.name);
+  if (!withPrice.length) return null;
 
-  // Prefer hotels with >= MIN_REVIEWS; fall back to all with a price
-  const withPrice = items.filter(h => h.rate_per_night?.extracted_lowest);
-  const withReviews = withPrice.filter(h => (h.reviews ?? 0) >= MIN_REVIEWS);
-  const candidates = withReviews.length >= 2 ? withReviews : withPrice;
-
-  // Apply per-night CLP cap
   const capClp = PRICE_CAP_CLP[travelStyle];
-  let pool = candidates;
-  if (capClp) {
-    const withinCap = candidates.filter(h => {
-      const clp = Math.round((h.rate_per_night!.extracted_lowest!) * USD_TO_CLP);
-      return clp <= capClp;
-    });
-    pool = withinCap.length >= 2
-      ? withinCap
-      : candidates.slice().sort((a, b) =>
-          (a.rate_per_night?.extracted_lowest ?? 0) - (b.rate_per_night?.extracted_lowest ?? 0)
-        ).slice(0, 3);
-  }
 
-  const mapped: HotelRecommendation[] = pool.map(h => {
-    const priceUsd = h.rate_per_night?.extracted_lowest ?? 0;
-    const priceClp = Math.round(priceUsd * USD_TO_CLP);
-    const rating = h.overall_rating ?? 0;
-    const reviews = h.reviews ?? 0;
-    const stars = h.stars ?? (
-      travelStyle === "premium" ? 5 : travelStyle === "comfort" ? 4 : 2
+  // Try quality tiers from strictest to most relaxed
+  let winner: SerpHotel | null = null;
+  for (const tier of QUALITY_TIERS) {
+    // Filter by this tier's quality thresholds
+    let pool = withPrice.filter(h =>
+      (h.overall_rating ?? 0) >= tier.minRating &&
+      (h.reviews ?? 0) >= tier.minReviews
     );
 
-    // Extract neighborhood from hotel class or description
-    const neighborhood = city;
+    // Apply CLP cap if we have enough candidates
+    if (capClp && pool.length >= 2) {
+      const capped = pool.filter(h =>
+        Math.round((h.rate_per_night!.extracted_lowest!) * USD_TO_CLP) <= capClp
+      );
+      if (capped.length >= 1) pool = capped;
+    }
 
-    const pros: string[] = [];
-    const cons: string[] = [];
+    if (!pool.length) continue;
 
-    if (rating >= 9)      pros.push(`Valoración excelente: ${rating}/10 · ${reviews.toLocaleString("es-CL")} reseñas`);
-    else if (rating >= 8) pros.push(`Muy buena valoración: ${rating}/10 · ${reviews.toLocaleString("es-CL")} reseñas`);
-    else if (reviews > 0) pros.push(`${reviews.toLocaleString("es-CL")} reseñas verificadas`);
+    // Among qualified hotels: sort by rating desc, then price asc
+    // This picks the highest-rated, and breaks ties by cheapest
+    pool.sort((a, b) => {
+      const ratingDiff = (b.overall_rating ?? 0) - (a.overall_rating ?? 0);
+      if (Math.abs(ratingDiff) >= 0.3) return ratingDiff;
+      return (a.rate_per_night?.extracted_lowest ?? 0) - (b.rate_per_night?.extracted_lowest ?? 0);
+    });
 
-    if (stars >= 4) pros.push(`Hotel ${stars}★`);
-    if (priceUsd < 80)  pros.push("Muy económico para la zona");
-    if (h.amenities?.includes("Free Wi-Fi")) pros.push("Wi-Fi gratuito incluido");
-    if (h.amenities?.some(a => a.toLowerCase().includes("pool"))) pros.push("Piscina");
-    if (h.amenities?.some(a => a.toLowerCase().includes("breakfast"))) pros.push("Desayuno disponible");
-
-    pros.push("Precio real verificado en Google Hotels");
-
-    if (priceUsd > 300) cons.push("Precio elevado");
-    cons.push("Verifica disponibilidad antes de reservar");
-
-    const bookingSearchUrl = h.link
-      ?? `https://www.google.com/travel/hotels/entity/${encodeURIComponent(h.name)}?q=${encodeURIComponent(h.name + " " + city)}&checkin=${checkIn}&checkout=${checkOut}&adults=${adults}`;
-
-    return {
-      name: h.name,
-      neighborhood,
-      stars,
-      pricePerNightClp: priceClp,
-      rating,
-      style: stars >= 5 ? "boutique" : stars >= 4 ? "business" : "hostal",
-      pros,
-      cons,
-      bookingSearchUrl,
-    } satisfies HotelRecommendation;
-  });
-
-  // Sort: rating desc, then price asc for ties
-  mapped.sort((a, b) => {
-    const rd = (b.rating ?? 0) - (a.rating ?? 0);
-    if (Math.abs(rd) >= 0.3) return rd;
-    return a.pricePerNightClp - b.pricePerNightClp;
-  });
-
-  // Mark top pick
-  if (mapped[0]) {
-    mapped[0].pros = ["⭐ Mejor relación calidad/precio", ...mapped[0].pros];
+    winner = pool[0];
+    break;
   }
 
-  return mapped.slice(0, 5); // top 5
+  if (!winner) return null;
+
+  const priceUsd = winner.rate_per_night?.extracted_lowest ?? 0;
+  const priceClp = Math.round(priceUsd * USD_TO_CLP);
+  const rating = winner.overall_rating ?? 0;
+  const reviews = winner.reviews ?? 0;
+  const stars = winner.stars ?? (travelStyle === "premium" ? 5 : travelStyle === "comfort" ? 4 : 3);
+
+  const pros: string[] = [];
+  const cons: string[] = [];
+
+  if (rating >= 9)      pros.push(`Valoración excepcional: ${rating}/10`);
+  else if (rating >= 8) pros.push(`Muy bien valorado: ${rating}/10`);
+  if (reviews >= 1000)  pros.push(`${reviews.toLocaleString("es-CL")} reseñas verificadas`);
+  else if (reviews > 0) pros.push(`${reviews.toLocaleString("es-CL")} reseñas`);
+  if (stars >= 4)       pros.push(`Hotel ${stars}★`);
+  if (priceUsd < 80)    pros.push("Excelente precio para la zona");
+  if (winner.amenities?.some(a => /wifi|wi-fi/i.test(a))) pros.push("Wi-Fi gratuito");
+  if (winner.amenities?.some(a => /pool|piscina/i.test(a))) pros.push("Piscina");
+  if (winner.amenities?.some(a => /breakfast|desayuno/i.test(a))) pros.push("Desayuno disponible");
+  pros.push("Precio real verificado en Google Hotels");
+  if (priceUsd > 300) cons.push("Precio elevado");
+  cons.push("Confirma disponibilidad antes de reservar");
+
+  return {
+    name: winner.name,
+    neighborhood: city,
+    stars,
+    pricePerNightClp: priceClp,
+    rating,
+    reviews,
+    style: stars >= 5 ? "boutique" : stars >= 4 ? "business" : "hostal",
+    pros,
+    cons,
+    bookingSearchUrl: winner.link
+      ?? `https://www.google.com/travel/hotels/entity?q=${encodeURIComponent(winner.name + " " + city)}&checkin=${checkIn}&checkout=${checkOut}&adults=${adults}`,
+    // selectionReason will be filled by the itinerary route after fetching
+  } satisfies HotelRecommendation;
 }
 
 export async function fetchHotelsForCities(
@@ -178,5 +161,8 @@ export async function fetchHotelsForCities(
   const results = await Promise.all(
     cities.map(city => scrapeCity(city, checkIn, checkOut, adults, travelStyle))
   );
-  return Object.fromEntries(cities.map((city, i) => [city, results[i]]));
+  // Return as array of 1 (or 0 if not found) — callers expect Record<city, HotelRec[]>
+  return Object.fromEntries(
+    cities.map((city, i) => [city, results[i] ? [results[i]!] : []])
+  );
 }

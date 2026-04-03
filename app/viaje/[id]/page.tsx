@@ -34,112 +34,106 @@ function fmt(n: number) {
   return "$" + n.toLocaleString("es-CL");
 }
 
-function HotelCard({
-  hotel, rank, selected, onSelect,
-}: {
-  hotel: HotelRecommendation;
-  rank: number;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const [open, setOpen] = useState(rank === 0);
-  const isTop = rank === 0;
+function HotelCard({ hotel, onSelect }: { hotel: HotelRecommendation; onSelect: () => void }) {
+  const [open, setOpen] = useState(false);
   const { displayCurrency } = useTripStore();
 
   return (
-    <div className={`rounded-xl overflow-hidden border-2 transition-all duration-200 ${
-      selected ? "border-[#2E7D32] shadow-[0_0_0_3px_rgba(46,125,50,0.12)]" : isTop ? "border-ocean/40" : "border-[#E3F2FD]"
-    }`}>
-      {/* Recommended banner */}
-      {isTop && !selected && (
-        <div className="bg-ocean px-4 py-1.5 flex items-center gap-2">
-          <span className="text-[11px] font-bold text-white uppercase tracking-widest">⭐ Recomendado · Mejor relación calidad/precio</span>
-        </div>
-      )}
-      {selected && (
-        <div className="bg-[#2E7D32] px-4 py-1.5 flex items-center gap-2">
-          <span className="text-[11px] font-bold text-white uppercase tracking-widest">✓ Seleccionado</span>
-        </div>
-      )}
+    <div className="rounded-2xl overflow-hidden border-2 border-[#1565C0]/30 shadow-sm">
+      {/* Header */}
+      <div className="bg-[#0D1F3C] px-5 py-3 flex items-center gap-2">
+        <span className="text-[11px] font-bold text-white/40 uppercase tracking-widest">🏨 Mejor opción seleccionada</span>
+        {hotel.rating && hotel.rating >= 8.5 && (
+          <span className="ml-auto text-[10px] font-bold text-[#4CAF50] bg-[#4CAF50]/15 px-2 py-0.5 rounded-full">
+            {hotel.rating}/10
+          </span>
+        )}
+      </div>
 
-      <button
-        onClick={() => setOpen(!open)}
-        className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${
-          selected ? "bg-[#F1F8E9]" : isTop ? "bg-[#E3F2FD]/40 hover:bg-[#E3F2FD]/70" : "bg-white hover:bg-[#F5F0E8]/40"
-        }`}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
-            selected ? "bg-[#2E7D32] text-white" : isTop ? "bg-ocean text-white" : "bg-[#F5F0E8] text-[#78909C]"
-          }`}>
-            {selected ? "✓" : rank + 1}
+      {/* Main body */}
+      <div className="bg-white">
+        {/* Selection reason */}
+        {hotel.selectionReason && (
+          <div className="px-5 pt-4 pb-3 border-b border-[#F0EBE3]">
+            <p className="text-[11px] font-bold text-[#1565C0] uppercase tracking-widest mb-1.5">Por qué este hotel</p>
+            <p className="text-[13px] text-[#37474F] leading-relaxed">{hotel.selectionReason}</p>
           </div>
-          <div className="min-w-0">
-            <p className="text-[13px] font-semibold text-[#1A2332] truncate">{hotel.name}</p>
-            <p className="text-[11px] text-[#78909C]">
-              {"★".repeat(Math.max(0, hotel.stars ?? 0))} · {hotel.neighborhood}
+        )}
+
+        {/* Key stats row */}
+        <div className="px-5 py-4 flex items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="text-[15px] font-bold text-[#1A2332] leading-snug">{hotel.name}</p>
+            <p className="text-[12px] text-[#78909C] mt-0.5">
+              {"★".repeat(Math.max(0, hotel.stars ?? 0))}
               {hotel.rating ? ` · ${hotel.rating}/10` : ""}
+              {(hotel as HotelRecommendation & { reviews?: number }).reviews
+                ? ` · ${((hotel as HotelRecommendation & { reviews?: number }).reviews!).toLocaleString("es-CL")} reseñas`
+                : ""}
             </p>
           </div>
+          <div className="text-right shrink-0">
+            <p className="text-[18px] font-bold text-[#FF7043] tabular-nums leading-none">
+              {fmtCurrency(hotel.pricePerNightClp, displayCurrency)}
+            </p>
+            <p className="text-[10px] text-[#78909C] mt-0.5">/noche</p>
+          </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0 ml-2">
-          <p className="text-[13px] font-bold text-sunset tabular-nums">
-            {fmtCurrency(hotel.pricePerNightClp, displayCurrency)}<span className="text-[10px] text-[#78909C] font-normal">/noche</span>
-          </p>
-          {open ? <ChevronUp size={14} className="text-[#B0BEC5]" /> : <ChevronDown size={14} className="text-[#B0BEC5]" />}
-        </div>
-      </button>
 
-      {open && (
-        <div className="px-4 pb-4 bg-[#FAFAFA] border-t border-[#F0EBE3]">
-          <div className="grid grid-cols-2 gap-3 mt-3 mb-3">
+        {/* Expand for pros/cons */}
+        <button
+          onClick={() => setOpen(v => !v)}
+          className="w-full flex items-center justify-between px-5 py-2.5 border-t border-[#F0EBE3] hover:bg-[#FAF8F4] transition-colors"
+        >
+          <span className="text-[12px] font-semibold text-[#78909C]">
+            {open ? "Ocultar detalles" : "Ver detalles"}
+          </span>
+          {open ? <ChevronUp size={13} className="text-[#B0BEC5]" /> : <ChevronDown size={13} className="text-[#B0BEC5]" />}
+        </button>
+
+        {open && (
+          <div className="px-5 pb-4 pt-3 border-t border-[#F0EBE3] grid grid-cols-2 gap-4">
             <div>
-              <p className="text-[10px] font-bold text-[#2E7D32] flex items-center gap-1 mb-1.5 uppercase tracking-wide">
-                <ThumbsUp size={10} /> A favor
-              </p>
-              {hotel.pros.map((pro, i) => (
+              <p className="text-[10px] font-bold text-[#2E7D32] uppercase tracking-wide mb-2">A favor</p>
+              {hotel.pros.map((p, i) => (
                 <p key={i} className="text-[11px] text-[#37474F] flex items-start gap-1.5 mb-1">
-                  <span className="text-[#2E7D32] mt-0.5 shrink-0">✓</span>{pro}
+                  <span className="text-[#2E7D32] shrink-0">✓</span>{p}
                 </p>
               ))}
             </div>
             <div>
-              <p className="text-[10px] font-bold text-[#E64A19] flex items-center gap-1 mb-1.5 uppercase tracking-wide">
-                <ThumbsDown size={10} /> A tener en cuenta
-              </p>
-              {hotel.cons.map((con, i) => (
+              <p className="text-[10px] font-bold text-[#E64A19] uppercase tracking-wide mb-2">A considerar</p>
+              {hotel.cons.map((c, i) => (
                 <p key={i} className="text-[11px] text-[#37474F] flex items-start gap-1.5 mb-1">
-                  <span className="text-[#E64A19] mt-0.5 shrink-0">·</span>{con}
+                  <span className="text-[#E64A19] shrink-0">·</span>{c}
                 </p>
               ))}
             </div>
           </div>
-          <div className="flex gap-2">
-            {!selected ? (
-              <button
-                onClick={(e) => { e.stopPropagation(); onSelect(); }}
-                className="flex-1 py-2 rounded-lg bg-[#2E7D32] hover:bg-[#1B5E20] text-white text-[12px] font-semibold transition-colors"
-              >
-                ✓ Elegir este hotel
-              </button>
-            ) : (
-              <div className="flex-1 py-2 rounded-lg bg-[#E8F5E9] text-[#2E7D32] text-[12px] font-semibold text-center">
-                ✓ Hotel seleccionado
-              </div>
-            )}
-            <a
-              href={hotel.bookingSearchUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={onSelect}
-              className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#003580] hover:bg-[#00267a] text-white text-[12px] font-semibold transition-colors"
-            >
-              <ExternalLink size={12} />
-              Booking
-            </a>
-          </div>
+        )}
+
+        {/* CTA */}
+        <div className="px-5 pb-5 pt-2 flex gap-2">
+          <a
+            href={hotel.bookingSearchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={onSelect}
+            className="flex-1 py-2.5 rounded-xl bg-[#1565C0] hover:bg-[#1976D2] text-white text-[13px] font-bold transition-colors flex items-center justify-center gap-2"
+          >
+            🏨 Reservar ahora
+          </a>
+          <a
+            href={hotel.bookingSearchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#F5F0E8] hover:bg-[#E3F2FD] text-[#1565C0] text-[12px] font-semibold transition-colors"
+          >
+            <ExternalLink size={13} />
+            Ver en Google
+          </a>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -775,25 +769,32 @@ export default function TripPage() {
                     </div>
                   )}
 
-                  {opts.length > 0 && (
-                    <div className="space-y-2">
-                      {opts.map((opt, j) => (
+                  {opts.length > 0 && (() => {
+                    const best = opts[0];
+                    return (
+                      <div className="space-y-2">
+                        {/* Selection reason */}
+                        {best.selectionReason && (
+                          <div className="bg-[#E3F2FD] border border-[#90CAF9] rounded-xl px-4 py-3">
+                            <p className="text-[11px] font-bold text-[#1565C0] uppercase tracking-widest mb-1">Por qué este vuelo</p>
+                            <p className="text-[13px] text-[#37474F] leading-relaxed">{best.selectionReason}</p>
+                          </div>
+                        )}
                         <FlightCard
-                          key={j}
-                          flight={opt}
-                          rank={j}
-                          selected={selectedIdx === j}
+                          flight={best}
+                          rank={0}
+                          selected={selectedIdx === 0}
                           fromIata={leg.fromIata}
                           toIata={leg.toIata}
                           departureDate={leg.date}
                           onSelect={() => {
-                            setSelectedFlights(prev => ({ ...prev, [key]: j }));
-                            selectFlight(leg.fromCity, leg.toCity, j, opt.priceClp);
+                            setSelectedFlights(prev => ({ ...prev, [key]: 0 }));
+                            selectFlight(leg.fromCity, leg.toCity, 0, best.priceClp);
                           }}
                         />
-                      ))}
-                    </div>
-                  )}
+                      </div>
+                    );
+                  })()}
 
                   {!loadingFlights && opts.length === 0 && (
                     <a
@@ -815,29 +816,19 @@ export default function TripPage() {
               if (recs.length === 0 && !loadingHotels) return null;
               return (
                 <div key={city.name}>
-                  <p className="font-serif text-[22px] font-bold text-[#1A2332] mb-1">🏨 Hoteles en {city.name}</p>
-                  {recs.length > 0 && (
-                    <p className="text-[13px] text-[#78909C] mb-4">
-                      Top {recs.length} opciones · precios reales de Booking · ordenados por mejor relación calidad/precio
-                    </p>
-                  )}
+                  <p className="font-serif text-[22px] font-bold text-[#1A2332] mb-1">🏨 {city.name}</p>
                   {loadingHotels && recs.length === 0 && (
                     <div className="flex items-center gap-2 text-[#78909C] py-3">
                       <Loader2 size={14} className="animate-spin" />
-                      <span className="text-[13px]">Buscando disponibilidad...</span>
+                      <span className="text-[13px]">Buscando el mejor hotel disponible...</span>
                     </div>
                   )}
-                  <div className="space-y-2">
-                    {recs.map((hotel, i) => (
-                      <HotelCard
-                        key={i}
-                        hotel={hotel}
-                        rank={i}
-                        selected={selectedHotels[city.name] === i}
-                        onSelect={() => setSelectedHotels(prev => ({ ...prev, [city.name]: i }))}
-                      />
-                    ))}
-                  </div>
+                  {recs[0] && (
+                    <HotelCard
+                      hotel={recs[0]}
+                      onSelect={() => setSelectedHotels(prev => ({ ...prev, [city.name]: 0 }))}
+                    />
+                  )}
                 </div>
               );
             })}
