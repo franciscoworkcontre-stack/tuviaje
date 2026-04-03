@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/AnimatedIcons";
 import { useTripStore } from "@/stores/tripStore";
 import { CostSummary } from "@/components/trip/CostSummary";
+import { CategoryBreakdownPanel } from "@/components/trip/CategoryBreakdownPanel";
+import type { CostCategory } from "@/components/trip/CategoryBreakdownPanel";
 import { CostSplitter } from "@/components/trip/CostSplitter";
 import { OptimizerTips } from "@/components/trip/OptimizerTips";
 import { FlightCard } from "@/components/trip/FlightCard";
@@ -291,6 +293,7 @@ export default function TripPage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [tabPositions, setTabPositions] = useState<Record<string, { left: number; width: number }>>({});
   const [detailDay, setDetailDay] = useState<DayPlan | null>(null);
+  const [breakdownCategory, setBreakdownCategory] = useState<CostCategory | null>(null);
   const [skippedActivities, setSkippedActivities] = useState<Set<string>>(new Set());
   const [includeInsurance, setIncludeInsurance] = useState(false);
 
@@ -584,7 +587,10 @@ export default function TripPage() {
             </div>
             {/* Sidebar */}
             <div className="space-y-4">
-              <CostSummary insuranceCost={includeInsurance ? INSURANCE_PER_PERSON * trip.travelers.adults : 0} />
+              <CostSummary
+                insuranceCost={includeInsurance ? INSURANCE_PER_PERSON * trip.travelers.adults : 0}
+                onCategoryClick={setBreakdownCategory}
+              />
               {/* Insurance toggle shortcut */}
               <div
                 className={`card p-4 border-2 cursor-pointer transition-all ${
@@ -914,6 +920,13 @@ export default function TripPage() {
           </div>
         )}
       </div>
+
+      {/* Category breakdown panel */}
+      <CategoryBreakdownPanel
+        category={breakdownCategory}
+        selectedHotels={selectedHotels}
+        onClose={() => setBreakdownCategory(null)}
+      />
 
       {/* Activity detail panel */}
       <ActivityDetailPanel
