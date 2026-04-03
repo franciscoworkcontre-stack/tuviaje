@@ -155,8 +155,9 @@ Reglas adicionales: precios en CLP para estilo ${travelStyle}, 1 hotel por ciuda
     // ── Helper: build prompt for one batch of days ───────────────
     function batchPrompt(
       city: string, prevCity: string, batchDays: number,
-      batchStartDate: string, batchOffset: number, // 0 = first batch (has travel day)
-      isFirstTime: boolean
+      batchStartDate: string, batchOffset: number,
+      isFirstTime: boolean,
+      isDepartureBatch: boolean = false  // last batch of last city — final day is departure
     ): string {
       const isFirstBatch = batchOffset === 0;
       const firstTimeLine = isFirstTime
@@ -175,11 +176,34 @@ isTravelDay=true, theme="Llegada a ${city}"` : `
 Todos los días de este bloque son días COMPLETOS en ${city} (no es día de viaje).
 isTravelDay=false, morning: 2 actividades, afternoon: 2 actividades`;
 
+      // Determine if return is international (different continent → 3hrs; same region → 2hrs)
+      const returnIsIntl = (() => {
+        const LATAM = ["santiago","lima","bogota","bogotá","buenos aires","montevideo","sao paulo","são paulo","rio de janeiro","cusco","quito","asuncion","asunción","la paz","medellin","medellín","cartagena","ciudad de mexico","panama city"];
+        const originNorm = originCity.toLowerCase().trim();
+        const cityNorm   = city.toLowerCase().trim();
+        const bothLatam  = LATAM.includes(originNorm) && LATAM.includes(cityNorm);
+        return !bothLatam;
+      })();
+      const airportLeadHrs = returnIsIntl ? 3 : 2;
+
+      const departureDayBlock = isDepartureBatch ? `
+
+CRÍTICO — EL ÚLTIMO DÍA (día ${batchOffset + batchDays}) ES EL DÍA DE REGRESO A ${originCity}:
+- Es un día PARCIAL: actividades de mañana SOLO si hay tiempo antes de ir al aeropuerto
+- Check-out del hotel a las 12:00 (emoji 🏨)
+- Traslado hotel→aeropuerto de ${city} (emoji 🚕, coste CLP real, opciones concretas de transporte)
+- Llegar al aeropuerto ${airportLeadHrs} horas antes del vuelo (vuelo ${returnIsIntl ? "internacional" : "doméstico"})
+- Facturación y control de seguridad (emoji ✈️)
+- Vuelo de regreso a ${originCity}
+- Si el vuelo es por la tarde (después de las 14:00): incluir desayuno + 1 actividad de mañana cerca del hotel
+- Si el vuelo es por la mañana (antes de las 12:00): solo desayuno rápido + traslado
+isTravelDay=true, theme="Regreso a ${originCity}"` : "";
+
       return `Genera exactamente ${batchDays} días del itinerario en ${city}. Año 2026 — usa precios, lugares y referencias actuales.
 Estilo: ${travelStyle} | ${adults} viajeros | ${firstTimeLine}
 Origen vuelo: ${prevCity}→${city} | Fecha primer día del bloque: ${batchStartDate}
 SOLO JSON válido sin markdown.
-${day1Block}
+${day1Block}${departureDayBlock}
 
 Formato de cada día:
 {"dayNumber":N,"city":"${city}","date":"YYYY-MM-DD","theme":"...","isTravelDay":BOOL,
@@ -253,17 +277,21 @@ REGLAS ESTRICTAS:
       const totalBatches = Math.ceil(cityDays / BATCH_SIZE);
       const cityAllDays: DayPlan[] = [];
 
+      const isLastCity = idx === allCities.length - 1;
+
       for (let b = 0; b < totalBatches; b++) {
         const batchOffset = b * BATCH_SIZE;
         const batchCount = Math.min(BATCH_SIZE, cityDays - batchOffset);
         const batchStartDate = addDaysStr(arrival, batchOffset);
+        // Last batch of the last city contains the departure day (return to origin)
+        const isDepartureBatch = isLastCity && b === totalBatches - 1 && roundTrip;
 
-        console.log(`[itinerary] ${city} batch ${b + 1}/${totalBatches}: days ${batchOffset + 1}-${batchOffset + batchCount} from ${batchStartDate}`);
+        console.log(`[itinerary] ${city} batch ${b + 1}/${totalBatches}: days ${batchOffset + 1}-${batchOffset + batchCount} from ${batchStartDate}${isDepartureBatch ? " [DEPARTURE]" : ""}`);
 
         const msg = await client.messages.create({
           model: "claude-haiku-4-5-20251001",
           max_tokens: 8192,
-          messages: [{ role: "user", content: batchPrompt(city, prevCity, batchCount, batchStartDate, batchOffset, isFirstTime) }],
+          messages: [{ role: "user", content: batchPrompt(city, prevCity, batchCount, batchStartDate, batchOffset, isFirstTime, isDepartureBatch) }],
         });
 
         const raw = (msg.content[0] as { type: string; text: string }).text;
@@ -288,38 +316,32 @@ REGLAS ESTRICTAS:
       strategyPromise,
     ]);
 
-    // ── Razones de selección (hotel ya tiene reason de Sonnet; vuelos la generamos aquí) ──
-    try {
+    // ── Flight reasons + Optimizer tips en PARALELO ──────────────────────────
+    const flightReasonsPromise = (async () => {
       const flightItems = Object.entries(flightOptions).flatMap(([leg, opts]) => {
         const f = opts[0];
         if (!f) return [];
-        return [{ leg, airline: f.airline, stops: f.stops, departure: f.departure, arrival: f.arrival, durationMin: f.durationMin, priceUsd: Math.round(f.priceClp / 950) }];
+        return [{ leg, airline: f.airline, stops: f.stops, departure: f.departure, arrival: f.arrival, durationMin: f.durationMin, priceUsd: Math.round(f.priceClp / USD_TO_CLP) }];
       });
-
-      if (flightItems.length > 0) {
-        const reasonsMsg = await client.messages.create({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 512,
-          messages: [{
-            role: "user",
-            content: `Viaje estilo "${travelStyle}", ${adults} adulto(s). Explica en 1-2 oraciones por qué cada vuelo es el mejor para este viajero. En español, sé específico con precio, duración y aerolínea.
+      if (!flightItems.length) return;
+      const msg = await client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 512,
+        messages: [{
+          role: "user",
+          content: `Viaje estilo "${travelStyle}", ${adults} adulto(s). Explica en 1-2 oraciones por qué cada vuelo es el mejor para este viajero. En español, sé específico con precio, duración y aerolínea.
 
 Vuelos:
 ${JSON.stringify(flightItems, null, 2)}
 
 SOLO JSON: { "reasons": { "<leg>": "razón" } }`,
-          }],
-        });
-        const parsed = safeParseJson((reasonsMsg.content[0] as { type: string; text: string }).text) as { reasons?: Record<string, string> };
-        for (const [leg, opts] of Object.entries(flightOptions)) {
-          if (opts[0] && parsed.reasons?.[leg]) {
-            opts[0] = { ...opts[0], selectionReason: parsed.reasons[leg] };
-          }
-        }
+        }],
+      });
+      const parsed = safeParseJson((msg.content[0] as { type: string; text: string }).text) as { reasons?: Record<string, string> };
+      for (const [leg, opts] of Object.entries(flightOptions)) {
+        if (opts[0] && parsed.reasons?.[leg]) opts[0] = { ...opts[0], selectionReason: parsed.reasons[leg] };
       }
-    } catch (e) {
-      console.error("[itinerary] flight reasons error:", e instanceof Error ? e.message : e);
-    }
+    })().catch(e => console.error("[itinerary] flight reasons error:", e instanceof Error ? e.message : e));
 
     // ── Ensamblar ────────────────────────────────────────────────
     const allDays: DayPlan[] = [];
@@ -364,8 +386,9 @@ SOLO JSON: { "reasons": { "<leg>": "razón" } }`,
       byCityClp: Object.fromEntries(allCities.map(c => [c, Math.round(total / allCities.length)])),
     };
 
-    // ── Optimizer tips — generados al final con datos reales ─────────────────
+    // ── Optimizer tips + flight reasons en paralelo ──────────────────────────
     let optimizerTips: string[] = [];
+    const optimizerTipsPromise = (async () => {
     try {
       // Transport alternatives: known cheaper options for specific routes
       const TRANSPORT_ALTERNATIVES: Array<{ from: string; to: string; alt: string }> = [
@@ -432,6 +455,9 @@ SOLO JSON: { "tips": ["tip1", "tip2", ...] } — sin límite de cantidad, todos 
     } catch (e) {
       console.error("[itinerary] optimizer tips error:", e instanceof Error ? e.message : e);
     }
+    })();
+
+    await Promise.all([flightReasonsPromise, optimizerTipsPromise]);
 
     const travelers_list: Traveler[] = Array.from({ length: adults }, (_, i) => ({
       id: `t-${i}`, name: i === 0 ? "Tú" : `Persona ${i + 1}`,
