@@ -3,6 +3,19 @@ import type { FlightOption } from "@/types/trip";
 const SERPAPI_KEY = process.env.SERPAPI_KEY;
 const USD_TO_CLP = 950;
 
+// Value of 1 hour of travel time by style (CLP)
+// score = priceClp + (durationHours × HOUR_VALUE) → lowest score wins
+export const HOUR_VALUE_CLP: Record<string, number> = {
+  mochilero: 19_000,  // ~$20 USD/hr — time is cheap, they have flexibility
+  comfort:   57_000,  // ~$60 USD/hr
+  premium:   95_000,  // ~$100 USD/hr
+};
+
+export function flightScore(priceClp: number, durationMin: number, travelStyle: string): number {
+  const hourValue = HOUR_VALUE_CLP[travelStyle] ?? HOUR_VALUE_CLP.comfort;
+  return priceClp + (durationMin / 60) * hourValue;
+}
+
 // ── Airline booking URL builders ──────────────────────────────────────────────
 const AIRLINE_URLS: Record<string, (f: string, t: string, d: string, n: number) => string> = {
   LA: (f, t, d, n) => `https://www.latamairlines.com/cl/es/oferta-vuelos?origin=${f}&destination=${t}&outbound=${d}&adults=${n}&cabin=Y&trip=OW`,
@@ -142,10 +155,11 @@ function buildFlightOptions(
 
 // ── Single leg via SerpAPI ────────────────────────────────────────────────────
 export async function fetchLegFlights(
-  fromIata: string,
-  toIata:   string,
-  date:     string,
-  adults:   number
+  fromIata:    string,
+  toIata:      string,
+  date:        string,
+  adults:      number,
+  travelStyle: string = "comfort"
 ): Promise<FlightOption[]> {
   if (!SERPAPI_KEY || !fromIata || !toIata || !date) return [];
 
@@ -194,17 +208,21 @@ export async function fetchLegFlights(
     .filter(o => o.priceClp > 0);
   if (!options.length) return [];
 
-  // Direct flights first, then by price asc
-  const direct  = options.filter(o => o.stops === 0).sort((a, b) => a.priceClp - b.priceClp);
-  const connect = options.filter(o => o.stops > 0).sort((a, b) => a.priceClp - b.priceClp);
-  const sorted  = direct.length ? [...direct, ...connect] : connect;
+  // Sort by composite score: price + (duration × hour_value)
+  // This naturally prefers direct flights when the time savings justify the cost
+  options.sort((a, b) => flightScore(a.priceClp, a.durationMin, travelStyle) - flightScore(b.priceClp, b.durationMin, travelStyle));
 
-  if (sorted[0]) {
-    const label = sorted[0].stops === 0 ? "⭐ Más barato directo" : "⭐ Más económico disponible";
-    sorted[0].pros = [label, ...sorted[0].pros];
+  // Label the winner with score context
+  if (options[0]) {
+    const winner = options[0];
+    const scoreUsd = Math.round(flightScore(winner.priceClp, winner.durationMin, travelStyle) / USD_TO_CLP);
+    const priceUsd = Math.round(winner.priceClp / USD_TO_CLP / adults);
+    const durationH = Math.round(winner.durationMin / 60 * 10) / 10;
+    const label = `⭐ Mejor valor — $${priceUsd} USD · ${durationH}h · score ${scoreUsd} USD`;
+    options[0].pros = [label, ...options[0].pros];
   }
 
-  return sorted;
+  return options;
 }
 
 // ── Round-trip: returns best combined price in CLP (both directions) ─────────
@@ -264,15 +282,16 @@ export interface FlightLeg {
 }
 
 export async function fetchFlightsForLegs(
-  legs:   FlightLeg[],
-  adults: number
+  legs:        FlightLeg[],
+  adults:      number,
+  travelStyle: string = "comfort"
 ): Promise<Record<string, FlightOption[]>> {
   const results = await Promise.all(
     legs.map(async leg => {
       const key = `${leg.fromCity}-${leg.toCity}`;
       if (!leg.fromIata || !leg.toIata || !leg.date) return [key, [] as FlightOption[]] as const;
       try {
-        const opts = await fetchLegFlights(leg.fromIata, leg.toIata, leg.date, adults);
+        const opts = await fetchLegFlights(leg.fromIata, leg.toIata, leg.date, adults, travelStyle);
         return [key, opts] as const;
       } catch {
         return [key, [] as FlightOption[]] as const;

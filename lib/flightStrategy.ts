@@ -9,7 +9,7 @@
  * Winner = lowest score.
  */
 
-import { fetchLegFlights, fetchRoundTripBestPrice } from "@/lib/fetchFlights";
+import { fetchLegFlights, fetchRoundTripBestPrice, flightScore, HOUR_VALUE_CLP as STYLE_HOUR_VALUES } from "@/lib/fetchFlights";
 import type { FlightOption } from "@/types/trip";
 
 // ── Region map ──────────────────────────────────────────────────────────────
@@ -52,10 +52,6 @@ function isIntercontinental(fromIata?: string, toIata?: string) {
   return r1 !== "unknown" && r2 !== "unknown" && r1 !== r2;
 }
 
-// How much we value 1 hour of travel time (CLP)
-// ~$20 USD/h — calibrated so RT wins when it saves >$20 per extra hour added
-const HOUR_VALUE_CLP = 19_000;
-
 // ── Types ───────────────────────────────────────────────────────────────────
 export interface StrategyLeg {
   fromCity: string;
@@ -94,6 +90,7 @@ export async function analyzeFlightStrategy(
   adults:      number,
   originCity:  string,
   roundTrip:   boolean,
+  travelStyle: string = "comfort",
 ): Promise<StrategyResult> {
   if (!legs.length) {
     return { recommendation: noFlightsRec(), flightOptions: {} };
@@ -114,21 +111,21 @@ export async function analyzeFlightStrategy(
 
   // ── Simple round-trip (single destination) ─────────────────────────────────
   if (isRT && legs.length === 1) {
-    return analyzeSimpleRT(legs[0], adults);
+    return analyzeSimpleRT(legs[0], adults, travelStyle);
   }
 
   // ── Hub + regionals ────────────────────────────────────────────────────────
   if (isHubPattern) {
-    return analyzeHubPattern(legs, adults, originCity);
+    return analyzeHubPattern(legs, adults, originCity, travelStyle);
   }
 
   // ── Default: all one-ways (no special structure detected) ──────────────────
-  return analyzeAllOneWay(legs, adults);
+  return analyzeAllOneWay(legs, adults, travelStyle);
 }
 
 // ── Strategy: all one-ways ───────────────────────────────────────────────────
-async function analyzeAllOneWay(legs: StrategyLeg[], adults: number): Promise<StrategyResult> {
-  const flightOptions = await fetchAllLegsParallel(legs, adults);
+async function analyzeAllOneWay(legs: StrategyLeg[], adults: number, travelStyle: string): Promise<StrategyResult> {
+  const flightOptions = await fetchAllLegsParallel(legs, adults, travelStyle);
   const totalClp = sumBestPrices(flightOptions, legs);
 
   const rec: FlightStrategyRecommendation = {
@@ -149,14 +146,14 @@ async function analyzeAllOneWay(legs: StrategyLeg[], adults: number): Promise<St
 }
 
 // ── Strategy: simple round-trip ──────────────────────────────────────────────
-async function analyzeSimpleRT(leg: StrategyLeg, adults: number): Promise<StrategyResult> {
+async function analyzeSimpleRT(leg: StrategyLeg, adults: number, travelStyle: string): Promise<StrategyResult> {
   const returnDate = leg.date; // caller sets last leg date as return
 
   // Fetch RT price and two one-way prices in parallel
   const [rtBest, owOut, owReturn] = await Promise.all([
     fetchRoundTripBestPrice(leg.fromIata, leg.toIata, leg.date, returnDate, adults),
-    fetchLegFlights(leg.fromIata, leg.toIata, leg.date, adults),
-    fetchRoundTripBestPrice(leg.toIata, leg.fromIata, returnDate, returnDate, adults), // just get OW price
+    fetchLegFlights(leg.fromIata, leg.toIata, leg.date, adults, travelStyle),
+    fetchRoundTripBestPrice(leg.toIata, leg.fromIata, returnDate, returnDate, adults),
   ]);
 
   const owOutPrice = owOut[0]?.priceClp ?? 0;
@@ -205,9 +202,10 @@ async function analyzeSimpleRT(leg: StrategyLeg, adults: number): Promise<Strate
 
 // ── Strategy: hub + regionals ────────────────────────────────────────────────
 async function analyzeHubPattern(
-  legs:       StrategyLeg[],
-  adults:     number,
-  originCity: string,
+  legs:        StrategyLeg[],
+  adults:      number,
+  originCity:  string,
+  travelStyle: string,
 ): Promise<StrategyResult> {
   const hubLeg       = legs[0];  // e.g. SCL → MAD
   const regionalLegs = legs.slice(1, -1); // e.g. MAD→ROM, ROM→BCN
@@ -241,7 +239,7 @@ async function analyzeHubPattern(
 
   const [rtHubPrice, allOWOptions] = await Promise.all([
     fetchRoundTripBestPrice(hubLeg.fromIata, hubLeg.toIata, hubLeg.date, returnLeg.date, adults),
-    fetchAllLegsParallel(allLegsToFetch, adults),
+    fetchAllLegsParallel(allLegsToFetch, adults, travelStyle),
   ]);
 
   // ── Strategy A costs ──────────────────────────────────────────────────────
@@ -259,7 +257,8 @@ async function analyzeHubPattern(
 
   // Extra travel time for Strategy A: the connector leg (approx 1.5h average intra-region)
   const extraTimeA = connectorLeg ? 90 : 0; // minutes
-  const timePenaltyA = Math.round(extraTimeA / 60 * HOUR_VALUE_CLP);
+  const hourValue = STYLE_HOUR_VALUES[travelStyle] ?? STYLE_HOUR_VALUES.comfort;
+  const timePenaltyA = Math.round(extraTimeA / 60 * hourValue);
   const scoreA = totalA + timePenaltyA;
 
   // ── Strategy B costs ──────────────────────────────────────────────────────
@@ -343,14 +342,15 @@ async function analyzeHubPattern(
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 async function fetchAllLegsParallel(
-  legs: StrategyLeg[],
-  adults: number,
+  legs:        StrategyLeg[],
+  adults:      number,
+  travelStyle: string,
 ): Promise<Record<string, FlightOption[]>> {
   const entries = await Promise.all(
     legs.map(async l => {
       const key = `${l.fromCity}-${l.toCity}`;
       try {
-        const opts = await fetchLegFlights(l.fromIata, l.toIata, l.date, adults);
+        const opts = await fetchLegFlights(l.fromIata, l.toIata, l.date, adults, travelStyle);
         return [key, opts] as const;
       } catch {
         return [key, [] as FlightOption[]] as const;
