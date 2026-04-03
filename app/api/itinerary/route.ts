@@ -8,6 +8,8 @@ import { analyzeFlightStrategy, type StrategyLeg } from "@/lib/flightStrategy";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
+const USD_TO_CLP = 950;
+
 // Cities with multiple airports — maps route type to correct IATA
 // "default" = main international; "regional" = secondary/domestic
 const MULTI_AIRPORT: Record<string, { default: string; regional: string; regionalCities: string[] }> = {
@@ -104,7 +106,7 @@ export async function POST(req: NextRequest) {
       max_tokens: 4096,
       messages: [{
         role: "user",
-        content: `Genera la estructura de este viaje. SOLO JSON válido.
+        content: `Genera la estructura de este viaje. SOLO JSON válido. Estamos en 2026.
 
 Origen: ${originCity} → ${allCities.join(" → ")}
 Fechas: ${startDate} → ${endDate} (${totalDays} días)
@@ -121,8 +123,7 @@ Formato exacto:
     {"city":"...","name":"...","stars":4,"rating":8.4,"pricePerNight":65000,"nights":N,"totalCost":N,"neighborhood":"..."}
   ],
   "cityArrivalDates": {"ciudad":"fecha_iso"},
-  "savingsTip": "...",
-  "optimizerTips": ["...","..."]
+  "savingsTip": "..."
 }
 
 CRÍTICO — Aeropuertos con múltiples terminales, usa el correcto según la ruta:
@@ -174,7 +175,7 @@ isTravelDay=true, theme="Llegada a ${city}"` : `
 Todos los días de este bloque son días COMPLETOS en ${city} (no es día de viaje).
 isTravelDay=false, morning: 2 actividades, afternoon: 2 actividades`;
 
-      return `Genera exactamente ${batchDays} días del itinerario en ${city}.
+      return `Genera exactamente ${batchDays} días del itinerario en ${city}. Año 2026 — usa precios, lugares y referencias actuales.
 Estilo: ${travelStyle} | ${adults} viajeros | ${firstTimeLine}
 Origen vuelo: ${prevCity}→${city} | Fecha primer día del bloque: ${batchStartDate}
 SOLO JSON válido sin markdown.
@@ -182,17 +183,17 @@ ${day1Block}
 
 Formato de cada día:
 {"dayNumber":N,"city":"${city}","date":"YYYY-MM-DD","theme":"...","isTravelDay":BOOL,
-"morning":[{"time":"HH:MM","durationMin":N,"name":"Nombre real","category":"culture","costClp":N,"tip":"Tip concreto","emoji":"🏛️"}],
-"lunch":{"options":[{"name":"Restaurant real","cuisine":"...","priceTier":"$$","costClp":N}],"recommended":"..."},
+"morning":[{"time":"HH:MM","durationMin":N,"name":"Nombre real y específico","category":"culture","costClp":N,"tip":"Tip ultra-concreto con dirección, precio exacto o link","emoji":"🏛️"}],
+"lunch":{"options":[{"name":"Restaurant real con dirección o barrio","cuisine":"...","priceTier":"$$","costClp":N}],"recommended":"..."},
 "afternoon":[...misma estructura que morning...],
-"dinner":{"options":[{"name":"Restaurant real","cuisine":"...","priceTier":"$$","costClp":N}],"recommended":"..."},
+"dinner":{"options":[{"name":"Restaurant real con dirección o barrio","cuisine":"...","priceTier":"$$","costClp":N}],"recommended":"..."},
 "localTransportCostClp":N,"dayTotalClp":N}
 
 REGLAS ESTRICTAS:
 - Exactamente ${batchDays} días, dayNumber empieza en ${batchOffset + 1}, fechas desde ${batchStartDate}
-- Restaurantes y lugares REALES de ${city}
-- Tips ultra-concretos ("Metro L2 estación X · $0.9 USD", "Reserva 48h antes en su web")
-- Costos en CLP para estilo ${travelStyle}
+- Nombres REALES y ESPECÍFICOS — nunca genéricos ("Restaurante local" o "Museo de la ciudad" no son válidos)
+- Tips con datos concretos: línea de metro, precio de entrada, horario real, cómo reservar
+- Costos en CLP para estilo ${travelStyle}, realistas para 2026
 - dayTotalClp = suma exacta de todos los costClp del día
 - SOLO el array dentro de {"days":[...]}`;
     }
@@ -239,8 +240,8 @@ REGLAS ESTRICTAS:
     const flightsPromise = strategyPromise.then(s => s?.flightOptions ?? {})
       .catch(() => fetchFlightsForLegs(legsForFlights, adults, travelStyle));
 
-    // ── Llamadas 2-N: ciudades en PARALELO, batches de 4 días ────
-    const BATCH_SIZE = 4;
+    // ── Llamadas 2-N: ciudades en PARALELO, batches de 8 días (Haiku) ──
+    const BATCH_SIZE = 8;
     console.log("[itinerary] step4: parallel cities with batching", allCities);
 
     const cityDayResults = await Promise.all(allCities.map(async (city, idx) => {
@@ -252,7 +253,6 @@ REGLAS ESTRICTAS:
       const totalBatches = Math.ceil(cityDays / BATCH_SIZE);
       const cityAllDays: DayPlan[] = [];
 
-      // Batches run sequentially within a city (dates must be contiguous)
       for (let b = 0; b < totalBatches; b++) {
         const batchOffset = b * BATCH_SIZE;
         const batchCount = Math.min(BATCH_SIZE, cityDays - batchOffset);
@@ -261,7 +261,7 @@ REGLAS ESTRICTAS:
         console.log(`[itinerary] ${city} batch ${b + 1}/${totalBatches}: days ${batchOffset + 1}-${batchOffset + batchCount} from ${batchStartDate}`);
 
         const msg = await client.messages.create({
-          model: "claude-sonnet-4-6",
+          model: "claude-haiku-4-5-20251001",
           max_tokens: 8192,
           messages: [{ role: "user", content: batchPrompt(city, prevCity, batchCount, batchStartDate, batchOffset, isFirstTime) }],
         });
@@ -288,59 +288,37 @@ REGLAS ESTRICTAS:
       strategyPromise,
     ]);
 
-    // ── Generar razones de selección con haiku (una sola llamada batch) ──
+    // ── Razones de selección (hotel ya tiene reason de Sonnet; vuelos la generamos aquí) ──
     try {
-      type SelectionItem =
-        | { kind: "hotel"; city: string; name: string; rating: number; reviews: number; priceUsd: number; stars: number }
-        | { kind: "flight"; leg: string; airline: string; stops: number; departure: string; arrival: string; durationMin: number; priceUsd: number };
+      const flightItems = Object.entries(flightOptions).flatMap(([leg, opts]) => {
+        const f = opts[0];
+        if (!f) return [];
+        return [{ leg, airline: f.airline, stops: f.stops, departure: f.departure, arrival: f.arrival, durationMin: f.durationMin, priceUsd: Math.round(f.priceClp / 950) }];
+      });
 
-      const items: SelectionItem[] = [
-        ...Object.entries(hotelRecommendations).flatMap(([city, recs]) => {
-          const h = recs[0];
-          if (!h) return [];
-          return [{ kind: "hotel" as const, city, name: h.name, rating: h.rating ?? 0, reviews: (h as { reviews?: number }).reviews ?? 0, priceUsd: Math.round(h.pricePerNightClp / 950), stars: h.stars }];
-        }),
-        ...Object.entries(flightOptions).flatMap(([leg, opts]) => {
-          const f = opts[0];
-          if (!f) return [];
-          return [{ kind: "flight" as const, leg, airline: f.airline, stops: f.stops, departure: f.departure, arrival: f.arrival, durationMin: f.durationMin, priceUsd: Math.round(f.priceClp / 950) }];
-        }),
-      ];
-
-      if (items.length > 0) {
+      if (flightItems.length > 0) {
         const reasonsMsg = await client.messages.create({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 1024,
+          max_tokens: 512,
           messages: [{
             role: "user",
-            content: `Para un viaje de estilo "${travelStyle}" con ${adults} adulto(s), explica en 1-2 oraciones simples y directas por qué escogiste cada hotel y vuelo de la lista. Habla en español, en segunda persona ("escogí este hotel porque..."), sin tecnicismos. Sé específico con los números (rating, precio, tiempo).
+            content: `Viaje estilo "${travelStyle}", ${adults} adulto(s). Explica en 1-2 oraciones por qué cada vuelo es el mejor para este viajero. En español, sé específico con precio, duración y aerolínea.
 
-Items seleccionados:
-${JSON.stringify(items, null, 2)}
+Vuelos:
+${JSON.stringify(flightItems, null, 2)}
 
-Responde SOLO con JSON: { "reasons": { "<hotel:ciudad>" : "razón", "<flight:leg>" : "razón" } }`,
+SOLO JSON: { "reasons": { "<leg>": "razón" } }`,
           }],
         });
-        const rawReasons = (reasonsMsg.content[0] as { type: string; text: string }).text;
-        const parsed = safeParseJson(rawReasons) as { reasons?: Record<string, string> };
-        const reasons = parsed?.reasons ?? {};
-
-        // Attach reasons to hotel recommendations
-        for (const [city, recs] of Object.entries(hotelRecommendations)) {
-          if (recs[0] && reasons[`hotel:${city}`]) {
-            recs[0] = { ...recs[0], selectionReason: reasons[`hotel:${city}`] };
-          }
-        }
-        // Attach reasons to flight options
+        const parsed = safeParseJson((reasonsMsg.content[0] as { type: string; text: string }).text) as { reasons?: Record<string, string> };
         for (const [leg, opts] of Object.entries(flightOptions)) {
-          if (opts[0] && reasons[`flight:${leg}`]) {
-            opts[0] = { ...opts[0], selectionReason: reasons[`flight:${leg}`] };
+          if (opts[0] && parsed.reasons?.[leg]) {
+            opts[0] = { ...opts[0], selectionReason: parsed.reasons[leg] };
           }
         }
       }
     } catch (e) {
-      console.error("[itinerary] selection reasons error:", e instanceof Error ? e.message : e);
-      // non-fatal — reasons are optional
+      console.error("[itinerary] flight reasons error:", e instanceof Error ? e.message : e);
     }
 
     // ── Ensamblar ────────────────────────────────────────────────
@@ -353,23 +331,107 @@ Responde SOLO con JSON: { "reasons": { "<hotel:ciudad>" : "razón", "<flight:leg
     const accs = (structure.accommodations ?? []) as Array<{ totalCost: number; city: string; name: string; stars: number; rating: number; pricePerNight: number; nights: number; neighborhood: string }>;
     const legs = (structure.transportLegs ?? []) as Array<{ fromCity: string; toCity: string; fromIata?: string; toIata?: string; date?: string }>;
 
-    const hotelTotal = accs.reduce((s, a) => s + (a.totalCost ?? 0), 0);
+    // Use real hotel prices from SerpAPI when available
+    const realHotelTotal = Object.entries(hotelRecommendations).reduce((sum, [city, recs]) => {
+      const h = recs[0];
+      if (!h) return sum;
+      const cityDaysCount = daysPerCity(allCities.indexOf(city));
+      return sum + h.pricePerNightClp * cityDaysCount;
+    }, 0);
+    // Fallback to structure estimates if SerpAPI returned nothing
+    const hotelTotal = realHotelTotal > 0 ? realHotelTotal : accs.reduce((s, a) => s + (a.totalCost ?? 0), 0);
+
+    // Use real flight prices from SerpAPI when available
+    const realFlightTotal = Object.values(flightOptions).reduce((sum, opts) => {
+      const f = opts[0];
+      return f ? sum + f.priceClp : sum;
+    }, 0);
+    const transportTotal = realFlightTotal > 0 ? realFlightTotal : allCities.length * 45000 * adults;
+
     const foodTotal = allDays.reduce((s, d) => d.isTravelDay ? s :
       s + (d.lunch?.options?.[0]?.costClp ?? budget.food/2) + (d.dinner?.options?.[0]?.costClp ?? budget.food/2), 0) * adults;
     const activitiesTotal = allDays.reduce((s, d) =>
       s + [...(d.morning??[]),...(d.afternoon??[])].reduce((ss: number, a: {costClp?:number}) => ss+(a.costClp??0), 0), 0) * adults;
     const localTotal = allDays.reduce((s, d) => s + (d.localTransportCostClp ?? 0), 0) * adults;
-    const transportEst = allCities.length * 45000 * adults;
     const extras = Math.round((hotelTotal + foodTotal + activitiesTotal) * 0.06);
-    const total = transportEst + hotelTotal + foodTotal + activitiesTotal + localTotal + extras;
+    const total = transportTotal + hotelTotal + foodTotal + activitiesTotal + localTotal + extras;
 
     const costs: CostBreakdown = {
-      transport: transportEst, accommodation: hotelTotal, food: foodTotal,
+      transport: transportTotal, accommodation: hotelTotal, food: foodTotal,
       activities: activitiesTotal, localTransport: localTotal, extras, total,
       perPerson: Math.round(total / adults),
       perDayPerPerson: Math.round(total / adults / Math.max(totalDays, 1)),
       byCityClp: Object.fromEntries(allCities.map(c => [c, Math.round(total / allCities.length)])),
     };
+
+    // ── Optimizer tips — generados al final con datos reales ─────────────────
+    let optimizerTips: string[] = [];
+    try {
+      // Transport alternatives: known cheaper options for specific routes
+      const TRANSPORT_ALTERNATIVES: Array<{ from: string; to: string; alt: string }> = [
+        { from: "buenos aires", to: "montevideo", alt: "Ferry Buquebus Buenos Aires→Montevideo: ~$50 USD, 2h30m — más barato que volar y llegas al centro directamente" },
+        { from: "montevideo",   to: "buenos aires", alt: "Ferry Buquebus Montevideo→Buenos Aires: ~$50 USD, 2h30m — evita aeropuertos y sale más barato" },
+        { from: "santiago",     to: "buenos aires", alt: "Bus nocturno Santiago→Buenos Aires (Turbus/Andesmar): ~$30-50 USD, llegas descansado y ahorras una noche de hotel" },
+        { from: "buenos aires", to: "santiago",     alt: "Bus nocturno Buenos Aires→Santiago: ~$30-50 USD — ahorra vuelo y una noche de hotel" },
+        { from: "barcelona",    to: "madrid",        alt: "Tren AVE Barcelona→Madrid: ~€35-60 USD, 2h30m — más rápido que volar si consideras aeropuertos" },
+        { from: "madrid",       to: "barcelona",     alt: "Tren AVE Madrid→Barcelona: ~€35-60 USD, 2h30m — más rápido puerta a puerta que volar" },
+        { from: "paris",        to: "london",        alt: "Eurostar París→Londres: ~€60-100 USD, 2h15m — llega al centro, evita aeropuertos" },
+        { from: "london",       to: "paris",         alt: "Eurostar Londres→París: ~€60-100 USD, 2h15m — más conveniente que volar" },
+        { from: "amsterdam",    to: "paris",         alt: "Tren Thalys Ámsterdam→París: ~€40-80 USD, 3h30m — directamente entre centros de ciudad" },
+        { from: "rome",         to: "florence",      alt: "Tren Frecciarossa Roma→Florencia: ~€20-40 USD, 1h30m — más rápido que volar" },
+        { from: "roma",         to: "florencia",     alt: "Tren Frecciarossa Roma→Florencia: ~€20-40 USD, 1h30m — más rápido que volar" },
+        { from: "lima",         to: "cusco",         alt: "Considera el tren Perurail Lima→Cusco si tienes tiempo — experiencia única atravesando los Andes" },
+        { from: "santiago",     to: "mendoza",       alt: "Bus Santiago→Mendoza: ~$15-20 USD, 7h — atraviesa la cordillera y es mucho más barato que volar" },
+      ];
+
+      const transportTips = TRANSPORT_ALTERNATIVES
+        .filter(alt =>
+          legsForFlights.some(l =>
+            l.fromCity?.toLowerCase().includes(alt.from) &&
+            l.toCity?.toLowerCase().includes(alt.to)
+          )
+        )
+        .map(alt => alt.alt);
+
+      // Data-driven tips from real trip data
+      const hotelAvgUsd = hotelTotal > 0 ? Math.round(hotelTotal / USD_TO_CLP / totalDays) : 0;
+      const flightAvgUsd = transportTotal > 0 ? Math.round(transportTotal / USD_TO_CLP / adults / Math.max(legsForFlights.length, 1)) : 0;
+      const accommodationPct = total > 0 ? Math.round(hotelTotal / total * 100) : 0;
+      const transportPct = total > 0 ? Math.round(transportTotal / total * 100) : 0;
+
+      const dataTips: string[] = [];
+      if (accommodationPct > 45) dataTips.push(`El alojamiento representa el ${accommodationPct}% de tu presupuesto ($${hotelAvgUsd} USD/noche promedio). Si bajas una categoría en la ciudad más cara, puedes liberar fondos para experiencias.`);
+      if (transportPct > 40) dataTips.push(`Los vuelos son el ${transportPct}% de tu presupuesto ($${flightAvgUsd} USD/vuelo promedio). Reservar con 6-8 semanas de anticipación típicamente baja los precios un 20-30%.`);
+      if (adults >= 3) dataTips.push(`Viajando ${adults} personas, considera apartamentos en Airbnb — suelen salir más baratos que ${adults} habitaciones de hotel y ofrecen cocina para ahorrar en comidas.`);
+      if (totalDays >= 14) dataTips.push(`Para ${totalDays} días, los pases de transporte semanal (metro, buses) suelen ser hasta un 40% más baratos que pagar por viaje.`);
+
+      // LLM-generated tips with real numbers
+      const tipsMsg = await client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1024,
+        messages: [{
+          role: "user",
+          content: `Genera tips de optimización REALES y ACCIONABLES para este viaje en 2026. Cada tip debe sustentarse en los datos reales del viaje — no inventes alternativas de precio ni compares con datos que no tienes.
+
+Datos del viaje:
+- Ruta: ${originCity} → ${allCities.join(" → ")}
+- Estilo: ${travelStyle} | ${adults} adulto(s) | ${totalDays} días
+- Fechas: ${startDate} → ${endDate}
+- Costo total: $${Math.round(total/USD_TO_CLP/adults).toLocaleString()} USD/persona
+- Hoteles elegidos: ${Object.entries(hotelRecommendations).map(([c,r]) => r[0] ? `${c}: ${r[0].name} $${Math.round(r[0].pricePerNightClp/USD_TO_CLP)}/noche ${r[0].rating}/10` : "").filter(Boolean).join(", ")}
+- Vuelos: ${Object.entries(flightOptions).map(([leg,opts]) => opts[0] ? `${leg}: ${opts[0].airline} $${Math.round(opts[0].priceClp/USD_TO_CLP/adults)} USD ${opts[0].stops === 0 ? "directo" : opts[0].stops+"escala"}` : "").filter(Boolean).join(", ")}
+
+Genera SOLO tips con valor real — tips sobre: temporada y precios, costumbres locales de pago, apps útiles para este destino, cómo moverse dentro de cada ciudad, qué evitar, tarjetas de crédito sin comisión, etc.
+NO generes tips sobre vuelos o hoteles alternativos (ya están elegidos los mejores).
+
+SOLO JSON: { "tips": ["tip1", "tip2", ...] } — sin límite de cantidad, todos los que tengan valor real.`,
+        }],
+      });
+      const parsedTips = safeParseJson((tipsMsg.content[0] as { type: string; text: string }).text) as { tips?: string[] };
+      optimizerTips = [...transportTips, ...dataTips, ...(parsedTips.tips ?? [])];
+    } catch (e) {
+      console.error("[itinerary] optimizer tips error:", e instanceof Error ? e.message : e);
+    }
 
     const travelers_list: Traveler[] = Array.from({ length: adults }, (_, i) => ({
       id: `t-${i}`, name: i === 0 ? "Tú" : `Persona ${i + 1}`,
@@ -391,7 +453,6 @@ Responde SOLO con JSON: { "reasons": { "<hotel:ciudad>" : "razón", "<flight:leg
           const fromCity = i === 0 ? originCity : allCities[i - 1];
           const tDay = allDays.find(d => d.isTravelDay && d.city === city);
           const legDate = leg?.date ?? tDay?.date ?? startDate;
-          // Resolve correct airport for multi-airport cities
           const fromIata = resolveIata(fromCity, city, leg?.fromIata);
           const toIata   = resolveIata(city, fromCity, leg?.toIata);
           return {
@@ -401,7 +462,6 @@ Responde SOLO con JSON: { "reasons": { "<hotel:ciudad>" : "razón", "<flight:leg
             selected: undefined, options: [],
           };
         });
-        // Return leg: only if roundTrip
         if (roundTrip) {
           const lastCity = allCities[allCities.length - 1];
           const firstLeg = legs.find(l => l.fromCity?.toLowerCase() === originCity.toLowerCase());
@@ -425,7 +485,7 @@ Responde SOLO con JSON: { "reasons": { "<hotel:ciudad>" : "razón", "<flight:leg
       splitAssignments: [], currency: "CLP",
       createdAt: new Date().toISOString(),
       savingsTip: structure.savingsTip,
-      optimizerTips: (structure.optimizerTips as string[]) ?? [],
+      optimizerTips,
     };
 
     return NextResponse.json({ trip });
