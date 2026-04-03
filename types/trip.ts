@@ -3,14 +3,15 @@
 export type TravelStyle = "mochilero" | "comfort" | "premium";
 export type TransportType = "flight" | "bus" | "train" | "car";
 export type ActivityCategory =
-  | "culture"
-  | "food"
-  | "nature"
-  | "nightlife"
-  | "shopping"
-  | "wellness"
-  | "adventure"
-  | "photography";
+  | "culture"      // museos, sitios históricos, monumentos, arte
+  | "nature"       // parques, playas, montañas, senderismo, miradores
+  | "adventure"    // deportes extremos, actividades físicas, tours activos
+  | "food"         // tours gastronómicos, mercados, degustaciones, cocina local
+  | "nightlife"    // bares, clubs, shows, espectáculos nocturnos
+  | "shopping"     // mercados, artesanías, tiendas locales
+  | "wellness"     // spas, yoga, relax, termas
+  | "entertainment"// entretenimiento, eventos, conciertos, deportes como espectador
+  | "transport";   // traslados, vuelos, buses, taxis (días de viaje)
 
 export interface City {
   name: string;

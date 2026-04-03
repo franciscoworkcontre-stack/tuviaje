@@ -207,11 +207,22 @@ ${day1Block}${departureDayBlock}
 
 Formato de cada día:
 {"dayNumber":N,"city":"${city}","date":"YYYY-MM-DD","theme":"...","isTravelDay":BOOL,
-"morning":[{"time":"HH:MM","durationMin":N,"name":"Nombre real y específico","category":"culture","costClp":N,"tip":"Tip ultra-concreto con dirección, precio exacto o link","emoji":"🏛️"}],
+"morning":[{"time":"HH:MM","durationMin":N,"name":"Nombre real y específico","category":"CATEGORIA","costClp":N,"tip":"Tip ultra-concreto con dirección, precio exacto o link","emoji":"🏛️"}],
 "lunch":{"options":[{"name":"Restaurant real con dirección o barrio","cuisine":"...","priceTier":"$$","costClp":N}],"recommended":"..."},
 "afternoon":[...misma estructura que morning...],
 "dinner":{"options":[{"name":"Restaurant real con dirección o barrio","cuisine":"...","priceTier":"$$","costClp":N}],"recommended":"..."},
 "localTransportCostClp":N,"dayTotalClp":N}
+
+CATEGORÍAS VÁLIDAS (usa EXACTAMENTE estos valores en "category"):
+- "culture"       → museos, sitios históricos, monumentos, arte, arquitectura
+- "nature"        → parques, playas, montañas, senderismo, miradores, jardines
+- "adventure"     → deportes extremos, rafting, tours activos, escalada, surf
+- "food"          → tours gastronómicos, mercados de comida, degustaciones, clases de cocina
+- "nightlife"     → bares, clubs, espectáculos nocturnos, tanguerías, flamenco
+- "shopping"      → mercados artesanales, tiendas locales, ferias, outlets
+- "wellness"      → spas, yoga, termas, masajes, relax
+- "entertainment" → conciertos, eventos deportivos, shows, parques temáticos
+- "transport"     → traslados al aeropuerto, vuelos, buses interurbanos, taxis (SOLO para días de viaje)
 
 REGLAS ESTRICTAS:
 - Exactamente ${batchDays} días, dayNumber empieza en ${batchOffset + 1}, fechas desde ${batchStartDate}
