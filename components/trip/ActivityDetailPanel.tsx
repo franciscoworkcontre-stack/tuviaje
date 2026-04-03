@@ -4,7 +4,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Shield } from "lucide-react";
 import { useTripStore } from "@/stores/tripStore";
 import { fmtCurrency } from "@/lib/currency";
+import { useState } from "react";
 import type { DayPlan, Activity } from "@/types/trip";
+
+type FilterTab = "actividades" | "comidas" | "todo";
 
 interface ActivityDetailPanelProps {
   day: DayPlan | null;
@@ -35,14 +38,28 @@ export function ActivityDetailPanel({
 }: ActivityDetailPanelProps) {
   const { displayCurrency, trip } = useTripStore();
   const adults = trip?.travelers.adults ?? 1;
+  const [filter, setFilter] = useState<FilterTab>("actividades");
 
-  const allActivities: Activity[] = day
-    ? [...(day.morning ?? []), ...(day.afternoon ?? [])].sort(
-        (a, b) => b.costClp - a.costClp
-      )
+  const activities: Activity[] = day
+    ? [...(day.morning ?? []), ...(day.afternoon ?? [])].sort((a, b) => b.costClp - a.costClp)
     : [];
 
-  const skippedSavings = allActivities
+  const meals = day
+    ? [
+        day.lunch?.options?.[0]
+          ? { name: `Almuerzo: ${day.lunch.recommended}`, costClp: day.lunch.options[0].costClp, emoji: "🍽️", time: "13:00", durationMin: 60, category: "food", tip: day.lunch.options[0].cuisine } as Activity
+          : null,
+        day.dinner?.options?.[0]
+          ? { name: `Cena: ${day.dinner.recommended}`, costClp: day.dinner.options[0].costClp, emoji: "🌙", time: "20:00", durationMin: 90, category: "food", tip: day.dinner.options[0].cuisine } as Activity
+          : null,
+      ].filter(Boolean).sort((a, b) => b!.costClp - a!.costClp) as Activity[]
+    : [];
+
+  const allActivities = filter === "actividades" ? activities
+    : filter === "comidas" ? meals
+    : [...activities, ...meals].sort((a, b) => b.costClp - a.costClp);
+
+  const skippedSavings = activities
     .filter((a) => skipped.has(activityKey(day?.dayNumber ?? -1, a.name)))
     .reduce((s, a) => s + a.costClp, 0);
 
@@ -94,8 +111,25 @@ export function ActivityDetailPanel({
                 {day.theme || "Actividades del día"}
               </p>
               <p className="text-[12px] text-white/50 mt-0.5">
-                Toca una actividad para marcarla como opcional · ordenadas de mayor a menor costo
+                Ordenadas de mayor a menor costo
               </p>
+
+              {/* Filter tabs */}
+              <div className="flex gap-1.5 mt-3">
+                {(["actividades", "comidas", "todo"] as FilterTab[]).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setFilter(tab)}
+                    className={`text-[11px] font-bold px-3 py-1 rounded-full transition-all capitalize ${
+                      filter === tab
+                        ? "bg-white text-[#0D1F3C]"
+                        : "bg-white/10 text-white/60 hover:bg-white/20"
+                    }`}
+                  >
+                    {tab === "actividades" ? `Actividades (${activities.length})` : tab === "comidas" ? `Comidas (${meals.length})` : "Todo"}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Activity list */}
@@ -109,16 +143,19 @@ export function ActivityDetailPanel({
 
               <div className="p-4 space-y-2">
                 {allActivities.map((act) => {
+                  const isMeal = act.category === "food";
                   const key = activityKey(day.dayNumber, act.name);
-                  const isSkipped = skipped.has(key);
+                  const isSkipped = !isMeal && skipped.has(key);
                   return (
                     <button
                       key={key}
-                      onClick={() => onToggleSkip(key)}
+                      onClick={() => !isMeal && onToggleSkip(key)}
                       className={`w-full text-left rounded-xl border-2 p-3.5 transition-all ${
-                        isSkipped
-                          ? "border-[#B0BEC5] bg-[#ECEFF1] opacity-60"
-                          : "border-[#E0D5C5] bg-white hover:border-[#1565C0]/40 hover:shadow-sm"
+                        isMeal
+                          ? "border-[#FFE082] bg-[#FFFDE7] cursor-default"
+                          : isSkipped
+                            ? "border-[#B0BEC5] bg-[#ECEFF1] opacity-60"
+                            : "border-[#E0D5C5] bg-white hover:border-[#1565C0]/40 hover:shadow-sm"
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -167,55 +204,17 @@ export function ActivityDetailPanel({
                               Marcada como opcional — toca para reactivar
                             </p>
                           )}
+                          {isMeal && (
+                            <p className="text-[10px] text-[#F9A825] mt-1 font-semibold">
+                              Comida · costo estimado
+                            </p>
+                          )}
                         </div>
                       </div>
                     </button>
                   );
                 })}
 
-                {/* Lunch */}
-                {day.lunch?.options?.[0] && (
-                  <div className="rounded-xl border border-[#FFE082] bg-[#FFFDE7] p-3.5">
-                    <div className="flex items-start gap-3">
-                      <span className="text-[22px] leading-none mt-0.5">🍽️</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-[13px] font-semibold text-[#1A2332]">
-                            Almuerzo: {day.lunch.recommended}
-                          </p>
-                          <p className="text-[13px] font-bold text-[#FF7043] tabular-nums shrink-0">
-                            {fmt(day.lunch.options[0].costClp)}
-                          </p>
-                        </div>
-                        <p className="text-[10px] text-[#78909C] mt-0.5">
-                          {day.lunch.options[0].cuisine} · {day.lunch.options[0].priceTier}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Dinner */}
-                {day.dinner?.options?.[0] && (
-                  <div className="rounded-xl border border-[#90CAF9] bg-[#E3F2FD]/40 p-3.5">
-                    <div className="flex items-start gap-3">
-                      <span className="text-[22px] leading-none mt-0.5">🌙</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-[13px] font-semibold text-[#1A2332]">
-                            Cena: {day.dinner.recommended}
-                          </p>
-                          <p className="text-[13px] font-bold text-[#FF7043] tabular-nums shrink-0">
-                            {fmt(day.dinner.options[0].costClp)}
-                          </p>
-                        </div>
-                        <p className="text-[10px] text-[#78909C] mt-0.5">
-                          {day.dinner.options[0].cuisine} · {day.dinner.options[0].priceTier}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Insurance toggle */}

@@ -250,8 +250,8 @@ export default function PlanificarPage() {
     // Build dynamic steps based on actual cities
     const dynSteps = buildGeneratingSteps(cityRows, origin);
     setGeneratingSteps(dynSteps);
-    // Estimate: 15s base + 25s per city (parallel calls, so dominated by longest)
-    const estimatedMs = Math.max(30000, 15000 + Math.max(...cityRows.map(r => r.days)) * 3000);
+    // Estimate: 10s base + Haiku days (parallel, so bottleneck is longest city or hotels+flights ~12s)
+    const estimatedMs = Math.max(22000, 10000 + Math.max(...cityRows.map(r => r.days)) * 1200);
     setGeneratingEstimatedMs(estimatedMs);
 
     // Start API immediately
