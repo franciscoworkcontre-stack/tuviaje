@@ -24,6 +24,7 @@ import { OptimizerTips } from "@/components/trip/OptimizerTips";
 import { FlightCard } from "@/components/trip/FlightCard";
 import { CurrencySelector } from "@/components/ui/CurrencySelector";
 import { fmtCurrency } from "@/lib/currency";
+import { ActivityDetailPanel, activityKey, INSURANCE_PER_PERSON } from "@/components/trip/ActivityDetailPanel";
 import type { DayPlan, HotelRecommendation, FlightOption } from "@/types/trip";
 
 function fmt(n: number) {
@@ -142,7 +143,12 @@ function HotelCard({
 
 // FlightCard is now in components/trip/FlightCard.tsx
 
-function DayCard({ day, flightSearchUrl }: { day: DayPlan; flightSearchUrl?: string }) {
+function DayCard({ day, flightSearchUrl, onOpenDetail, skipped }: {
+  day: DayPlan;
+  flightSearchUrl?: string;
+  onOpenDetail: () => void;
+  skipped: Set<string>;
+}) {
   const [open, setOpen] = useState(day.dayNumber <= 2);
   const activities = [...(day.morning ?? []), ...(day.afternoon ?? [])];
 
@@ -190,33 +196,48 @@ function DayCard({ day, flightSearchUrl }: { day: DayPlan; flightSearchUrl?: str
           {(activities.length > 0 || day.lunch?.options?.[0] || day.dinner?.options?.[0]) ? (
             <div className="divide-y divide-[#F5F0E8]">
               {/* Activities */}
-              {activities.map((act, i) => (
-                <div
-                  key={i}
-                  className="flex items-start gap-3 px-4 py-3 border-b border-[#F5F0E8] hover:bg-[#FAF8F4] transition-colors"
-                >
-                  <div className="min-w-[40px] text-center">
-                    <p className="text-[10px] font-bold text-[#78909C] tabular-nums">{act.time}</p>
-                    <span className="text-[20px]">{act.emoji ?? "📍"}</span>
+              {activities.map((act, i) => {
+                const key = activityKey(day.dayNumber, act.name);
+                const isSkipped = skipped.has(key);
+                return (
+                  <div
+                    key={i}
+                    className={`flex items-start gap-3 px-4 py-3 border-b border-[#F5F0E8] transition-colors ${isSkipped ? "opacity-50 bg-[#F5F5F5]" : "hover:bg-[#FAF8F4]"}`}
+                  >
+                    <div className="min-w-[40px] text-center">
+                      <p className="text-[10px] font-bold text-[#78909C] tabular-nums">{act.time}</p>
+                      <span className="text-[20px]">{act.emoji ?? "📍"}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[13px] font-semibold ${isSkipped ? "line-through text-[#90A4AE]" : "text-[#1A2332]"}`}>{act.name}</p>
+                      {act.tip && !isSkipped && <p className="text-[11px] text-[#78909C] mt-0.5">{act.tip}</p>}
+                      <p className="text-[11px] text-[#B0BEC5] flex items-center gap-1 mt-0.5">
+                        <Clock size={9} /> {act.durationMin} min
+                        {isSkipped && <span className="ml-2 text-[#90A4AE] font-semibold">· opcional</span>}
+                      </p>
+                    </div>
+                    {/* Cost — clickable to open detail */}
+                    <button
+                      onClick={onOpenDetail}
+                      className="text-right shrink-0 group"
+                      title="Ver todas las actividades del día ordenadas por costo"
+                    >
+                      {act.costClp > 0 ? (
+                        <p className={`text-[12px] font-bold tabular-nums group-hover:underline ${isSkipped ? "text-[#90A4AE] line-through" : "text-sunset"}`}>
+                          {fmt(act.costClp)}
+                        </p>
+                      ) : (
+                        <span className="text-[10px] font-bold text-[#2E7D32] bg-[#E8F5E9] px-2 py-0.5 rounded-full">
+                          Gratis
+                        </span>
+                      )}
+                      <p className="text-[9px] text-[#B0BEC5] opacity-0 group-hover:opacity-100 transition-opacity mt-0.5">
+                        ver detalles →
+                      </p>
+                    </button>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-semibold text-[#1A2332]">{act.name}</p>
-                    {act.tip && <p className="text-[11px] text-[#78909C] mt-0.5">{act.tip}</p>}
-                    <p className="text-[11px] text-[#B0BEC5] flex items-center gap-1 mt-0.5">
-                      <Clock size={9} /> {act.durationMin} min
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    {act.costClp > 0 ? (
-                      <p className="text-[12px] font-bold text-sunset tabular-nums">{fmt(act.costClp)}</p>
-                    ) : (
-                      <span className="text-[10px] font-bold text-[#2E7D32] bg-[#E8F5E9] px-2 py-0.5 rounded-full">
-                        Gratis
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
 
               {/* Lunch */}
               {day.lunch?.options?.[0] && (
@@ -268,6 +289,18 @@ export default function TripPage() {
   const [activeTab, setActiveTab] = useState<ExportTab>("hotels");
   const [isScrolled, setIsScrolled] = useState(false);
   const [tabPositions, setTabPositions] = useState<Record<string, { left: number; width: number }>>({});
+  const [detailDay, setDetailDay] = useState<DayPlan | null>(null);
+  const [skippedActivities, setSkippedActivities] = useState<Set<string>>(new Set());
+  const [includeInsurance, setIncludeInsurance] = useState(false);
+
+  function toggleSkip(key: string) {
+    setSkippedActivities(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
   const [downloading, setDownloading] = useState<"sheet" | "pdf" | null>(null);
   const [hotelRecs, setHotelRecs] = useState<Record<string, HotelRecommendation[]>>(
     () => trip?.hotelRecommendations ?? {}
@@ -530,12 +563,54 @@ export default function TripPage() {
             <div className="space-y-3">
               {trip.days.map((day) => {
                 const leg = trip.transportLegs.find((l) => l.toCity === day.city && day.isTravelDay);
-                return <DayCard key={day.dayNumber} day={day} flightSearchUrl={leg?.flightSearchUrl} />;
+                return (
+                  <DayCard
+                    key={day.dayNumber}
+                    day={day}
+                    flightSearchUrl={leg?.flightSearchUrl}
+                    onOpenDetail={() => setDetailDay(day)}
+                    skipped={skippedActivities}
+                  />
+                );
               })}
             </div>
             {/* Sidebar */}
             <div className="space-y-4">
               <CostSummary />
+              {/* Insurance toggle shortcut */}
+              <div
+                className={`card p-4 border-2 cursor-pointer transition-all ${
+                  includeInsurance ? "border-[#1565C0] bg-[#E3F2FD]" : "border-[#E0D5C5] hover:border-[#1565C0]/30"
+                }`}
+                onClick={() => setIncludeInsurance(v => !v)}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[22px]">🛡️</span>
+                    <div>
+                      <p className="text-[13px] font-semibold text-[#1A2332]">Seguro de viaje</p>
+                      <p className="text-[11px] text-[#78909C]">
+                        {includeInsurance
+                          ? `${fmtCurrency(INSURANCE_PER_PERSON * trip.travelers.adults, displayCurrency)} incluido`
+                          : "Opcional · cancelaciones, médico, equipaje"}
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    className={`relative rounded-full transition-colors shrink-0`}
+                    style={{
+                      width: "40px",
+                      height: "22px",
+                      background: includeInsurance ? "#1565C0" : "#B0BEC5",
+                    }}
+                  >
+                    <span
+                      className="absolute top-0.5 w-[18px] h-[18px] rounded-full bg-white shadow-sm transition-transform"
+                      style={{ transform: includeInsurance ? "translateX(20px)" : "translateX(2px)" }}
+                    />
+                  </div>
+                </div>
+              </div>
               {/* Quick flights */}
               {trip.transportLegs.length > 0 && (
                 <div className="card p-5 border border-[#E3F2FD]">
@@ -831,6 +906,16 @@ export default function TripPage() {
           </div>
         )}
       </div>
+
+      {/* Activity detail panel */}
+      <ActivityDetailPanel
+        day={detailDay}
+        skipped={skippedActivities}
+        onToggleSkip={toggleSkip}
+        includeInsurance={includeInsurance}
+        onToggleInsurance={() => setIncludeInsurance(v => !v)}
+        onClose={() => setDetailDay(null)}
+      />
     </div>
   );
 }

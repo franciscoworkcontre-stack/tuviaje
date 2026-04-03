@@ -6,6 +6,7 @@ import { Plus, X, Edit2, Check, ArrowRight } from "lucide-react";
 import { useTripStore } from "@/stores/tripStore";
 import { fmtCurrency } from "@/lib/currency";
 import { cn } from "@/lib/utils";
+import { InfoTooltip } from "@/components/ui/InfoTooltip";
 
 function computeBalances(
   travelers: { id: string; name: string; emoji: string; color: string }[],
@@ -101,7 +102,10 @@ export function CostSplitter() {
       >
         <div className="px-5 pt-5 pb-5">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-[11px] font-bold text-[#78909C] uppercase tracking-widest">Quiénes viajan</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-[11px] font-bold text-[#78909C] uppercase tracking-widest">Quiénes viajan</p>
+              <InfoTooltip content="Agrega a cada persona del grupo. Les asignaremos un emoji y color único para identificarlos en el desglose de pagos." position="bottom" />
+            </div>
             <span className="text-[11px] text-[#78909C] bg-[#F5F0E8] px-2.5 py-1 rounded-full font-semibold">
               {travelers_list.length} persona{travelers_list.length !== 1 ? "s" : ""}
             </span>
@@ -189,7 +193,14 @@ export function CostSplitter() {
         >
           <div className="flex items-center justify-between px-5 pt-5 pb-4">
             <div>
-              <p className="text-[11px] font-bold text-[#78909C] uppercase tracking-widest mb-0.5">Quién paga qué</p>
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <p className="text-[11px] font-bold text-[#78909C] uppercase tracking-widest">Quién paga qué</p>
+                <InfoTooltip
+                  content="Para cada categoría define: (1) quién paga por adelantado con su tarjeta, y (2) entre quiénes se divide la cuenta. Al final calculamos automáticamente quién le debe cuánto a quién."
+                  position="bottom"
+                  width="w-64"
+                />
+              </div>
               <p className="text-[13px] font-semibold text-[#1A2332]">Asigna pagos por categoría</p>
             </div>
             <button
@@ -222,7 +233,10 @@ export function CostSplitter() {
 
                   {/* Payer selector */}
                   <div className="mb-3">
-                    <p className="text-[10px] font-bold text-[#B0BEC5] uppercase tracking-widest mb-1.5">Paga por adelantado</p>
+                    <div className="flex items-center gap-1 mb-1.5">
+                      <p className="text-[10px] font-bold text-[#B0BEC5] uppercase tracking-widest">Paga por adelantado</p>
+                      <InfoTooltip content="Quién usa su tarjeta o efectivo para pagar este gasto. Esa persona 'presta' el dinero y el resto le reembolsa su parte." position="right" />
+                    </div>
                     <div className="flex flex-wrap gap-1.5">
                       {travelers_list.map(t => (
                         <button
@@ -247,7 +261,10 @@ export function CostSplitter() {
 
                   {/* Split between */}
                   <div>
-                    <p className="text-[10px] font-bold text-[#B0BEC5] uppercase tracking-widest mb-1.5">Dividir entre</p>
+                    <div className="flex items-center gap-1 mb-1.5">
+                      <p className="text-[10px] font-bold text-[#B0BEC5] uppercase tracking-widest">Dividir entre</p>
+                      <InfoTooltip content="Las personas que comparten este gasto equitativamente. Se muestra cuánto le corresponde a cada uno al lado de su nombre." position="right" />
+                    </div>
                     <div className="flex flex-wrap gap-1.5">
                       {travelers_list.map(t => {
                         const inc = a.splitBetween.includes(t.id);
@@ -292,7 +309,14 @@ export function CostSplitter() {
           className="bg-white rounded-2xl border border-[#E0D5C5] shadow-sm overflow-hidden"
         >
           <div className="px-5 pt-5 pb-4">
-            <p className="text-[11px] font-bold text-[#78909C] uppercase tracking-widest mb-1">Resumen final</p>
+            <div className="flex items-center gap-1.5 mb-1">
+              <p className="text-[11px] font-bold text-[#78909C] uppercase tracking-widest">Resumen final</p>
+              <InfoTooltip
+                content="El balance neto muestra cuánto debe cada persona después de descontar lo que ya pagó. Verde = le deben · Rojo = debe · Gris = están a mano."
+                position="right"
+                width="w-60"
+              />
+            </div>
             <p className="text-[13px] font-semibold text-[#1A2332] mb-4">Balance por persona</p>
 
             <div className="space-y-3">
@@ -353,7 +377,14 @@ export function CostSplitter() {
           {/* Minimum transactions */}
           {transactions.length > 0 && (
             <div className="px-5 pb-5 pt-4 border-t border-[#F5F0E8]">
-              <p className="text-[11px] font-bold text-[#78909C] uppercase tracking-widest mb-3">Para quedar a mano</p>
+              <div className="flex items-center gap-1.5 mb-3">
+                <p className="text-[11px] font-bold text-[#78909C] uppercase tracking-widest">Para quedar a mano</p>
+                <InfoTooltip
+                  content="El número mínimo de transferencias para saldar todas las deudas del grupo. El algoritmo optimiza para que nadie haga más pagos de los necesarios."
+                  position="top"
+                  width="w-60"
+                />
+              </div>
               <div className="space-y-2">
                 <AnimatePresence>
                   {transactions.map((tx, i) => (
