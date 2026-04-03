@@ -157,11 +157,12 @@ function DayCard({ day, flightSearchUrl, onOpenDetail, skipped }: {
       className="card border border-[#E3F2FD] overflow-hidden"
       style={{ animation: `fadeInUp 0.4s ease-out ${day.dayNumber * 0.05}s both` }}
     >
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between p-4 bg-ocean hover:bg-ocean-dark transition-colors text-left"
-      >
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between p-4 bg-ocean">
+        {/* Left: expand/collapse */}
+        <button
+          onClick={() => setOpen(!open)}
+          className="flex items-center gap-3 flex-1 text-left hover:opacity-90 transition-opacity"
+        >
           <div className="bg-white/20 rounded-lg px-2.5 py-1 text-[12px] font-bold text-white">
             DÍA {day.dayNumber}
           </div>
@@ -173,15 +174,23 @@ function DayCard({ day, flightSearchUrl, onOpenDetail, skipped }: {
               {!day.isTravelDay && ` · ${day.theme}`}
             </p>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <p className="text-white/50 text-[9px] uppercase font-bold tracking-wide">Costo día</p>
-            <p className="text-[16px] font-bold text-white tabular-nums">{fmt(day.dayTotalClp)}</p>
+          <div className="text-white/30 ml-2">
+            {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </div>
-          {open ? <ChevronUp size={16} className="text-white/50" /> : <ChevronDown size={16} className="text-white/50" />}
-        </div>
-      </button>
+        </button>
+
+        {/* Right: cost calculator — opens detail panel */}
+        <button
+          onClick={onOpenDetail}
+          className="text-right ml-3 shrink-0 group rounded-xl px-3 py-1.5 hover:bg-white/15 transition-colors"
+          title="Ver desglose de actividades por costo"
+        >
+          <p className="text-white/50 text-[9px] uppercase font-bold tracking-wide group-hover:text-white/80 transition-colors">
+            Costo día 🧮
+          </p>
+          <p className="text-[16px] font-bold text-white tabular-nums">{fmt(day.dayTotalClp)}</p>
+        </button>
+      </div>
 
       {open && (
         <div>
@@ -216,14 +225,9 @@ function DayCard({ day, flightSearchUrl, onOpenDetail, skipped }: {
                         {isSkipped && <span className="ml-2 text-[#90A4AE] font-semibold">· opcional</span>}
                       </p>
                     </div>
-                    {/* Cost — clickable to open detail */}
-                    <button
-                      onClick={onOpenDetail}
-                      className="text-right shrink-0 group"
-                      title="Ver todas las actividades del día ordenadas por costo"
-                    >
+                    <div className="text-right shrink-0">
                       {act.costClp > 0 ? (
-                        <p className={`text-[12px] font-bold tabular-nums group-hover:underline ${isSkipped ? "text-[#90A4AE] line-through" : "text-sunset"}`}>
+                        <p className={`text-[12px] font-bold tabular-nums ${isSkipped ? "text-[#90A4AE] line-through" : "text-sunset"}`}>
                           {fmt(act.costClp)}
                         </p>
                       ) : (
@@ -231,10 +235,7 @@ function DayCard({ day, flightSearchUrl, onOpenDetail, skipped }: {
                           Gratis
                         </span>
                       )}
-                      <p className="text-[9px] text-[#B0BEC5] opacity-0 group-hover:opacity-100 transition-opacity mt-0.5">
-                        ver detalles →
-                      </p>
-                    </button>
+                    </div>
                   </div>
                 );
               })}
