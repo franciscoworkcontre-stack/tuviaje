@@ -207,6 +207,53 @@ export async function fetchLegFlights(
   return sorted;
 }
 
+// ── Round-trip: returns best combined price in CLP (both directions) ─────────
+export async function fetchRoundTripBestPrice(
+  fromIata:   string,
+  toIata:     string,
+  outDate:    string,
+  returnDate: string,
+  adults:     number,
+): Promise<number | null> {
+  if (!SERPAPI_KEY || !fromIata || !toIata || !outDate || !returnDate) return null;
+
+  const params = new URLSearchParams({
+    engine:         "google_flights",
+    departure_id:   fromIata,
+    arrival_id:     toIata,
+    outbound_date:  outDate,
+    return_date:    returnDate,
+    type:           "1",   // round-trip
+    adults:         "1",
+    currency:       "USD",
+    hl:             "es",
+    gl:             "us",
+    api_key:        SERPAPI_KEY,
+  });
+
+  try {
+    const res = await fetch(`https://serpapi.com/search.json?${params}`, {
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as {
+      best_flights?: { price?: number }[];
+      other_flights?: { price?: number }[];
+      error?: string;
+    };
+    if (data.error) return null;
+
+    const allGroups = [...(data.best_flights ?? []), ...(data.other_flights ?? [])];
+    const prices = allGroups.map(g => g.price ?? 0).filter(p => p > 0);
+    if (!prices.length) return null;
+
+    // Return cheapest RT price in CLP (per-person × adults)
+    return Math.round(Math.min(...prices) * USD_TO_CLP * adults);
+  } catch {
+    return null;
+  }
+}
+
 // ── All legs in parallel ──────────────────────────────────────────────────────
 export interface FlightLeg {
   fromCity: string;

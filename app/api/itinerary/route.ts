@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { PlanningInput, DayPlan, CostBreakdown, Traveler, HotelRecommendation } from "@/types/trip";
 import { fetchHotelsForCities } from "@/lib/fetchHotels";
 import { fetchFlightsForLegs } from "@/lib/fetchFlights";
+import { analyzeFlightStrategy, type StrategyLeg } from "@/lib/flightStrategy";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -223,9 +224,20 @@ REGLAS ESTRICTAS:
       const returnToIata   = resolveIata(originCity, lastCity, firstLeg?.fromIata);
       legsForFlights.push({ fromCity: lastCity, toCity: originCity, fromIata: returnFromIata, toIata: returnToIata, date: endDate });
     }
-    const flightsPromise = fetchFlightsForLegs(legsForFlights, adults)
-      .then(opts => { console.log("[itinerary] flights ok:", Object.keys(opts)); return opts; })
-      .catch(e => { console.error("[itinerary] flights error:", e instanceof Error ? e.message : e); return {} as Record<string, import("@/types/trip").FlightOption[]>; });
+    const strategyLegs: StrategyLeg[] = legsForFlights
+      .filter(l => l.fromIata && l.toIata && l.date)
+      .map(l => ({ fromCity: l.fromCity, toCity: l.toCity, fromIata: l.fromIata!, toIata: l.toIata!, date: l.date! }));
+
+    const strategyPromise = analyzeFlightStrategy(strategyLegs, adults, originCity, roundTrip)
+      .then(r => { console.log("[itinerary] strategy:", r.recommendation.type); return r; })
+      .catch(e => {
+        console.error("[itinerary] strategy error:", e instanceof Error ? e.message : e);
+        return null;
+      });
+
+    // Also keep per-leg fallback for any legs not covered by strategy engine
+    const flightsPromise = strategyPromise.then(s => s?.flightOptions ?? {})
+      .catch(() => fetchFlightsForLegs(legsForFlights, adults));
 
     // ── Llamadas 2-N: ciudades en PARALELO, batches de 4 días ────
     const BATCH_SIZE = 4;
@@ -270,7 +282,11 @@ REGLAS ESTRICTAS:
     }));
 
     // ── Esperar hoteles y vuelos (corrieron en paralelo con los días) ──
-    const [hotelRecommendations, flightOptions] = await Promise.all([hotelsPromise, flightsPromise]);
+    const [hotelRecommendations, flightOptions, strategyResult] = await Promise.all([
+      hotelsPromise,
+      flightsPromise,
+      strategyPromise,
+    ]);
 
     // ── Ensamblar ────────────────────────────────────────────────
     const allDays: DayPlan[] = [];
@@ -349,6 +365,7 @@ REGLAS ESTRICTAS:
       accommodations: accs,
       hotelRecommendations,
       flightOptions,
+      flightStrategy: strategyResult?.recommendation ?? undefined,
       days: allDays, costs, travelers_list,
       splitAssignments: [], currency: "CLP",
       createdAt: new Date().toISOString(),

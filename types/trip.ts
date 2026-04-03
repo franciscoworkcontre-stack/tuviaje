@@ -182,6 +182,22 @@ export interface TravelerBalance {
   owesTo: { travelerId: string; name: string; amount: number }[];
 }
 
+// ─── Flight strategy recommendation ───────────────────────────
+
+export type StrategyType = "all_one_way" | "rt_hub_plus_regionals" | "rt_direct";
+
+export interface FlightStrategyRecommendation {
+  type:          StrategyType;
+  hubCity?:      string;
+  hubIata?:      string;
+  explanation:   string;
+  reasoning:     string[];
+  howToBuy:      string[];
+  savingsClp?:   number;
+  rtReturnDate?: string;
+  connectorLeg?: { fromCity: string; toCity: string; fromIata: string; toIata: string; approxDate: string };
+}
+
 // ─── Full trip ─────────────────────────────────────────────────
 
 export interface Trip {
@@ -202,6 +218,7 @@ export interface Trip {
   accommodations: Accommodation[];
   hotelRecommendations: Record<string, HotelRecommendation[]>; // keyed by city name
   flightOptions?: Record<string, FlightOption[]>; // keyed by "fromCity-toCity"
+  flightStrategy?: FlightStrategyRecommendation;
   days: DayPlan[];
   costs: CostBreakdown;
   travelers_list: Traveler[]; // for cost splitting

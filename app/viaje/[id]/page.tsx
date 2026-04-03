@@ -24,6 +24,7 @@ import type { CostCategory } from "@/components/trip/CategoryBreakdownPanel";
 import { CostSplitter } from "@/components/trip/CostSplitter";
 import { OptimizerTips } from "@/components/trip/OptimizerTips";
 import { FlightCard } from "@/components/trip/FlightCard";
+import { FlightStrategyBanner } from "@/components/trip/FlightStrategyBanner";
 import { CurrencySelector } from "@/components/ui/CurrencySelector";
 import { fmtCurrency } from "@/lib/currency";
 import { ActivityDetailPanel, activityKey, INSURANCE_PER_PERSON } from "@/components/trip/ActivityDetailPanel";
@@ -656,6 +657,11 @@ export default function TripPage() {
 
         {activeTab === "hotels" && (
           <div className="max-w-3xl mx-auto space-y-8">
+
+            {/* ── Flight strategy recommendation ── */}
+            {trip.flightStrategy && (
+              <FlightStrategyBanner strategy={trip.flightStrategy} />
+            )}
 
             {/* ── Loading banner ── */}
             {(loadingFlights || loadingHotels) && (
