@@ -474,11 +474,18 @@ export default function TripPage() {
             {/* Currency selector */}
             <CurrencySelector />
             {/* Total pill */}
-            <div className="hidden sm:block bg-[#1565C0] rounded-full px-3 py-1 shadow-sm">
-              <span className="text-[13px] font-bold text-white tabular-nums">
-                {fmtCurrency(trip.costs.total, displayCurrency)}
-              </span>
-            </div>
+            {(() => {
+              const insuranceCost = includeInsurance ? INSURANCE_PER_PERSON * trip.travelers.adults : 0;
+              const effectiveTotal = trip.costs.total + insuranceCost;
+              return (
+                <div className="hidden sm:block bg-[#1565C0] rounded-full px-3 py-1 shadow-sm">
+                  <span className="text-[13px] font-bold text-white tabular-nums">
+                    {fmtCurrency(effectiveTotal, displayCurrency)}
+                    {includeInsurance && <span className="text-white/60 text-[10px] ml-1">+ 🛡️</span>}
+                  </span>
+                </div>
+              );
+            })()}
             {/* Export buttons */}
             <button
               onClick={downloadSheet}
@@ -577,7 +584,7 @@ export default function TripPage() {
             </div>
             {/* Sidebar */}
             <div className="space-y-4">
-              <CostSummary />
+              <CostSummary insuranceCost={includeInsurance ? INSURANCE_PER_PERSON * trip.travelers.adults : 0} />
               {/* Insurance toggle shortcut */}
               <div
                 className={`card p-4 border-2 cursor-pointer transition-all ${
