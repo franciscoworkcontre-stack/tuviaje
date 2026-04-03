@@ -1,9 +1,9 @@
 import type { FlightOption } from "@/types/trip";
 
-const APIFY_TOKEN = process.env.APIFY_TOKEN;
-const APIFY_ACTOR_ID = "1dYHRKkEBHBPd0JM7";
+const SERPAPI_KEY = process.env.SERPAPI_KEY;
 const USD_TO_CLP = 950;
 
+// ── Airline booking URL builders ──────────────────────────────────────────────
 const AIRLINE_URLS: Record<string, (f: string, t: string, d: string, n: number) => string> = {
   LA: (f, t, d, n) => `https://www.latamairlines.com/cl/es/oferta-vuelos?origin=${f}&destination=${t}&outbound=${d}&adults=${n}&cabin=Y&trip=OW`,
   H2: (f, t, d, n) => `https://www.skyairline.com/vuelos?from=${f}&to=${t}&date=${d}&adults=${n}`,
@@ -25,16 +25,16 @@ function airlineUrl(code: string, fromIata: string, toIata: string, date: string
 
 function carrierCodeFromAirline(airline: string): string {
   const name = airline.toLowerCase();
-  if (name.includes("latam")) return "LA";
-  if (name.includes("sky")) return "H2";
+  if (name.includes("latam"))    return "LA";
+  if (name.includes("sky"))      return "H2";
   if (name.includes("jetsmart")) return "JA";
   if (name.includes("aerolíneas") || name.includes("aerolineas")) return "AR";
-  if (name.includes("gol")) return "G3";
+  if (name.includes("gol"))      return "G3";
   if (name.includes("american")) return "AA";
-  if (name.includes("united")) return "UA";
-  if (name.includes("copa")) return "CM";
-  if (name.includes("avianca")) return "AV";
-  if (name.includes("iberia")) return "IB";
+  if (name.includes("united"))   return "UA";
+  if (name.includes("copa"))     return "CM";
+  if (name.includes("avianca"))  return "AV";
+  if (name.includes("iberia"))   return "IB";
   return "";
 }
 
@@ -44,66 +44,74 @@ function parseTime(isoOrTime?: string): string {
   return match ? `${match[1]}:${match[2]}` : "00:00";
 }
 
-interface ApifyFlight {
+// ── SerpAPI response types ────────────────────────────────────────────────────
+interface SerpFlight {
   departure_airport?: { id?: string; time?: string };
-  arrival_airport?: { id?: string; time?: string };
-  duration?: number;
-  airline?: string;
-  flight_number?: string;
-  legroom?: string;
+  arrival_airport?:   { id?: string; time?: string };
+  duration?:          number;
+  airline?:           string;
+  flight_number?:     string;
+  legroom?:           string;
   often_delayed_by_over_30_min?: boolean;
+  extensions?: string[];
 }
 
-interface ApifyFlightGroup {
-  flights?: ApifyFlight[];
-  price?: number;
-  total_duration?: number;
+interface SerpFlightGroup {
+  flights?:         SerpFlight[];
+  price?:           number; // USD per person
+  total_duration?:  number;
 }
 
-interface ApifyResult {
-  best_flights?: ApifyFlightGroup[];
-  other_flights?: ApifyFlightGroup[];
+interface SerpFlightsResult {
+  best_flights?:  SerpFlightGroup[];
+  other_flights?: SerpFlightGroup[];
+  error?:         string;
 }
 
+// ── Map SerpAPI groups → FlightOption[] ──────────────────────────────────────
 function buildFlightOptions(
-  groups: ApifyFlightGroup[],
+  groups:   SerpFlightGroup[],
   fromIata: string,
-  toIata: string,
-  date: string,
-  adults: number,
-  allPrices: number[]
+  toIata:   string,
+  date:     string,
+  adults:   number,
+  allPricesClp: number[]
 ): FlightOption[] {
-  const minP = Math.min(...allPrices);
-  const maxP = Math.max(...allPrices);
+  const minP = Math.min(...allPricesClp);
+  const maxP = Math.max(...allPricesClp);
 
   return groups.flatMap(group => {
     const flights = group.flights ?? [];
-    if (flights.length === 0) return [];
+    if (!flights.length || !group.price) return [];
 
-    const firstFlight = flights[0];
-    const lastFlight = flights[flights.length - 1];
-    const airline = firstFlight.airline ?? "Aerolínea";
-    const carrierCode = carrierCodeFromAirline(airline);
-    const departure = parseTime(firstFlight.departure_airport?.time);
-    const arrival = parseTime(lastFlight.arrival_airport?.time);
-    const durationMin = group.total_duration ?? (firstFlight.duration ?? 0);
-    const stops = flights.length - 1;
-    const priceClp = Math.round((group.price ?? 0) * USD_TO_CLP * adults);
+    const first   = flights[0];
+    const last    = flights[flights.length - 1];
+    const airline = first.airline ?? "Aerolínea";
+    const code    = carrierCodeFromAirline(airline);
+
+    const departure  = parseTime(first.departure_airport?.time);
+    const arrival    = parseTime(last.arrival_airport?.time);
+    const durationMin = group.total_duration ?? first.duration ?? 0;
+    const stops      = flights.length - 1;
+
+    // SerpAPI returns price per person in USD
+    const priceClp = Math.round(group.price * USD_TO_CLP * adults);
 
     const pros: string[] = [];
     const cons: string[] = [];
 
     if (stops === 0) pros.push("Vuelo directo, sin escalas");
-    else cons.push(`${stops} escala${stops > 1 ? "s" : ""}`);
+    else             cons.push(`${stops} escala${stops > 1 ? "s" : ""}`);
 
-    if (allPrices.length > 1) {
-      if (priceClp <= (minP + (maxP - minP) * 0.2)) pros.push("El más económico");
-      else if (priceClp >= (maxP - (maxP - minP) * 0.2)) cons.push("El más caro");
+    if (allPricesClp.length > 1) {
+      const range = maxP - minP;
+      if (priceClp <= minP + range * 0.2)  pros.push("El más económico");
+      else if (priceClp >= maxP - range * 0.2) cons.push("El más caro");
     }
 
     const depH = parseInt(departure.split(":")[0]);
-    if (depH >= 6 && depH <= 9) pros.push("Sale temprano — llegas con el día completo");
-    else if (depH >= 20 || depH < 5) pros.push("Vuelo nocturno — no pierdes días de viaje");
+    if      (depH >= 6  && depH <= 9)  pros.push("Sale temprano — llegas con el día completo");
+    else if (depH >= 20 || depH < 5)   pros.push("Vuelo nocturno — no pierdes días de viaje");
     else if (depH >= 13 && depH <= 17) cons.push("Sale al mediodía, llegas en la tarde");
 
     if (durationMin > 0 && durationMin <= 100) {
@@ -112,81 +120,104 @@ function buildFlightOptions(
       pros.push(`Vuelo corto (${h}h${m ? m + "m" : ""})`);
     }
 
-    if (firstFlight.often_delayed_by_over_30_min) cons.push("Suele tener retrasos de +30 min");
-    if (firstFlight.legroom) pros.push(`Espacio para piernas: ${firstFlight.legroom}`);
-    if (pros.length === 0) pros.push("Aerolínea con trayectoria en la ruta");
-    if (cons.length === 0) cons.push("Verifica si incluye equipaje de bodega");
+    if (first.often_delayed_by_over_30_min) cons.push("Suele tener retrasos de +30 min");
+    if (first.legroom) pros.push(`Espacio para piernas: ${first.legroom}`);
+    if (!pros.length)  pros.push("Aerolínea con trayectoria en la ruta");
+    if (!cons.length)  cons.push("Verifica si incluye equipaje de bodega");
 
-    return [{ airline, flightNumber: firstFlight.flight_number, departure, arrival, durationMin, stops, priceClp, pros, cons, bookingSearchUrl: airlineUrl(carrierCode, fromIata, toIata, date, adults) } satisfies FlightOption];
+    return [{
+      airline,
+      flightNumber: first.flight_number,
+      departure,
+      arrival,
+      durationMin,
+      stops,
+      priceClp,
+      pros,
+      cons,
+      bookingSearchUrl: airlineUrl(code, fromIata, toIata, date, adults),
+    } satisfies FlightOption];
   });
 }
 
+// ── Single leg via SerpAPI ────────────────────────────────────────────────────
 export async function fetchLegFlights(
   fromIata: string,
-  toIata: string,
-  date: string,
-  adults: number
+  toIata:   string,
+  date:     string,
+  adults:   number
 ): Promise<FlightOption[]> {
-  if (!APIFY_TOKEN || !fromIata || !toIata || !date) return [];
+  if (!SERPAPI_KEY || !fromIata || !toIata || !date) return [];
 
-  const url = `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=50`;
-
-  // Always fetch for 1 adult — Apify returns total price for the requested passenger count,
-  // so we control per-person price ourselves and multiply by adults below.
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ departure_id: fromIata, arrival_id: toIata, outbound_date: date, adults: 1, currency: "USD", hl: "en", gl: "us", exclude_basic: false, max_pages: 1 }),
-    signal: AbortSignal.timeout(55000),
+  const params = new URLSearchParams({
+    engine:         "google_flights",
+    departure_id:   fromIata,
+    arrival_id:     toIata,
+    outbound_date:  date,
+    type:           "2",        // one-way
+    adults:         "1",        // per-person price — we multiply by adults ourselves
+    currency:       "USD",
+    hl:             "es",
+    gl:             "us",
+    api_key:        SERPAPI_KEY,
   });
 
-  if (!response.ok) return [];
-
-  const data = (await response.json()) as ApifyResult[];
-  const result = data?.[0];
-  if (!result) return [];
-
-  const allGroups = [...(result.best_flights ?? []), ...(result.other_flights ?? [])].slice(0, 6);
-  const allPrices = allGroups.map(g => Math.round((g.price ?? 0) * USD_TO_CLP * adults)).filter(p => p > 0);
-  if (allPrices.length === 0) return [];
-
-  const options = buildFlightOptions(allGroups, fromIata, toIata, date, adults, allPrices).filter(o => o.priceClp > 0);
-  if (options.length === 0) return [];
-
-  // Sort: direct flights first (if price ≤ 150% of cheapest direct or any direct exists),
-  // then by price ascending, then by duration ascending.
-  const directOptions  = options.filter(o => o.stops === 0);
-  const connectOptions = options.filter(o => o.stops > 0);
-
-  // If there are direct flights, put them first sorted by price
-  if (directOptions.length > 0) {
-    directOptions.sort((a, b) => a.priceClp - b.priceClp);
-    connectOptions.sort((a, b) => a.priceClp - b.priceClp);
-    options.length = 0;
-    options.push(...directOptions, ...connectOptions);
-  } else {
-    // No direct flights — sort by price only
-    options.sort((a, b) => a.priceClp - b.priceClp);
+  let data: SerpFlightsResult;
+  try {
+    const res = await fetch(`https://serpapi.com/search.json?${params}`, {
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) return [];
+    data = await res.json();
+  } catch {
+    return [];
   }
 
-  if (options[0]) {
-    const label = options[0].stops === 0 ? "⭐ Más barato directo" : "⭐ Más económico disponible";
-    options[0].pros = [label, ...options[0].pros];
+  if (data.error) {
+    console.error("SerpAPI flights error:", data.error);
+    return [];
   }
 
-  return options;
+  const allGroups = [
+    ...(data.best_flights  ?? []),
+    ...(data.other_flights ?? []),
+  ].slice(0, 6);
+
+  if (!allGroups.length) return [];
+
+  const allPricesClp = allGroups
+    .map(g => Math.round((g.price ?? 0) * USD_TO_CLP * adults))
+    .filter(p => p > 0);
+  if (!allPricesClp.length) return [];
+
+  const options = buildFlightOptions(allGroups, fromIata, toIata, date, adults, allPricesClp)
+    .filter(o => o.priceClp > 0);
+  if (!options.length) return [];
+
+  // Direct flights first, then by price asc
+  const direct  = options.filter(o => o.stops === 0).sort((a, b) => a.priceClp - b.priceClp);
+  const connect = options.filter(o => o.stops > 0).sort((a, b) => a.priceClp - b.priceClp);
+  const sorted  = direct.length ? [...direct, ...connect] : connect;
+
+  if (sorted[0]) {
+    const label = sorted[0].stops === 0 ? "⭐ Más barato directo" : "⭐ Más económico disponible";
+    sorted[0].pros = [label, ...sorted[0].pros];
+  }
+
+  return sorted;
 }
 
+// ── All legs in parallel ──────────────────────────────────────────────────────
 export interface FlightLeg {
   fromCity: string;
-  toCity: string;
+  toCity:   string;
   fromIata?: string;
-  toIata?: string;
-  date?: string;
+  toIata?:   string;
+  date?:     string;
 }
 
 export async function fetchFlightsForLegs(
-  legs: FlightLeg[],
+  legs:   FlightLeg[],
   adults: number
 ): Promise<Record<string, FlightOption[]>> {
   const results = await Promise.all(
