@@ -126,7 +126,7 @@ function buildItems(trip: Trip, category: CostCategory, selectedHotels: Record<s
         .map(d => ({
           label: `Día ${d.dayNumber} — ${d.city}`,
           sublabel: d.isTravelDay ? "Día de viaje" : d.theme,
-          costClp: d.localTransportCostClp * adults, // LLM gives per-person, scale to group
+          costClp: d.localTransportCostClp, // LLM generates total for group already
           emoji: "🚇",
         }))
         .sort((a, b) => b.costClp - a.costClp);

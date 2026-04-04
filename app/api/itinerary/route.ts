@@ -234,19 +234,21 @@ REGLAS ESTRICTAS:
 - dayTotalClp = suma exacta de todos los costClp del día
 - SOLO el array dentro de {"days":[...]}
 
-COSTOS — TODOS los valores son POR PERSONA (el sistema multiplica por ${adults} después):
-- costClp en actividades = precio de entrada POR 1 PERSONA
-- costClp en comidas = precio POR 1 PERSONA
-- localTransportCostClp = costo de transporte POR 1 PERSONA ese día
+COSTOS — regla por tipo:
+- costClp en actividades = precio de entrada POR 1 PERSONA (el sistema multiplica por ${adults})
+- costClp en comidas = precio POR 1 PERSONA (el sistema multiplica por ${adults})
+- localTransportCostClp = total para TODO el grupo (${adults} personas) — NO se multiplica después
 - Convierte USD→CLP multiplicando por ${USD_TO_CLP}. Ej: entrada $33 USD → ${33 * USD_TO_CLP} CLP por persona
 - Actividades GRATIS (parques, plazas, catedrales, miradores públicos): costClp = 0
 - NO infles costos — si no sabes el precio exacto, estima conservadoramente
 
-TRANSPORTE LOCAL (localTransportCostClp) — POR PERSONA:
-- Usa el precio REAL por trayecto en ${city} en 2026, suma solo los viajes del día
-- Ej: metro ${city} cuesta X CLP/trayecto → 3 trayectos = 3X por persona
-- NO cobres tarjetas recargables, pases diarios ni abonos
-- Días de viaje (isTravelDay=true): solo traslado aeropuerto↔hotel por persona`;
+TRANSPORTE LOCAL (localTransportCostClp) — TOTAL PARA ${adults} PERSONA${adults > 1 ? "S" : ""}:
+- Razona por tipo de transporte:
+  · Metro/bus: precio por trayecto × viajes × ${adults} personas (cada uno paga su pasaje)
+  · Taxi/Uber/Remis: precio del vehículo × viajes (se comparte, NO multiplicar por personas)
+- Usa el precio REAL por trayecto en ${city} en 2026
+- Suma solo los viajes necesarios ese día — NO cobres tarjetas, pases ni abonos
+- Días de viaje (isTravelDay=true): solo traslado aeropuerto↔hotel para el grupo`;
     }
 
     // ── Hoteles + vuelos en paralelo con días ────────────────────
@@ -405,7 +407,7 @@ SOLO JSON: { "reasons": { "<leg>": "razón" } }`,
       s + [...(d.morning??[]),...(d.afternoon??[])]
         .filter((a: {category?: string}) => a.category !== "transport" && a.category !== "food")
         .reduce((ss: number, a: {costClp?:number}) => ss+(a.costClp??0), 0), 0) * adults;
-    const localTotal = allDays.reduce((s, d) => s + (d.localTransportCostClp ?? 0), 0) * adults;
+    const localTotal = allDays.reduce((s, d) => s + (d.localTransportCostClp ?? 0), 0); // LLM generates total for group
     const extras = Math.round((hotelTotal + foodTotal + activitiesTotal) * 0.06);
     const total = transportTotal + hotelTotal + foodTotal + activitiesTotal + localTotal + extras;
 
