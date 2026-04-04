@@ -11,8 +11,8 @@ export const RATING_VALUE_CLP: Record<string, number> = {
   premium:   60_000,
 };
 
-const BAYES_M = 300;
-const BAYES_C = 8.0;
+const BAYES_M = 200;
+const BAYES_C = 4.0; // Google Hotels rates on 0–5 scale, 4.0 = "good" prior
 
 function bayesRating(rating: number, reviews: number): number {
   return (reviews * rating + BAYES_M * BAYES_C) / (reviews + BAYES_M);
@@ -209,7 +209,7 @@ async function scrapeCity(
 
   if (travelStyle === "mochilero") params.set("max_price", "90");
   else if (travelStyle === "comfort") params.set("max_price", "220");
-  params.set("min_rating", "8");
+  params.set("min_rating", "9"); // 4.5+ on Google Hotels 5-point scale
 
   let data: { properties?: SerpHotel[]; error?: string };
   try {

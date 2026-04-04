@@ -23,7 +23,7 @@ function buildItems(trip: Trip, category: CostCategory, selectedHotels: Record<s
       const items: BreakdownItem[] = [];
       for (const day of trip.days) {
         for (const act of [...(day.morning ?? []), ...(day.afternoon ?? [])]) {
-          if (act.costClp > 0) {
+          if (act.costClp > 0 && act.category !== "transport" && act.category !== "food") {
             items.push({
               label: act.name,
               sublabel: `Día ${day.dayNumber} · ${day.city} · ${act.time}`,

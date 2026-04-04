@@ -39,13 +39,13 @@ function HotelCard({ hotel, onSelect }: { hotel: HotelRecommendation; onSelect: 
   const { displayCurrency } = useTripStore();
 
   return (
-    <div className="rounded-2xl overflow-hidden border-2 border-[#1565C0]/30 shadow-sm">
-      {/* Header */}
-      <div className="bg-[#0D1F3C] px-5 py-3 flex items-center gap-2">
-        <span className="text-[11px] font-bold text-white/40 uppercase tracking-widest">🏨 Mejor opción seleccionada</span>
-        {hotel.rating && hotel.rating >= 8.5 && (
-          <span className="ml-auto text-[10px] font-bold text-[#4CAF50] bg-[#4CAF50]/15 px-2 py-0.5 rounded-full">
-            {hotel.rating}/10
+    <div className="rounded-2xl overflow-hidden border-2 border-[#2E7D32]/40 shadow-sm">
+      {/* Selected header */}
+      <div className="bg-[#2E7D32] px-5 py-2.5 flex items-center gap-2">
+        <span className="text-[11px] font-bold text-white tracking-widest uppercase">✓ Hotel elegido</span>
+        {hotel.rating && (
+          <span className="ml-auto text-[10px] font-bold text-white/80 bg-white/15 px-2 py-0.5 rounded-full">
+            {hotel.rating}/5
           </span>
         )}
       </div>
@@ -66,7 +66,7 @@ function HotelCard({ hotel, onSelect }: { hotel: HotelRecommendation; onSelect: 
             <p className="text-[15px] font-bold text-[#1A2332] leading-snug">{hotel.name}</p>
             <p className="text-[12px] text-[#78909C] mt-0.5">
               {"★".repeat(Math.max(0, hotel.stars ?? 0))}
-              {hotel.rating ? ` · ${hotel.rating}/10` : ""}
+              {hotel.rating ? ` · ${hotel.rating}/5` : ""}
               {(hotel as HotelRecommendation & { reviews?: number }).reviews
                 ? ` · ${((hotel as HotelRecommendation & { reviews?: number }).reviews!).toLocaleString("es-CL")} reseñas`
                 : ""}
@@ -113,24 +113,16 @@ function HotelCard({ hotel, onSelect }: { hotel: HotelRecommendation; onSelect: 
         )}
 
         {/* CTA */}
-        <div className="px-5 pb-5 pt-2 flex gap-2">
+        <div className="px-5 pb-5 pt-2">
           <a
             href={hotel.bookingSearchUrl}
             target="_blank"
             rel="noopener noreferrer"
             onClick={onSelect}
-            className="flex-1 py-2.5 rounded-xl bg-[#1565C0] hover:bg-[#1976D2] text-white text-[13px] font-bold transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3 rounded-xl bg-[#1565C0] hover:bg-[#1976D2] text-white text-[13px] font-bold transition-colors flex items-center justify-center gap-2"
           >
-            🏨 Reservar ahora
-          </a>
-          <a
-            href={hotel.bookingSearchUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#F5F0E8] hover:bg-[#E3F2FD] text-[#1565C0] text-[12px] font-semibold transition-colors"
-          >
-            <ExternalLink size={13} />
-            Ver en Google
+            <ExternalLink size={14} />
+            Ver disponibilidad en Google Hotels
           </a>
         </div>
       </div>

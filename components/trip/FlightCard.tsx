@@ -77,7 +77,16 @@ export function FlightCard({ flight, rank, selected, onSelect, fromIata, toIata,
       {selected && (
         <div className="bg-[#2E7D32] px-5 py-2 flex items-center gap-2">
           <Check size={13} className="text-white" />
-          <span className="text-[11px] font-bold text-white tracking-widest uppercase">Vuelo seleccionado</span>
+          <span className="text-[11px] font-bold text-white tracking-widest uppercase">Vuelo elegido</span>
+          <a
+            href={flight.bookingSearchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto flex items-center gap-1 text-[11px] font-bold text-white/80 hover:text-white bg-white/15 hover:bg-white/25 px-2.5 py-1 rounded-full transition-colors"
+          >
+            <ExternalLink size={11} />
+            Buscar en Google Flights
+          </a>
         </div>
       )}
 
