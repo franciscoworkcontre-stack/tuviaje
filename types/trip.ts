@@ -74,6 +74,7 @@ export interface MealOption {
   cuisine: string;
   priceTier: "$" | "$$" | "$$$";
   costClp: number;
+  why?: string;
   rating?: number;
   address?: string;
   bookingUrl?: string;

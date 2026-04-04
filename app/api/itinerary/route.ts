@@ -211,9 +211,9 @@ ${day1Block}${departureDayBlock}
 Formato de cada día:
 {"dayNumber":N,"city":"${city}","date":"YYYY-MM-DD","theme":"...","isTravelDay":BOOL,
 "morning":[{"time":"HH:MM","durationMin":N,"name":"Nombre real y específico","category":"CATEGORIA","costClp":N,"tip":"Tip ultra-concreto con dirección, precio exacto o link","emoji":"🏛️"}],
-"lunch":{"options":[{"name":"Restaurant real con dirección o barrio","cuisine":"...","priceTier":"$$","costClp":N}],"recommended":"..."},
+"lunch":{"options":[{"name":"Nombre exacto del local icónico","cuisine":"...","priceTier":"$$","costClp":N,"why":"por qué es famoso en 1 frase"}],"recommended":"..."},
 "afternoon":[...misma estructura que morning...],
-"dinner":{"options":[{"name":"Restaurant real con dirección o barrio","cuisine":"...","priceTier":"$$","costClp":N}],"recommended":"..."},
+"dinner":{"options":[{"name":"Nombre exacto del local icónico","cuisine":"...","priceTier":"$$","costClp":N,"why":"por qué es famoso en 1 frase"}],"recommended":"..."},
 "localTransportCostClp":N,"dayTotalClp":N}
 
 CATEGORÍAS VÁLIDAS (usa EXACTAMENTE estos valores en "category"):
@@ -226,6 +226,18 @@ CATEGORÍAS VÁLIDAS (usa EXACTAMENTE estos valores en "category"):
 - "wellness"      → spas, yoga, termas, masajes, relax
 - "entertainment" → conciertos, eventos deportivos, shows, parques temáticos
 - "transport"     → traslados al aeropuerto, vuelos, buses interurbanos, taxis (SOLO para días de viaje)
+
+COMIDAS — REGLA PRINCIPAL: recomienda lugares ICÓNICOS y FAMOSOS de verdad.
+Piensa como un local que conoce la ciudad a fondo, no como una guía turística genérica.
+Prioridad: 1) lugares con historia o fama cultural (décadas de tradición, aparecen en medios, tienen cola),
+2) spots virales que los locales realmente frecuentan, 3) mercados o puestos callejeros emblemáticos.
+NUNCA inventes nombres. Si no conoces un lugar real famoso para esa ciudad, usa el más conocido globalmente.
+Ejemplos del nivel de especificidad que se espera:
+- Nueva York → "Adel's Halal Food (53rd & 6th Ave)", "Joe's Pizza (Carmine St)", "Katz's Delicatessen (Lower East Side)"
+- París → "L'As du Fallafel (Le Marais)", "Café de Flore (Saint-Germain)", "Au Pied de Cochon (Les Halles)"
+- Roma → "Supplì Roma (Trastevere)", "Grotte del Teatro di Pompeo", "Roscioli (Campo de' Fiori)"
+- Buenos Aires → "El Preferido de Palermo", "La Madeleine (Recoleta)", "Don Julio (Palermo)"
+El campo "why" es obligatorio: explica en 1 frase por qué ese lugar es especial (antigüedad, fama, plato signature).
 
 REGLAS ESTRICTAS:
 - Exactamente ${batchDays} días, dayNumber empieza en ${batchOffset + 1}, fechas desde ${batchStartDate}

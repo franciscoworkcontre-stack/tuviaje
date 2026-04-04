@@ -239,6 +239,9 @@ function DayCard({ day, flightSearchUrl, onOpenDetail, skipped }: {
                   <div className="flex-1">
                     <p className="text-[13px] font-semibold text-[#1A2332]">Almuerzo: {day.lunch.recommended}</p>
                     <p className="text-[11px] text-[#78909C]">{day.lunch.options[0].cuisine} · {day.lunch.options[0].priceTier}</p>
+                    {day.lunch.options[0].why && (
+                      <p className="text-[11px] text-[#FF7043] mt-0.5">⭐ {day.lunch.options[0].why}</p>
+                    )}
                   </div>
                   <p className="text-[12px] font-bold text-sunset tabular-nums">{fmt(day.lunch.options[0].costClp)}</p>
                 </div>
@@ -254,6 +257,9 @@ function DayCard({ day, flightSearchUrl, onOpenDetail, skipped }: {
                   <div className="flex-1">
                     <p className="text-[13px] font-semibold text-[#1A2332]">Cena: {day.dinner.recommended}</p>
                     <p className="text-[11px] text-[#78909C]">{day.dinner.options[0].cuisine} · {day.dinner.options[0].priceTier}</p>
+                    {day.dinner.options[0].why && (
+                      <p className="text-[11px] text-[#FF7043] mt-0.5">⭐ {day.dinner.options[0].why}</p>
+                    )}
                   </div>
                   <p className="text-[12px] font-bold text-sunset tabular-nums">{fmt(day.dinner.options[0].costClp)}</p>
                 </div>
