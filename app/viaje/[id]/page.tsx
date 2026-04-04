@@ -45,7 +45,7 @@ function HotelCard({ hotel, onSelect }: { hotel: HotelRecommendation; onSelect: 
         <span className="text-[11px] font-bold text-white tracking-widest uppercase">✓ Hotel elegido</span>
         {hotel.rating && (
           <span className="ml-auto text-[10px] font-bold text-white/80 bg-white/15 px-2 py-0.5 rounded-full">
-            {hotel.rating}/5
+            {hotel.rating}/10
           </span>
         )}
       </div>
@@ -66,7 +66,7 @@ function HotelCard({ hotel, onSelect }: { hotel: HotelRecommendation; onSelect: 
             <p className="text-[15px] font-bold text-[#1A2332] leading-snug">{hotel.name}</p>
             <p className="text-[12px] text-[#78909C] mt-0.5">
               {"★".repeat(Math.max(0, hotel.stars ?? 0))}
-              {hotel.rating ? ` · ${hotel.rating}/5` : ""}
+              {hotel.rating ? ` · ${hotel.rating}/10` : ""}
               {(hotel as HotelRecommendation & { reviews?: number }).reviews
                 ? ` · ${((hotel as HotelRecommendation & { reviews?: number }).reviews!).toLocaleString("es-CL")} reseñas`
                 : ""}
