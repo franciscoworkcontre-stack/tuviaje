@@ -764,14 +764,30 @@ export default function TripPage() {
                   })()}
 
                   {!loadingFlights && opts.length === 0 && (
-                    <a
-                      href={leg.flightSearchUrl ?? "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 py-3 rounded-xl border border-[#E3F2FD] hover:border-ocean text-[13px] font-semibold text-ocean hover:text-ocean-dark transition-all"
-                    >
-                      <ExternalLink size={13} /> Buscar en Google Flights
-                    </a>
+                    <div className="rounded-xl border border-[#FFF3E0] bg-[#FFFDE7] px-4 py-4 space-y-3">
+                      <p className="text-[13px] text-[#5D4037] leading-relaxed">
+                        No encontramos vuelos disponibles para el{" "}
+                        <span className="font-semibold">{leg.date}</span>. Las aerolíneas
+                        generalmente publican sus itinerarios con hasta 10 meses de anticipación.
+                        Probá con otras fechas.
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <a
+                          href="/planificar"
+                          className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-ocean text-white text-[13px] font-semibold hover:bg-ocean-dark transition-all"
+                        >
+                          Cambiar fechas
+                        </a>
+                        <a
+                          href={leg.flightSearchUrl ?? "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-[#E3F2FD] text-[13px] font-semibold text-ocean hover:border-ocean transition-all"
+                        >
+                          <ExternalLink size={13} /> Buscar en Google Flights
+                        </a>
+                      </div>
+                    </div>
                   )}
                 </div>
               );
