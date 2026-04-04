@@ -66,18 +66,24 @@ REGLAS ESTRICTAS para tips de ahorro (category=ahorro):
 
 Para tips sin ahorro monetario (experiencia, logistica, comida, transporte): omite savingsPct y appliesToCategory.
 
-Genera 5-7 tips: al menos 2 de ahorro con %, al menos 1 de experiencia, al menos 1 logístico.`;
+Genera exactamente 5 tips: 2 de ahorro con %, 1 de experiencia, 1 logístico, 1 de comida o transporte.`;
 
     const msg = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
+      max_tokens: 4096,
       messages: [{ role: "user", content: prompt }],
     });
 
-    const text = msg.content[0].type === "text" ? msg.content[0].text.trim() : "{}";
-    const jsonStart = text.indexOf("{");
-    const jsonEnd = text.lastIndexOf("}") + 1;
-    const parsed = JSON.parse(text.slice(jsonStart, jsonEnd)) as { tips: OptimizationTip[] };
+    const raw = msg.content[0].type === "text" ? msg.content[0].text.trim() : "{}";
+    // Strip markdown code fences if present
+    const stripped = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+    const jsonStart = stripped.indexOf("{");
+    const jsonEnd = stripped.lastIndexOf("}") + 1;
+    // Remove trailing commas before } or ] which Claude sometimes emits
+    const cleaned = stripped
+      .slice(jsonStart, jsonEnd)
+      .replace(/,(\s*[}\]])/g, "$1");
+    const parsed = JSON.parse(cleaned) as { tips: OptimizationTip[] };
 
     return NextResponse.json({ tips: parsed.tips ?? [] });
   } catch (err) {
