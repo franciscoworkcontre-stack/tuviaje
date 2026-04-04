@@ -158,7 +158,12 @@ export function CategoryBreakdownPanel({ category, selectedHotels, onClose }: Ca
   const fmt = (n: number) => fmtCurrency(n, displayCurrency);
   const items = trip && category ? buildItems(trip, category, selectedHotels) : [];
   const meta = category ? CATEGORY_META[category] : null;
-  const categoryTotal = items.reduce((s, i) => s + i.costClp, 0);
+  // Use the authoritative total from trip.costs (already accounts for adults, real prices, etc.)
+  const COST_KEY: Record<CostCategory, string> = {
+    transport: "transport", accommodation: "accommodation", food: "food",
+    activities: "activities", localTransport: "localTransport", extras: "extras",
+  };
+  const categoryTotal = category ? ((trip?.costs as unknown as Record<string, number>)[COST_KEY[category]] ?? 0) : 0;
   const tripTotal = trip?.costs.total ?? 1;
   const pct = Math.round((categoryTotal / tripTotal) * 100);
 
@@ -240,7 +245,8 @@ export function CategoryBreakdownPanel({ category, selectedHotels, onClose }: Ca
               )}
 
               {items.map((item, i) => {
-                const barPct = categoryTotal > 0 ? (item.costClp / categoryTotal) * 100 : 0;
+                const itemsTotal = items.reduce((s, it) => s + it.costClp, 0);
+                const barPct = itemsTotal > 0 ? (item.costClp / itemsTotal) * 100 : 0;
                 const itemColor = meta?.color ?? "#1565C0";
                 return (
                   <motion.div
