@@ -389,7 +389,9 @@ SOLO JSON: { "reasons": { "<leg>": "razón" } }`,
     const foodTotal = allDays.reduce((s, d) => d.isTravelDay ? s :
       s + (d.lunch?.options?.[0]?.costClp ?? budget.food/2) + (d.dinner?.options?.[0]?.costClp ?? budget.food/2), 0) * adults;
     const activitiesTotal = allDays.reduce((s, d) =>
-      s + [...(d.morning??[]),...(d.afternoon??[])].reduce((ss: number, a: {costClp?:number}) => ss+(a.costClp??0), 0), 0) * adults;
+      s + [...(d.morning??[]),...(d.afternoon??[])]
+        .filter((a: {category?: string}) => a.category !== "transport" && a.category !== "food")
+        .reduce((ss: number, a: {costClp?:number}) => ss+(a.costClp??0), 0), 0) * adults;
     const localTotal = allDays.reduce((s, d) => s + (d.localTransportCostClp ?? 0), 0) * adults;
     const extras = Math.round((hotelTotal + foodTotal + activitiesTotal) * 0.06);
     const total = transportTotal + hotelTotal + foodTotal + activitiesTotal + localTotal + extras;
