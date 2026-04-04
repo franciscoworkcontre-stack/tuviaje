@@ -492,7 +492,7 @@ export default function TripPage() {
             </Link>
             <div className="min-w-0">
               <p className="font-serif text-[14px] sm:text-[16px] font-bold text-[#1A2332] truncate">{trip.title}</p>
-              <p className="text-[10px] sm:text-[11px] text-[#78909C] hidden xs:flex items-center gap-2">
+              <p className="text-[10px] sm:text-[11px] text-[#78909C] hidden sm:flex items-center gap-2">
                 <span>{trip.startDate} · {trip.totalDays}d</span>
                 <span>{trip.travelers.adults} adultos</span>
               </p>
@@ -536,7 +536,9 @@ export default function TripPage() {
         </div>
 
         {/* Tabs with animated sliding indicator */}
-        <div className="max-w-6xl mx-auto px-2 sm:px-6 border-t border-[#E0D5C5] overflow-x-auto scrollbar-none">
+        <div className="max-w-6xl mx-auto px-2 sm:px-6 border-t border-[#E0D5C5] overflow-x-auto scrollbar-none relative">
+          {/* Mobile scroll hint — fades out the right edge to signal more tabs */}
+          <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-[#FAF8F4] to-transparent sm:hidden z-10" />
           <div className="relative flex min-w-max sm:min-w-0">
             {/* Sliding indicator */}
             {tabPositions[activeTab] && (

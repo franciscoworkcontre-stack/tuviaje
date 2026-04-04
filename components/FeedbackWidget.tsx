@@ -78,28 +78,29 @@ export function FeedbackWidget({ source, context, className = "" }: Props) {
         ))}
       </div>
 
-      {/* Message box — appears after selecting */}
-      {rating && (
-        <div className="mt-2" style={{ animation: "fadeInUp 0.25s ease-out both" }}>
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="¿Algo concreto que mejorarías? (opcional)"
-            rows={3}
-            className="w-full text-[13px] px-3 py-2.5 rounded-xl border border-[#E0D5C5] bg-white resize-none focus:outline-none focus:border-ocean text-[#37474F] placeholder:text-[#B0BEC5]"
-          />
-          <button
-            onClick={submit}
-            disabled={status === "sending"}
-            className="mt-2 w-full btn btn-primary text-[13px] min-h-[40px] justify-center"
-          >
-            {status === "sending" ? "Enviando..." : "Enviar feedback →"}
-          </button>
-          {status === "error" && (
-            <p className="text-[11px] text-red-500 text-center mt-1">Error al enviar. Intenta de nuevo.</p>
-          )}
-        </div>
-      )}
+      {/* Message box — always visible */}
+      <div className="mt-2">
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="¿Qué no funcionó? ¿Qué mejorarías? (opcional)"
+          rows={3}
+          className="w-full text-[13px] px-3 py-2.5 rounded-xl border border-[#E0D5C5] bg-white resize-none focus:outline-none focus:border-ocean text-[#37474F] placeholder:text-[#B0BEC5]"
+        />
+        <button
+          onClick={submit}
+          disabled={!rating || status === "sending"}
+          className="mt-2 w-full btn btn-primary text-[13px] min-h-[40px] justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {status === "sending" ? "Enviando..." : "Enviar feedback →"}
+        </button>
+        {!rating && (
+          <p className="text-[11px] text-[#B0BEC5] text-center mt-1">Selecciona una valoración para enviar</p>
+        )}
+        {status === "error" && (
+          <p className="text-[11px] text-red-500 text-center mt-1">Error al enviar. Intenta de nuevo.</p>
+        )}
+      </div>
     </div>
   );
 }

@@ -33,6 +33,7 @@ export function FeedbackFloating() {
         style={{
           transform: open ? "translateX(0)" : "translateX(100%)",
           transition: "transform 0.25s cubic-bezier(0.32,0.72,0,1)",
+          pointerEvents: open ? "auto" : "none",
         }}
       >
         {/* Header */}
