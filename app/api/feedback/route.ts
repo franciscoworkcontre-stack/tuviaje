@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     const sourceLabel = source === "trip" ? "Página del viaje" : "Landing page";
 
     await resend.emails.send({
-      from: "tu[viaje] Feedback <feedback@tuviaje.app>",
+      from: "tu[viaje] Feedback <onboarding@resend.dev>",
       to: TO_EMAIL,
       subject: `${emoji} Feedback ${rating}/5 — ${sourceLabel}`,
       html: `
