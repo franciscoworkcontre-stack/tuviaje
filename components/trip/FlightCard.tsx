@@ -48,7 +48,7 @@ export function FlightCard({ flight, rank, selected, onSelect, fromIata, toIata,
 
   // Format date nicely
   const dateLabel = departureDate
-    ? new Date(departureDate + "T12:00:00").toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" })
+    ? new Date(departureDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" })
     : null;
 
   return (

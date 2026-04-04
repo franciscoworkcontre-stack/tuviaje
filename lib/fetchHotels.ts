@@ -239,8 +239,8 @@ async function scrapeCity(
 
   if (rating >= 9)      pros.push(`Valoración excepcional: ${rating}/10`);
   else if (rating >= 8) pros.push(`Muy bien valorado: ${rating}/10`);
-  if (reviews >= 1000)  pros.push(`${reviews.toLocaleString("es-CL")} reseñas verificadas`);
-  else if (reviews > 0) pros.push(`${reviews.toLocaleString("es-CL")} reseñas`);
+  if (reviews >= 1000)  pros.push(`${reviews.toLocaleString("en-US")} reseñas verificadas`);
+  else if (reviews > 0) pros.push(`${reviews.toLocaleString("en-US")} reseñas`);
   if (stars >= 4)       pros.push(`Hotel ${stars}★`);
   if (priceClp / USD_TO_CLP < 80) pros.push("Excelente precio para la zona");
   pros.push("Precio real verificado en Google Hotels");

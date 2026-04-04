@@ -47,7 +47,7 @@ export function LandingFooter() {
             <p className="text-[13px] leading-relaxed text-white/50 mb-4">
               Planifica tu viaje multi-ciudad con precios reales.
               <br />
-              Hecho en Chile 🇨🇱 para el mundo.
+              Planificador de viajes para todo el mundo.
             </p>
             <p className="text-[11px] text-white/30">
               una herramienta{" "}

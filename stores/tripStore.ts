@@ -91,7 +91,7 @@ export const useTripStore = create<TripStore>()(
       clearTrip: () => set({ trip: null }),
 
       // ─── Currency ──────────────────────────────────────────────
-      displayCurrency: "CLP",
+      displayCurrency: "USD",
       setDisplayCurrency: (currency) => set({ displayCurrency: currency }),
 
       // ─── Loading ───────────────────────────────────────────────

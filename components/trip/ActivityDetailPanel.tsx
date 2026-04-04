@@ -23,7 +23,7 @@ function activityKey(dayNumber: number, name: string) {
 }
 
 function fmt(n: number) {
-  return "$" + n.toLocaleString("es-CL");
+  return "$" + n.toLocaleString("en-US");
 }
 
 const INSURANCE_PER_PERSON = 45_000; // ~$45 USD

@@ -5,7 +5,7 @@ import type { Trip, SplitAssignment } from "@/types/trip";
 // ─── Formatting helpers ────────────────────────────────────────────────────
 
 function clp(n: number): string {
-  return `$ ${n.toLocaleString("es-CL")}`;
+  return `$ ${n.toLocaleString("en-US")}`;
 }
 
 function pct(part: number, total: number): string {
@@ -25,7 +25,7 @@ function travelStyleLabel(style: string): string {
 function formatDate(iso: string): string {
   if (!iso) return "";
   const d = new Date(iso + "T12:00:00");
-  return d.toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" });
+  return d.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function transportTypeLabel(t: string): string {

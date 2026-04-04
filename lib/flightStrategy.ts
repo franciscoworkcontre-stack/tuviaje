@@ -171,7 +171,7 @@ async function analyzeSimpleRT(leg: StrategyLeg, adults: number, travelStyle: st
   const rec: FlightStrategyRecommendation = {
     type: "rt_direct",
     explanation: useRT
-      ? `El ticket ida/vuelta ${leg.fromCity}↔${leg.toCity} es ${Math.round(savings / 950).toLocaleString("es-CL")} USD más barato que comprar dos one-ways por separado.`
+      ? `El ticket ida/vuelta ${leg.fromCity}↔${leg.toCity} es ${Math.round(savings / 950).toLocaleString("en-US")} USD más barato que comprar dos one-ways por separado.`
       : `Comprando los vuelos por separado obtienes mayor flexibilidad sin costo adicional significativo.`,
     reasoning: useRT
       ? [
@@ -371,7 +371,7 @@ function sumBestPrices(
 }
 
 function fmtClp(n: number) {
-  return "$" + Math.round(n).toLocaleString("es-CL");
+  return "$" + Math.round(n).toLocaleString("en-US");
 }
 
 function noFlightsRec(): FlightStrategyRecommendation {

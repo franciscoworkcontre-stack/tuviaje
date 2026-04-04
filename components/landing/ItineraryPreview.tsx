@@ -126,7 +126,7 @@ export function ItineraryPreview() {
                     Costo del día
                   </p>
                   <p className="text-[18px] font-bold tabular-nums">
-                    ${DAY_EXAMPLE.cost.toLocaleString("es-CL")}
+                    ${DAY_EXAMPLE.cost.toLocaleString("en-US")}
                   </p>
                 </div>
                 {expanded ? <ChevronUp size={18} className="opacity-60" /> : <ChevronDown size={18} className="opacity-60" />}
@@ -155,7 +155,7 @@ export function ItineraryPreview() {
                         <div className="text-right shrink-0">
                           {act.cost > 0 ? (
                             <p className="text-[13px] font-bold text-sunset tabular-nums">
-                              ${act.cost.toLocaleString("es-CL")}
+                              ${act.cost.toLocaleString("en-US")}
                             </p>
                           ) : (
                             <span className="text-[11px] font-semibold text-[#2E7D32] bg-[#E8F5E9] px-2 py-0.5 rounded-full">

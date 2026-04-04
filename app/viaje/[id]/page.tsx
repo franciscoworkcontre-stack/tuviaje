@@ -31,7 +31,7 @@ import { ActivityDetailPanel, activityKey, INSURANCE_PER_PERSON } from "@/compon
 import type { DayPlan, HotelRecommendation, FlightOption } from "@/types/trip";
 
 function fmt(n: number) {
-  return "$" + n.toLocaleString("es-CL");
+  return "$" + n.toLocaleString("en-US");
 }
 
 function HotelCard({ hotel, onSelect }: { hotel: HotelRecommendation; onSelect: () => void }) {
@@ -68,7 +68,7 @@ function HotelCard({ hotel, onSelect }: { hotel: HotelRecommendation; onSelect: 
               {"★".repeat(Math.max(0, hotel.stars ?? 0))}
               {hotel.rating ? ` · ${hotel.rating}/10` : ""}
               {(hotel as HotelRecommendation & { reviews?: number }).reviews
-                ? ` · ${((hotel as HotelRecommendation & { reviews?: number }).reviews!).toLocaleString("es-CL")} reseñas`
+                ? ` · ${((hotel as HotelRecommendation & { reviews?: number }).reviews!).toLocaleString("en-US")} reseñas`
                 : ""}
             </p>
           </div>

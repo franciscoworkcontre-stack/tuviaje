@@ -165,7 +165,7 @@ const s = StyleSheet.create({
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmt(n: number) {
-  return "$" + Math.abs(Math.round(n)).toLocaleString("es-CL");
+  return "$" + Math.abs(Math.round(n)).toLocaleString("en-US");
 }
 
 function stars(n: number) {
@@ -259,7 +259,7 @@ function ActRow({ act }: { act: { time: string; emoji?: string; name: string; ti
 // ─── Main PDF component ───────────────────────────────────────────────────────
 function TripPDF({ trip }: { trip: Trip }) {
   const balances = computeBalances(trip);
-  const today = new Date().toLocaleDateString("es-CL");
+  const today = new Date().toLocaleDateString("en-US");
   const destinations = trip.cities.map((city) => city.name).join(" → ");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const optimizerTips: string[] = (trip as any).optimizerTips ?? [];

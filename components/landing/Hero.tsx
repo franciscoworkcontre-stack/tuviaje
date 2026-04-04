@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from "react";
 // Phase 2: result / pdf    7 800 – 13 000ms → restart
 
 const LOOP = 13500;
-const TYPED_TEXT = "Quiero ir de Santiago a Buenos Aires y Montevideo, 14 días en julio, somos 2 personas";
+const TYPED_TEXT = "Quiero ir de Nueva York a París y Roma, 14 días en julio, somos 2 personas";
 
 const MINI_AGENTS = [
   { emoji: "✈️", label: "Buscando mejores vuelos",     duration: 2200 },
@@ -27,9 +27,9 @@ const MINI_AGENTS = [
 ];
 
 const COSTS = [
-  { label: "✈️ Transporte",          value: "$320.000",  note: "3 tramos · mejor vuelo seleccionado" },
-  { label: "🏨 Alojamiento",         value: "$780.000",  note: "13 noches · hoteles en barrios clave" },
-  { label: "🍽️ Comida + actividades", value: "$570.000", note: "estimado por estilo comfort" },
+  { label: "✈️ Transporte",          value: "US$1,240",  note: "3 tramos · mejor vuelo seleccionado" },
+  { label: "🏨 Alojamiento",         value: "US$820",    note: "13 noches · hoteles en barrios clave" },
+  { label: "🍽️ Comida + actividades", value: "US$590",   note: "estimado por estilo comfort" },
 ];
 
 function HeroProductDemo() {
@@ -378,7 +378,7 @@ export function Hero() {
               style={{ animation: "fadeInDown 0.5s ease-out both" }}
             >
               <span className="w-2 h-2 rounded-full bg-[#2E7D32] animate-pulse" />
-              Hecho en Chile · Para viajeros latinoamericanos
+              Para viajeros del mundo
             </div>
 
             <h1

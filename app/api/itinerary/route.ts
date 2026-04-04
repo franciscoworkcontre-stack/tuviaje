@@ -552,7 +552,7 @@ SOLO JSON: { "tips": ["tip1", "tip2", ...] } — sin límite de cantidad, todos 
       flightOptions,
       flightStrategy: strategyResult?.recommendation ?? undefined,
       days: allDays, costs, travelers_list,
-      splitAssignments: [], currency: "CLP",
+      splitAssignments: [], currency: "USD",
       createdAt: new Date().toISOString(),
       savingsTip: structure.savingsTip,
       optimizerTips,

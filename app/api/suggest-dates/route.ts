@@ -22,12 +22,12 @@ export async function POST(req: NextRequest) {
     max_tokens: 800,
     messages: [{
       role: "user",
-      content: `Eres un experto en viajes desde ${originCity ?? "Santiago"} hacia ${destinations?.join(", ")}.
+      content: `Eres un experto en viajes desde ${originCity ?? "cualquier ciudad"} hacia ${destinations?.join(", ")}.
 Sugiere las 3 mejores ventanas de ${durationDays} días consecutivos en ${month} ${year} para este viaje.
 
 Considera:
 - Precios de vuelos: martes/miércoles/jueves ~20-30% más baratos que viernes/domingo
-- Feriados y vacaciones escolares de Chile, Argentina, Uruguay (invierno escolar ~primera quincena julio)
+- Feriados y vacaciones escolares en los países de destino
 - Temporada alta/baja en cada destino
 - Eventos, festivales o fechas que encarecen alojamiento
 - Clima en cada ciudad destino en ${month}
