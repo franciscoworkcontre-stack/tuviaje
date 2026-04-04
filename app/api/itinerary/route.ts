@@ -227,17 +227,26 @@ CATEGORÍAS VÁLIDAS (usa EXACTAMENTE estos valores en "category"):
 - "entertainment" → conciertos, eventos deportivos, shows, parques temáticos
 - "transport"     → traslados al aeropuerto, vuelos, buses interurbanos, taxis (SOLO para días de viaje)
 
-COMIDAS — REGLA PRINCIPAL: recomienda lugares ICÓNICOS y FAMOSOS de verdad.
-Piensa como un local que conoce la ciudad a fondo, no como una guía turística genérica.
-Prioridad: 1) lugares con historia o fama cultural (décadas de tradición, aparecen en medios, tienen cola),
-2) spots virales que los locales realmente frecuentan, 3) mercados o puestos callejeros emblemáticos.
-NUNCA inventes nombres. Si no conoces un lugar real famoso para esa ciudad, usa el más conocido globalmente.
-Ejemplos del nivel de especificidad que se espera:
-- Nueva York → "Adel's Halal Food (53rd & 6th Ave)", "Joe's Pizza (Carmine St)", "Katz's Delicatessen (Lower East Side)"
+COMIDAS — la regla cambia según si es primera visita o viajero que ya conoce la ciudad:
+
+${isFirstTime ? `PRIMERA VISITA → lugares ICÓNICOS e HISTÓRICOS que todo el mundo conoce.
+Piensa en los que tienen décadas de historia, aparecen en películas y medios, tienen cola de turistas pero valen la pena.
+Ejemplos del nivel esperado:
+- Nueva York → "Katz's Delicatessen (Lower East Side, desde 1888)", "Joe's Pizza (Carmine St)", "Adel's Halal Food (53rd & 6th)"
 - París → "L'As du Fallafel (Le Marais)", "Café de Flore (Saint-Germain)", "Au Pied de Cochon (Les Halles)"
-- Roma → "Supplì Roma (Trastevere)", "Grotte del Teatro di Pompeo", "Roscioli (Campo de' Fiori)"
-- Buenos Aires → "El Preferido de Palermo", "La Madeleine (Recoleta)", "Don Julio (Palermo)"
-El campo "why" es obligatorio: explica en 1 frase por qué ese lugar es especial (antigüedad, fama, plato signature).
+- Roma → "Roscioli (Campo de' Fiori)", "Supplì Roma (Trastevere)", "Pizzarium Bonci (Prati)"
+- Buenos Aires → "Don Julio (Palermo, mejor parrilla)", "El Federal (San Telmo, desde 1864)", "Café Tortoni"`
+: `VIAJERO QUE YA CONOCE ${city} → NADA de los clásicos turísticos. Recomienda donde comen los locales AHORA.
+Piensa en: restaurantes que abrieron en los últimos 3-5 años y se volvieron referencia entre residentes,
+bodegones de barrio sin letrero en inglés, mercados de productores, chefs jóvenes que están haciendo ruido,
+spots que salen en medios locales (no en TripAdvisor). Culturalmente relevante HOY, no históricamente famoso.
+Ejemplos del nivel esperado:
+- Nueva York → "Lilia (Williamsburg, pasta italiana moderna)", "Superiority Burger (East Village)", "Di An Di (Greenpoint, vietnamita)"
+- París → "Septime (11e, bistronomía moderna)", "Mokonuts (11e, natural wines + cocina fusión)", "Tannat (Batignolles)"
+- Roma → "Ristorante Marco Martini (Testaccio, alta cocina joven)", "Fernanda (Trastevere, ostería moderna)", "Zia Restaurant"
+- Buenos Aires → "Mengano (Palermo, cocina de autor)", "El Preferido de Palermo (barra de vinos natural)", "Chila (Puerto Madero, 50 Best)"`}
+
+El campo "why" es obligatorio: para primera visita explica la historia/leyenda, para retorno explica por qué los locales van ahí hoy.
 
 REGLAS ESTRICTAS:
 - Exactamente ${batchDays} días, dayNumber empieza en ${batchOffset + 1}, fechas desde ${batchStartDate}
