@@ -4,7 +4,7 @@ import { Resend } from "resend";
 export const dynamic = "force-dynamic";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const TO_EMAIL = process.env.FEEDBACK_EMAIL ?? "hola@tuviaje.app";
+const TO_EMAIL = process.env.FEEDBACK_EMAIL ?? "hola@tuviaje.org";
 
 export async function POST(req: NextRequest) {
   try {

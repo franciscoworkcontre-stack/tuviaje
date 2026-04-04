@@ -23,7 +23,7 @@ const LINKS = {
   Legal: [
     { label: "Términos de uso", href: "/legal/terminos" },
     { label: "Privacidad", href: "/legal/privacidad" },
-    { label: "Contacto", href: "mailto:hola@tuviaje.app" },
+    { label: "Contacto", href: "mailto:hola@tuviaje.org" },
   ],
 };
 

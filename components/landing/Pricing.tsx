@@ -132,7 +132,7 @@ export function Pricing() {
           style={{ animation: "fadeIn 0.6s ease-out 0.4s both" }}
         >
           ¿Agencia de viajes? Próximamente: acceso B2B al motor de tu[viaje].{" "}
-          <a href="mailto:hola@tuviaje.app" className="text-ocean hover:underline">
+          <a href="mailto:hola@tuviaje.org" className="text-ocean hover:underline">
             Contáctanos
           </a>
         </p>
