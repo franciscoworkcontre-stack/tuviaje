@@ -9,17 +9,17 @@ const TOOLS = [
       "Ingresa la ciudad y cuántos días. Te mostramos el costo estimado por día según tu estilo: mochilero, comfort o premium.",
     cta: "Calcular costo",
     href: "/herramientas/costo-ciudad",
-    seo: "cuanto cuesta viajar a buenos aires desde chile",
+    seo: "cuanto cuesta viajar a paris por semana",
     color: "border-l-4 border-ocean",
   },
   {
     emoji: "📅",
-    title: "Comparador de vuelos Santiago → Destino",
+    title: "Comparador de vuelos — Heatmap de precios",
     description:
       "Heatmap de precios para los próximos 3 meses. Encuentra el día más barato para volar.",
     cta: "Ver vuelos baratos",
     href: "/herramientas/vuelos-baratos",
-    seo: "vuelos baratos santiago buenos aires calendario",
+    seo: "vuelos baratos nueva york paris calendario",
     color: "border-l-4 border-[#2E7D32]",
   },
   {
@@ -39,7 +39,7 @@ const TOOLS = [
       "Ruta, destinos, días y estilo → estimado total del viaje. Sin necesidad de crear cuenta.",
     cta: "Calcular presupuesto",
     href: "/herramientas/presupuesto",
-    seo: "calculadora presupuesto viaje sudamerica",
+    seo: "calculadora presupuesto viaje europa",
     color: "border-l-4 border-[#7B1FA2]",
   },
 ];

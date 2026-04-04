@@ -149,7 +149,7 @@ function HeroProductDemo() {
           </p>
         </div>
         <div className="flex gap-2 mt-3">
-          {["Santiago", "Buenos Aires", "Montevideo"].map((c) => (
+          {["Nueva York", "París", "Roma"].map((c) => (
             <div
               key={c}
               className="text-[10px] text-white/50 bg-white/8 border border-white/10 rounded-full px-2.5 py-1"
@@ -272,7 +272,7 @@ function HeroProductDemo() {
           }}
         >
           <div>
-            <p className="text-white text-[13px] font-semibold">Santiago → Bs As → Montevideo</p>
+            <p className="text-white text-[13px] font-semibold">NYC → París → Roma</p>
             <p className="text-white/40 text-[11px]">14 días · 2 adultos · comfort</p>
           </div>
           <div className="bg-white/10 border border-white/20 text-[10px] font-bold text-white/70 px-2.5 py-1 rounded-full">
@@ -313,13 +313,13 @@ function HeroProductDemo() {
             }}
           >
             <p className="text-white/60 text-[13px] font-semibold">TOTAL estimado</p>
-            <p className="text-sunset text-[22px] font-bold tabular-nums">$1.842.000</p>
+            <p className="text-sunset text-[22px] font-bold tabular-nums">US$2,650</p>
           </div>
           <p
             className="text-white/30 text-[10px] text-right"
             style={{ opacity: showResult ? 1 : 0, transition: "opacity 0.4s 0.6s" }}
           >
-            $921.000 por persona · $70.846/día
+            US$1,325 por persona · US$95/día
           </p>
         </div>
 

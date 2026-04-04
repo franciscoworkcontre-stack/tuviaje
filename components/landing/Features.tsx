@@ -43,7 +43,7 @@ const FEATURES = [
     title: "Costos reales, no estimados",
     description:
       "Los precios de vuelos y hoteles vienen de búsquedas reales, no de promedios históricos. El desglose muestra vuelos, alojamiento, comida, actividades y transporte local.",
-    detail: "CLP · USD · EUR — tú eliges",
+    detail: "USD · EUR · GBP · más — tú eliges",
     span: "lg:col-span-3",
     accent: "#9A6D08",
     bg: "#FFF8E1",

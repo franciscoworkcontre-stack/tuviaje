@@ -5,7 +5,7 @@ const STEPS = [
     title: "Describe tu viaje",
     description:
       "Escribe a dónde quieres ir, cuántos días tienes y cuántas personas viajan. Sin formularios complejos — texto libre, como le escribirías a un amigo.",
-    detail: "\"Santiago a Buenos Aires y Montevideo, 14 días, 2 personas\"",
+    detail: "\"Nueva York a París y Roma, 14 días, 2 personas\"",
     accent: "#1565C0",
     bg: "#EFF6FF",
     border: "#1565C020",

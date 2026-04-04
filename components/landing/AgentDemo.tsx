@@ -20,7 +20,7 @@ const AGENTS: Agent[] = [
     emoji: "✈️",
     name: "Transport Agent",
     task: "Comparando 1.247 vuelos y rutas...",
-    resultHighlight: "Sky LA482 — $32.000 / persona",
+    resultHighlight: "Air France AF1680 — US$420/persona",
     completionMessage: "¡Te conseguí el mejor vuelo al mejor precio! ✈️",
     duration: 900,
   },
@@ -29,7 +29,7 @@ const AGENTS: Agent[] = [
     emoji: "🚌",
     name: "Bus & Train Agent",
     task: "Escaneando Pullman, Andesmar, Rome2Rio...",
-    resultHighlight: "Pullman cama suite — $22.000",
+    resultHighlight: "Trenitalia Frecciarossa — US$45",
     completionMessage: "¡Encontré la mejor opción en bus! 🚌",
     duration: 800,
   },
@@ -38,7 +38,7 @@ const AGENTS: Agent[] = [
     emoji: "🏨",
     name: "Accommodation Agent",
     task: "Revisando 3.820 hoteles y hostales...",
-    resultHighlight: "Hotel Clasico BA ⭐ 4.2 — $38.000/noche",
+    resultHighlight: "Hotel Saint-Germain ⭐ 4.3 — US$155/noche",
     completionMessage: "¡Te conseguí el mejor hotel de la zona! 🏨",
     duration: 1000,
   },
@@ -56,7 +56,7 @@ const AGENTS: Agent[] = [
     emoji: "💡",
     name: "Optimizer Agent",
     task: "Buscando ahorros y combinaciones...",
-    resultHighlight: "Volar el jueves ahorra $18.000 ↓",
+    resultHighlight: "Volar el martes ahorra US$80 ↓",
     completionMessage: "¡Calculé todo para que gastes lo justo! 💰",
     duration: 850,
   },
@@ -209,17 +209,17 @@ function PDFMock({ visible }: { visible: boolean }) {
             </span>
           </div>
           <p className="text-white text-[15px] font-bold leading-tight mb-1">
-            Santiago → Buenos Aires<br />→ São Paulo
+            Nueva York → París<br />→ Roma
           </p>
           <p className="text-white/50 text-[9px]">15 jul – 29 jul 2026 · 2 adultos</p>
           <div className="flex gap-2 mt-3">
             <div className="bg-white/8 rounded-lg px-2.5 py-1.5">
               <p className="text-[7px] text-white/40 uppercase">Total</p>
-              <p className="text-[13px] font-bold text-sunset tabular-nums">$1.842.000</p>
+              <p className="text-[13px] font-bold text-sunset tabular-nums">US$2,650</p>
             </div>
             <div className="bg-white/8 rounded-lg px-2.5 py-1.5">
               <p className="text-[7px] text-white/40 uppercase">Por persona</p>
-              <p className="text-[13px] font-bold text-white tabular-nums">$921.000</p>
+              <p className="text-[13px] font-bold text-white tabular-nums">US$1,325</p>
             </div>
           </div>
         </div>
@@ -230,11 +230,11 @@ function PDFMock({ visible }: { visible: boolean }) {
         <div className="bg-white px-5 py-4">
           <p className="text-[8px] font-bold uppercase tracking-widest text-[#78909C] mb-3">Resumen de costos</p>
           {[
-            { label: "✈️ Transporte",     pct: 17, amount: "$320K" },
-            { label: "🏨 Alojamiento",    pct: 42, amount: "$780K" },
-            { label: "🍽️ Comida",         pct: 21, amount: "$390K" },
-            { label: "🎭 Actividades",    pct: 10, amount: "$180K" },
-            { label: "🚇 Local + extras", pct: 10, amount: "$172K" },
+            { label: "✈️ Transporte",     pct: 17, amount: "US$450" },
+            { label: "🏨 Alojamiento",    pct: 42, amount: "US$1,113" },
+            { label: "🍽️ Comida",         pct: 21, amount: "US$556" },
+            { label: "🎭 Actividades",    pct: 10, amount: "US$265" },
+            { label: "🚇 Local + extras", pct: 10, amount: "US$266" },
           ].map(({ label, pct, amount }) => (
             <div key={label} className="mb-2">
               <div className="flex justify-between mb-0.5">
@@ -256,12 +256,12 @@ function PDFMock({ visible }: { visible: boolean }) {
 
         {/* Day strip */}
         <div className="bg-[#F5F0E8] px-5 py-3 border-t border-[#E0D5C5]">
-          <p className="text-[7px] font-bold uppercase tracking-widest text-[#78909C] mb-1.5">Día 2 · Buenos Aires</p>
+          <p className="text-[7px] font-bold uppercase tracking-widest text-[#78909C] mb-1.5">Día 2 · París</p>
           {[
-            { time: "09:00", act: "🏛️ Plaza de Mayo", cost: "Gratis" },
-            { time: "11:00", act: "☕ Café Tortoni",   cost: "$5.000" },
-            { time: "13:30", act: "🍽️ La Brigada",    cost: "$12.000" },
-            { time: "21:30", act: "🎭 Show de tango",  cost: "$35.000" },
+            { time: "09:00", act: "🗼 Torre Eiffel",    cost: "US$29" },
+            { time: "11:00", act: "☕ Café de Flore",   cost: "US$12" },
+            { time: "13:30", act: "🎨 Museo del Louvre", cost: "US$22" },
+            { time: "20:00", act: "🍷 Bistrot Paul Bert", cost: "US$45" },
           ].map(({ time, act, cost }) => (
             <div key={act} className="flex items-center justify-between py-0.5">
               <div className="flex items-center gap-1.5">
@@ -452,14 +452,14 @@ export function AgentDemo() {
                 {allDone && (
                   <p className="text-white/40 text-[10px] mt-0.5"
                     style={{ animation: "fadeInUp 0.4s ease-out both" }}>
-                    14 días · $1.842.000 total · PDF generado
+                    14 días · US$2,650 total · PDF generado
                   </p>
                 )}
               </div>
               {allDone && (
                 <div className="text-[20px] font-bold tabular-nums text-sunset"
                   style={{ animation: "scaleIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both" }}>
-                  $1.842.000
+                  US$2,650
                 </div>
               )}
             </div>

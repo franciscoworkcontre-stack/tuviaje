@@ -100,10 +100,10 @@ export function Pricing() {
                 Pro
               </p>
               <div className="flex items-end gap-2 mb-1">
-                <span className="font-serif text-[42px] font-bold text-[#1A2332]">$4.990</span>
+                <span className="font-serif text-[42px] font-bold text-[#1A2332]">US$5</span>
                 <span className="text-[14px] text-[#78909C] mb-2">/mes</span>
               </div>
-              <p className="text-[13px] text-[#78909C]">≈ USD 5 · Cancela cuando quieras</p>
+              <p className="text-[13px] text-[#78909C]">Cancela cuando quieras</p>
             </div>
 
             <ul className="space-y-3 mb-8">
