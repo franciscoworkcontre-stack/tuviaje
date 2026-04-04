@@ -7,13 +7,18 @@ export const dynamic = "force-dynamic";
 
 const client = new Anthropic();
 
+export type SavingsCategory = "accommodation" | "food" | "activities" | "localTransport";
+
 export interface OptimizationTip {
   id: string;
   category: "ahorro" | "experiencia" | "logistica" | "comida" | "transporte";
   emoji: string;
   title: string;
   detail: string;
-  savingsClp?: number; // estimated CLP savings if applicable
+  // For savings tips: pct off a specific cost category (calculated client-side)
+  savingsPct?: number;           // e.g. 15
+  appliesToCategory?: SavingsCategory; // which trip.costs.* to apply pct to
+  savingsExplanation?: string;   // e.g. "reservando con 6 semanas de anticipación"
 }
 
 export async function POST(req: NextRequest) {
@@ -22,30 +27,22 @@ export async function POST(req: NextRequest) {
     if (!trip) return NextResponse.json({ error: "No trip" }, { status: 400 });
 
     const cityList = trip.cities.map(c => `${c.name} (${c.days} días)`).join(", ");
-    const totalClp = trip.costs.total;
-    const perPersonClp = trip.costs.perPerson;
     const style = trip.travelStyle;
 
-    const prompt = `Eres un experto en viajes por Sudamérica y optimización de presupuesto de viaje.
-
-Analiza este viaje y entrega EXACTAMENTE 6 tips de optimización muy concretos y accionables:
+    const prompt = `Eres experto en viajes y optimización de presupuesto. Analiza este viaje y genera tips concretos y honestos.
 
 VIAJE:
 - Destinos: ${cityList}
 - Fechas: ${trip.startDate} → ${trip.endDate} (${trip.totalDays} días)
-- Estilo: ${style}
-- Presupuesto total: $${Math.round(totalClp).toLocaleString("es-CL")} CLP
-- Por persona: $${Math.round(perPersonClp).toLocaleString("es-CL")} CLP
-- Viajeros: ${trip.travelers.adults} adultos
-- Costos por categoría:
-  - Transporte: $${Math.round(trip.costs.transport).toLocaleString("es-CL")} CLP
-  - Alojamiento: $${Math.round(trip.costs.accommodation).toLocaleString("es-CL")} CLP
-  - Comida: $${Math.round(trip.costs.food).toLocaleString("es-CL")} CLP
-  - Actividades: $${Math.round(trip.costs.activities).toLocaleString("es-CL")} CLP
-  - Transporte local: $${Math.round(trip.costs.localTransport).toLocaleString("es-CL")} CLP
-  - Extras: $${Math.round(trip.costs.extras).toLocaleString("es-CL")} CLP
+- Estilo: ${style} | ${trip.travelers.adults} adultos
+- Costos reales:
+  - Alojamiento: $${Math.round(trip.costs.accommodation / 950).toLocaleString()} USD
+  - Comida: $${Math.round(trip.costs.food / 950).toLocaleString()} USD
+  - Actividades: $${Math.round(trip.costs.activities / 950).toLocaleString()} USD
+  - Transporte local: $${Math.round(trip.costs.localTransport / 950).toLocaleString()} USD
+  - Extras: $${Math.round(trip.costs.extras / 950).toLocaleString()} USD
 
-Responde SOLO con JSON válido, sin texto adicional, con este formato exacto:
+FORMATO — responde SOLO JSON válido:
 {
   "tips": [
     {
@@ -53,19 +50,23 @@ Responde SOLO con JSON válido, sin texto adicional, con este formato exacto:
       "category": "ahorro|experiencia|logistica|comida|transporte",
       "emoji": "💡",
       "title": "Título corto (máx 8 palabras)",
-      "detail": "Explicación concreta y accionable (máx 2 oraciones). Incluye nombres específicos de apps, lugares o técnicas.",
-      "savingsClp": 50000
+      "detail": "Explicación concreta (máx 2 oraciones). Menciona ciudades, apps, lugares específicos.",
+      "savingsPct": 15,
+      "appliesToCategory": "accommodation",
+      "savingsExplanation": "reservando con 6+ semanas de anticipación"
     }
   ]
 }
 
-Reglas:
-- Cada tip debe ser MUY específico para este viaje (menciona ciudades, fechas, categorías del viaje)
-- Al menos 2 tips de ahorro con estimación de CLP ahorrado
-- Al menos 1 tip de experiencia (algo que la gente no sabe)
-- Al menos 1 tip logístico (transporte, timing, apps)
-- Sé directo y usa datos concretos, no generalidades
-- Los savingsClp solo en tips de ahorro; usa null para los demás`;
+REGLAS ESTRICTAS para tips de ahorro (category=ahorro):
+- savingsPct DEBE ser un % realista y justificable (ej: anticipación = 10-20%, cocinar = 30-50% comida, hostal = 30-40% alojamiento)
+- appliesToCategory DEBE ser uno de: "accommodation", "food", "activities", "localTransport"
+- savingsExplanation explica en pocas palabras POR QUÉ ese % es válido
+- Solo incluye tips de ahorro si el % es genuinamente alcanzable — no inflés
+
+Para tips sin ahorro monetario (experiencia, logistica, comida, transporte): omite savingsPct y appliesToCategory.
+
+Genera 5-7 tips: al menos 2 de ahorro con %, al menos 1 de experiencia, al menos 1 logístico.`;
 
     const msg = await client.messages.create({
       model: "claude-haiku-4-5-20251001",

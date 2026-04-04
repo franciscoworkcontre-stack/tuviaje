@@ -6,7 +6,7 @@ import { Check } from "lucide-react";
 import { useTripStore } from "@/stores/tripStore";
 import { fmtCurrency } from "@/lib/currency";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
-import type { OptimizationTip } from "@/app/api/optimize/route";
+import type { OptimizationTip, SavingsCategory } from "@/app/api/optimize/route";
 
 const CATEGORY_CONFIG: Record<OptimizationTip["category"], { label: string; bg: string; text: string; border: string }> = {
   ahorro:      { label: "Ahorro",      bg: "#E8F5E9", text: "#2E7D32", border: "#A5D6A7" },
@@ -14,6 +14,13 @@ const CATEGORY_CONFIG: Record<OptimizationTip["category"], { label: string; bg: 
   logistica:   { label: "Logística",   bg: "#E3F2FD", text: "#1565C0", border: "#90CAF9" },
   comida:      { label: "Comida",      bg: "#FFF8E1", text: "#F57F17", border: "#FFE082" },
   transporte:  { label: "Transporte",  bg: "#F3E5F5", text: "#6A1B9A", border: "#CE93D8" },
+};
+
+const CATEGORY_LABEL: Record<SavingsCategory, string> = {
+  accommodation: "alojamiento",
+  food: "comida",
+  activities: "actividades",
+  localTransport: "transporte local",
 };
 
 export function OptimizerTips() {
@@ -48,6 +55,13 @@ export function OptimizerTips() {
 
   if (!trip) return null;
 
+  // Calculate real CLP savings from pct × the actual category cost
+  function tipSavingsClp(tip: OptimizationTip): number {
+    if (!tip.savingsPct || !tip.appliesToCategory) return 0;
+    const base = (trip!.costs as unknown as Record<string, number>)[tip.appliesToCategory] ?? 0;
+    return Math.round(base * tip.savingsPct / 100);
+  }
+
   function toggleTip(id: string) {
     setActivated(prev => {
       const next = new Set(prev);
@@ -55,10 +69,11 @@ export function OptimizerTips() {
       else next.add(id);
       return next;
     });
+    setApplied(false);
   }
 
   const activatedTips = tips.filter(t => activated.has(t.id));
-  const totalSavings = activatedTips.reduce((s, t) => s + (t.savingsClp ?? 0), 0);
+  const totalSavings = activatedTips.reduce((s, t) => s + tipSavingsClp(t), 0);
 
   return (
     <div className="space-y-4">
@@ -69,7 +84,7 @@ export function OptimizerTips() {
             <div className="flex items-center gap-2 mb-1">
               <p className="section-label">Agente optimizador IA</p>
               <InfoTooltip
-                content="Claude analiza tu itinerario completo y genera tips específicos para este viaje. Activa los que te parezcan útiles para comprometerte con el ahorro."
+                content="Claude analiza tu itinerario completo y genera tips específicos. Los ahorros se calculan como % de tus costos reales — no son números inventados."
                 position="bottom"
               />
             </div>
@@ -104,23 +119,15 @@ export function OptimizerTips() {
                       <p className="text-[22px] font-bold text-[#2E7D32] tabular-nums leading-tight">
                         {fmtCurrency(totalSavings, displayCurrency)}
                       </p>
-                      <p className="text-[12px] text-[#4CAF50]">ahorro estimado si los aplicas</p>
+                      <p className="text-[12px] text-[#4CAF50]">
+                        ahorro real calculado sobre tus costos actuales
+                      </p>
                     </>
                   ) : (
                     <p className="text-[14px] font-semibold text-[#2E7D32]">
                       Tips de experiencia activados ✓
                     </p>
                   )}
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {activatedTips.map(t => (
-                    <span
-                      key={t.id}
-                      className="text-[11px] font-semibold bg-white/70 text-[#2E7D32] px-2.5 py-1 rounded-full border border-[#A5D6A7]"
-                    >
-                      {t.emoji} {t.title.split(" ").slice(0, 3).join(" ")}…
-                    </span>
-                  ))}
                 </div>
               </div>
             </div>
@@ -163,6 +170,7 @@ export function OptimizerTips() {
             {tips.map((tip, i) => {
               const cfg = CATEGORY_CONFIG[tip.category] ?? CATEGORY_CONFIG.logistica;
               const isActive = activated.has(tip.id);
+              const savingsClp = tipSavingsClp(tip);
               return (
                 <motion.div
                   key={tip.id}
@@ -192,15 +200,20 @@ export function OptimizerTips() {
                               <Check size={9} /> Activado
                             </span>
                           )}
-                          <span className="text-[10px] text-[#B0BEC5]">#{i + 1}</span>
                         </div>
                         <p className="text-[13px] font-bold text-[#1A2332] mb-1">{tip.title}</p>
                         <p className="text-[12px] text-[#37474F] leading-relaxed">{tip.detail}</p>
-                        {tip.savingsClp != null && tip.savingsClp > 0 && (
+
+                        {/* Savings badge with real calculation */}
+                        {savingsClp > 0 && tip.appliesToCategory && (
                           <div className="mt-2 inline-flex items-center gap-1.5 bg-[#E8F5E9] border border-[#A5D6A7] rounded-full px-2.5 py-1">
                             <span className="text-[10px]">💰</span>
                             <span className="text-[11px] font-bold text-[#2E7D32]">
-                              Ahorro estimado: {fmtCurrency(tip.savingsClp, displayCurrency)}
+                              {fmtCurrency(savingsClp, displayCurrency)}
+                            </span>
+                            <span className="text-[10px] text-[#4CAF50]">
+                              ({tip.savingsPct}% de {CATEGORY_LABEL[tip.appliesToCategory]}
+                              {tip.savingsExplanation ? ` · ${tip.savingsExplanation}` : ""})
                             </span>
                           </div>
                         )}
@@ -212,7 +225,7 @@ export function OptimizerTips() {
                       <p className="text-[11px] text-[#78909C]">
                         {isActive
                           ? "Comprometido — recuerda aplicarlo durante el viaje"
-                          : "Activa este tip para comprometerte a aplicarlo"}
+                          : "Activa este tip para incluirlo en el ahorro total"}
                       </p>
                       <button
                         onClick={() => toggleTip(tip.id)}
@@ -231,7 +244,7 @@ export function OptimizerTips() {
             })}
           </div>
 
-          {/* Apply savings */}
+          {/* Apply savings to budget */}
           {totalSavings > 0 && !applied && (
             <button
               onClick={() => {
@@ -240,7 +253,7 @@ export function OptimizerTips() {
               }}
               className="w-full py-3.5 rounded-xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white text-[13px] font-bold transition-all flex items-center justify-center gap-2 shadow-sm"
             >
-              💰 Aplicar {fmtCurrency(totalSavings, displayCurrency)} de ahorro al presupuesto
+              💰 Aplicar {fmtCurrency(totalSavings, displayCurrency)} al presupuesto
             </button>
           )}
           {applied && (
