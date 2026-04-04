@@ -1,7 +1,12 @@
+"use client";
+
 import Link from "next/link";
-import { MapIcon as Map, MenuIcon as Menu } from "@/components/ui/AnimatedIcons";
+import { useState } from "react";
+import { MapIcon as Map, MenuIcon as Menu, XIcon as X } from "@/components/ui/AnimatedIcons";
 
 export function LandingNav() {
+  const [open, setOpen] = useState(false);
+
   return (
     <nav
       className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-[#E0D5C5]"
@@ -39,12 +44,43 @@ export function LandingNav() {
           >
             Planificar viaje
           </Link>
-          {/* Mobile menu icon */}
-          <button className="md:hidden p-2 text-[#78909C]" aria-label="Menú">
-            <Menu size={20} />
+          {/* Mobile menu toggle */}
+          <button
+            className="md:hidden p-2 text-[#78909C]"
+            aria-label="Menú"
+            onClick={() => setOpen((v) => !v)}
+          >
+            {open ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
       </div>
+
+      {/* Mobile dropdown menu */}
+      {open && (
+        <div className="md:hidden border-t border-[#E0D5C5] bg-white/95 backdrop-blur-md px-6 py-4 flex flex-col gap-1">
+          <Link href="#como-funciona" onClick={() => setOpen(false)} className="py-3 text-[15px] font-medium text-[#37474F] hover:text-ocean transition-colors border-b border-[#F5F0E8]">
+            Cómo funciona
+          </Link>
+          <Link href="#herramientas" onClick={() => setOpen(false)} className="py-3 text-[15px] font-medium text-[#37474F] hover:text-ocean transition-colors border-b border-[#F5F0E8]">
+            Herramientas gratis
+          </Link>
+          <Link href="#precios" onClick={() => setOpen(false)} className="py-3 text-[15px] font-medium text-[#37474F] hover:text-ocean transition-colors border-b border-[#F5F0E8]">
+            Precios
+          </Link>
+          <Link href="/login" onClick={() => setOpen(false)} className="py-3 text-[15px] font-medium text-[#37474F] hover:text-ocean transition-colors border-b border-[#F5F0E8]">
+            Iniciar sesión
+          </Link>
+          <div className="pt-3">
+            <Link
+              href="/planificar"
+              onClick={() => setOpen(false)}
+              className="btn btn-primary text-[15px] px-5 min-h-[44px] w-full justify-center"
+            >
+              Planificar viaje
+            </Link>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
