@@ -234,21 +234,19 @@ REGLAS ESTRICTAS:
 - dayTotalClp = suma exacta de todos los costClp del día
 - SOLO el array dentro de {"days":[...]}
 
-COSTOS DE ACTIVIDADES — usa el precio de entrada REAL en CLP (para ${adults} persona${adults > 1 ? "s" : ""}):
-- Convierte USD→CLP multiplicando por ${USD_TO_CLP}. Ej: $33 USD = ${33 * USD_TO_CLP} CLP × ${adults} = ${33 * USD_TO_CLP * adults} CLP total
+COSTOS — TODOS los valores son POR PERSONA (el sistema multiplica por ${adults} después):
+- costClp en actividades = precio de entrada POR 1 PERSONA
+- costClp en comidas = precio POR 1 PERSONA
+- localTransportCostClp = costo de transporte POR 1 PERSONA ese día
+- Convierte USD→CLP multiplicando por ${USD_TO_CLP}. Ej: entrada $33 USD → ${33 * USD_TO_CLP} CLP por persona
 - Actividades GRATIS (parques, plazas, catedrales, miradores públicos): costClp = 0
-- Precio de entrada conocido: precio real × ${adults} personas
-- Precio sugerido/donación (ej: The Met NYC sugiere $30): usa ese precio sugerido real × ${adults}
 - NO infles costos — si no sabes el precio exacto, estima conservadoramente
 
-COSTOS DE TRANSPORTE LOCAL (localTransportCostClp):
-- Usa el precio REAL de cada medio de transporte en ${city} en 2026 y multiplica por los trayectos necesarios
-- Suma trayecto a trayecto: metro×N + bus×M + taxi×P = total del día
-- Ejemplos de lógica (adapta al precio real de ${city}):
-  · Si metro en ${city} cuesta X CLP y toman 2 viajes → 2X
-  · Si además toman 1 taxi corto Y CLP → total 2X + Y
-- NO cobres tarjetas recargables, pases diarios ni abonos — solo los viajes que realmente usan
-- Días de viaje (isTravelDay=true): cobra solo traslado aeropuerto↔hotel, no trayectos turísticos`;
+TRANSPORTE LOCAL (localTransportCostClp) — POR PERSONA:
+- Usa el precio REAL por trayecto en ${city} en 2026, suma solo los viajes del día
+- Ej: metro ${city} cuesta X CLP/trayecto → 3 trayectos = 3X por persona
+- NO cobres tarjetas recargables, pases diarios ni abonos
+- Días de viaje (isTravelDay=true): solo traslado aeropuerto↔hotel por persona`;
     }
 
     // ── Hoteles + vuelos en paralelo con días ────────────────────
@@ -399,7 +397,7 @@ SOLO JSON: { "reasons": { "<leg>": "razón" } }`,
       const f = opts[0];
       return f ? sum + f.priceClp : sum;
     }, 0);
-    const transportTotal = realFlightTotal > 0 ? realFlightTotal : allCities.length * 45000 * adults;
+    const transportTotal = realFlightTotal > 0 ? realFlightTotal : 0; // 0 = no real price found, don't show a fake number
 
     const foodTotal = allDays.reduce((s, d) => d.isTravelDay ? s :
       s + (d.lunch?.options?.[0]?.costClp ?? budget.food/2) + (d.dinner?.options?.[0]?.costClp ?? budget.food/2), 0) * adults;

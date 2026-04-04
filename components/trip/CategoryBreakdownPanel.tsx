@@ -248,8 +248,10 @@ export function CategoryBreakdownPanel({ category, selectedHotels, onClose }: Ca
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
               {items.length === 0 && (
                 <div className="text-center py-10 text-[#78909C]">
-                  <p className="text-[32px] mb-2">🔍</p>
-                  <p className="text-[13px]">Sin datos detallados para esta categoría</p>
+                  <p className="text-[32px] mb-2">{category === "transport" ? "✈️" : "🔍"}</p>
+                  <p className="text-[13px]">{category === "transport"
+                    ? "No se encontraron precios reales de vuelos para esta ruta. Busca directamente en Google Flights."
+                    : "Sin datos detallados para esta categoría"}</p>
                 </div>
               )}
 
