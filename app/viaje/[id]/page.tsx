@@ -18,6 +18,7 @@ import {
   LoaderIcon as Loader2,
 } from "@/components/ui/AnimatedIcons";
 import { useTripStore } from "@/stores/tripStore";
+import { FeedbackWidget } from "@/components/FeedbackWidget";
 import { CostSummary } from "@/components/trip/CostSummary";
 import { CategoryBreakdownPanel } from "@/components/trip/CategoryBreakdownPanel";
 import type { CostCategory } from "@/components/trip/CategoryBreakdownPanel";
@@ -609,6 +610,15 @@ export default function TripPage() {
                   />
                 );
               })}
+              {/* Feedback al final del itinerario */}
+              <div className="card p-6 border border-[#E0D5C5] text-center">
+                <p className="text-[13px] font-semibold text-[#1A2332] mb-1">¿Qué te pareció el plan?</p>
+                <p className="text-[12px] text-[#78909C] mb-5">Tu opinión va directo al equipo.</p>
+                <FeedbackWidget
+                  source="trip"
+                  context={`${trip.title} · ${trip.totalDays} días · ${trip.travelers.adults} adultos`}
+                />
+              </div>
             </div>
             {/* Sidebar */}
             <div className="space-y-4">
