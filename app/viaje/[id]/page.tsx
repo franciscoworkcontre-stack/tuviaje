@@ -479,16 +479,16 @@ export default function TripPage() {
         }}
         transition={{ duration: 0.2 }}
       >
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Link href="/planificar" className="text-[#78909C] hover:text-ocean transition-colors shrink-0">
               <ArrowLeft size={18} />
             </Link>
             <div className="min-w-0">
-              <p className="font-serif text-[16px] font-bold text-[#1A2332] truncate">{trip.title}</p>
-              <p className="text-[11px] text-[#78909C] flex items-center gap-2">
-                <span>📅 {trip.startDate} → {trip.endDate}</span>
-                <span className="flex items-center gap-1"><Users size={9} /> {trip.travelers.adults} adultos</span>
+              <p className="font-serif text-[14px] sm:text-[16px] font-bold text-[#1A2332] truncate">{trip.title}</p>
+              <p className="text-[10px] sm:text-[11px] text-[#78909C] hidden xs:flex items-center gap-2">
+                <span>{trip.startDate} · {trip.totalDays}d</span>
+                <span>{trip.travelers.adults} adultos</span>
               </p>
             </div>
           </div>
@@ -530,8 +530,8 @@ export default function TripPage() {
         </div>
 
         {/* Tabs with animated sliding indicator */}
-        <div className="max-w-6xl mx-auto px-6 border-t border-[#E0D5C5]">
-          <div className="relative flex">
+        <div className="max-w-6xl mx-auto px-2 sm:px-6 border-t border-[#E0D5C5] overflow-x-auto scrollbar-none">
+          <div className="relative flex min-w-max sm:min-w-0">
             {/* Sliding indicator */}
             {tabPositions[activeTab] && (
               <motion.div
@@ -545,10 +545,10 @@ export default function TripPage() {
               />
             )}
             {([
-              { id: "hotels",    label: "✈️ Vuelos & Hotels elegidos" },
+              { id: "hotels",    label: "✈️ Vuelos & Hotels" },
               { id: "itinerary", label: "📅 Itinerario" },
               { id: "optimize",  label: "✨ Optimizar" },
-              { id: "split",     label: "👥 Dividir costos" },
+              { id: "split",     label: "👥 Dividir" },
             ] as { id: ExportTab; label: string }[]).map(({ id, label }) => (
               <button
                 key={id}
@@ -565,7 +565,7 @@ export default function TripPage() {
                     setTabPositions(positions);
                   }, 0);
                 }}
-                className={`relative px-5 py-2.5 text-[13px] font-semibold transition-colors ${
+                className={`relative whitespace-nowrap px-4 py-2.5 text-[13px] font-semibold transition-colors ${
                   activeTab === id
                     ? "text-[#1565C0]"
                     : "text-[#78909C] hover:text-[#37474F]"
