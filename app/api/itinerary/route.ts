@@ -85,6 +85,8 @@ function safeParseJson(raw: string): unknown {
 }
 
 export async function POST(req: NextRequest) {
+  const t0 = Date.now();
+  const lap = (label: string) => console.log(`[itinerary] ⏱ ${label}: ${((Date.now() - t0) / 1000).toFixed(1)}s`);
   try {
     const input: PlanningInput = await req.json();
     const { adults, travelStyle, originCity, destinationCities, startDate, endDate } = input;
@@ -140,6 +142,7 @@ Reglas adicionales: precios en CLP para estilo ${travelStyle}, 1 hotel por ciuda
     });
 
     const structureRaw = (structureMsg.content[0] as { type: string; text: string }).text;
+    lap("estructura haiku");
     console.log("[itinerary] step2: structure raw length", structureRaw.length, "preview:", structureRaw.slice(0, 200));
     const structure = safeParseJson(structureRaw) as Record<string, unknown>;
     console.log("[itinerary] step3: structure parsed ok, keys:", Object.keys(structure));
@@ -235,7 +238,7 @@ REGLAS ESTRICTAS:
 
     // ── Hoteles + vuelos en paralelo con días ────────────────────
     const hotelsPromise = fetchHotelsForCities(allCities, travelStyle, startDate, endDate, adults)
-      .then(recs => { console.log("[itinerary] hotels ok:", Object.keys(recs)); return recs; })
+      .then(recs => { lap("hoteles"); console.log("[itinerary] hotels ok:", Object.keys(recs)); return recs; })
       .catch(e => { console.error("[itinerary] hotels error:", e instanceof Error ? e.message : e); return {} as Record<string, HotelRecommendation[]>; });
 
     // Build legs list for flights — we know cities/IATAs from structure
@@ -265,7 +268,7 @@ REGLAS ESTRICTAS:
       .map(l => ({ fromCity: l.fromCity, toCity: l.toCity, fromIata: l.fromIata!, toIata: l.toIata!, date: l.date! }));
 
     const strategyPromise = analyzeFlightStrategy(strategyLegs, adults, originCity, roundTrip, travelStyle)
-      .then(r => { console.log("[itinerary] strategy:", r.recommendation.type); return r; })
+      .then(r => { lap("vuelos + estrategia"); console.log("[itinerary] strategy:", r.recommendation.type); return r; })
       .catch(e => {
         console.error("[itinerary] strategy error:", e instanceof Error ? e.message : e);
         return null;
@@ -320,6 +323,7 @@ REGLAS ESTRICTAS:
       return cityAllDays;
     }));
 
+    lap("ciudades (todos los días generados)");
     // ── Esperar hoteles y vuelos (corrieron en paralelo con los días) ──
     const [hotelRecommendations, flightOptions, strategyResult] = await Promise.all([
       hotelsPromise,
@@ -360,6 +364,7 @@ SOLO JSON: { "reasons": { "<leg>": "razón" } }`,
     for (const days of cityDayResults) {
       for (const day of days) allDays.push({ ...day, dayNumber: counter++ });
     }
+    console.log(`[itinerary] allDays assembled: ${allDays.length} days | per city: ${cityDayResults.map((d, i) => `${allCities[i]}=${d.length}`).join(", ")}`);
 
     const accs = (structure.accommodations ?? []) as Array<{ totalCost: number; city: string; name: string; stars: number; rating: number; pricePerNight: number; nights: number; neighborhood: string }>;
     const legs = (structure.transportLegs ?? []) as Array<{ fromCity: string; toCity: string; fromIata?: string; toIata?: string; date?: string }>;
@@ -469,6 +474,7 @@ SOLO JSON: { "tips": ["tip1", "tip2", ...] } — sin límite de cantidad, todos 
     })();
 
     await Promise.all([flightReasonsPromise, optimizerTipsPromise]);
+    lap("flight reasons + optimizer tips");
 
     const travelers_list: Traveler[] = Array.from({ length: adults }, (_, i) => ({
       id: `t-${i}`, name: i === 0 ? "Tú" : `Persona ${i + 1}`,
@@ -525,6 +531,7 @@ SOLO JSON: { "tips": ["tip1", "tip2", ...] } — sin límite de cantidad, todos 
       optimizerTips,
     };
 
+    lap("TOTAL");
     return NextResponse.json({ trip });
 
   } catch (err) {

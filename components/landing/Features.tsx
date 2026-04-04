@@ -1,78 +1,72 @@
 import {
   PlaneIcon as Plane,
-  BusIcon as Bus,
   BedDoubleIcon as BedDouble,
-  UtensilsCrossedIcon as UtensilsCrossed,
   DollarSignIcon as DollarSign,
   FileDownIcon as FileDown,
-  MapIcon as Map,
   SparklesIcon as Sparkles,
+  MapIcon as Map,
 } from "@/components/ui/AnimatedIcons";
 
 const FEATURES = [
   {
     icon: Plane,
-    title: "Vuelos reales en tiempo real",
+    title: "El mejor vuelo, ya elegido",
     description:
-      "Precios actuales de LATAM, Sky, JetSMART y más. Comparamos todos los tramos de tu viaje en paralelo.",
-    badge: "Kiwi Tequila API",
-    color: "text-ocean bg-ocean-lighter",
-  },
-  {
-    icon: Bus,
-    title: "Buses y trenes incluidos",
-    description:
-      "Pullman, Andesmar, Turbus y operadores regionales. Si el bus es más barato que el vuelo, te lo decimos.",
-    badge: "BusBud + Rome2Rio",
-    color: "text-[#2E7D32] bg-[#E8F5E9]",
+      "Buscamos en Google Flights y puntuamos cada opción por precio y duración según tu estilo de viaje. No ves una lista — ves el ganador directo.",
+    detail: "Precio + tiempo penalizado = score. El menor gana.",
+    span: "lg:col-span-2",
+    accent: "#1565C0",
+    bg: "#EFF6FF",
   },
   {
     icon: BedDouble,
-    title: "Hoteles y hostales",
+    title: "Hotel en el barrio correcto",
     description:
-      "Desde suites 5 estrellas hasta hostales mochileros. Filtrado por zona, precio y proximidad a tus actividades.",
-    badge: "Booking.com + Hostelworld",
-    color: "text-ocean bg-ocean-lighter",
-  },
-  {
-    icon: UtensilsCrossed,
-    title: "Restaurantes por comida",
-    description:
-      "Almuerzo y cena recomendados cada día. 3 opciones por presupuesto: económico, medio y premium.",
-    badge: "Google Places + Claude AI",
-    color: "text-[#E64A19] bg-[#FBE9E7]",
-  },
-  {
-    icon: DollarSign,
-    title: "Presupuesto total detallado",
-    description:
-      "Todo consolidado: transporte, alojamiento, comida, actividades y transporte local. Por categoría, ciudad y día.",
-    badge: "En CLP, USD o EUR",
-    color: "text-[#9A6D08] bg-[#FFF8E1]",
+      "No buscamos \"hotel en Buenos Aires\" — buscamos \"hotel en Palermo\". La zona importa tanto como el precio. Evaluamos con fórmula Bayesiana para no penalizar hoteles con pocas reseñas.",
+    detail: "Búsqueda por barrio · scoring Bayesiano · validación IA",
+    span: "lg:col-span-2",
+    accent: "#6A1B9A",
+    bg: "#F3E8FD",
   },
   {
     icon: Map,
-    title: "Mapas interactivos",
+    title: "Itinerario día a día",
     description:
-      "Ruta entre ciudades y mapa del día a día. Ve los recorridos, distancias y tiempos de traslado.",
-    badge: "Mapbox GL JS",
-    color: "text-[#7B1FA2] bg-[#EDE8FE]",
+      "Actividades con horarios, restaurantes por presupuesto y transporte local. Cada día tiene tema y el último incluye traslado al aeropuerto.",
+    detail: "09:00 → 13:30 → 20:00 · día completo",
+    span: "lg:col-span-2",
+    accent: "#2E7D32",
+    bg: "#EDFBEE",
+  },
+  {
+    icon: DollarSign,
+    title: "Costos reales, no estimados",
+    description:
+      "Los precios de vuelos y hoteles vienen de búsquedas reales, no de promedios históricos. El desglose muestra vuelos, alojamiento, comida, actividades y transporte local.",
+    detail: "CLP · USD · EUR — tú eliges",
+    span: "lg:col-span-3",
+    accent: "#9A6D08",
+    bg: "#FFF8E1",
+  },
+  {
+    icon: Sparkles,
+    title: "Estrategia de vuelos",
+    description:
+      "Para multi-ciudad analizamos si conviene ida y vuelta con hub central o vuelos one-way independientes. La decisión la tomamos nosotros y te explicamos por qué.",
+    detail: "RT desde hub vs. one-way · ahorro calculado",
+    span: "lg:col-span-3",
+    accent: "#7B1FA2",
+    bg: "#EDE8FE",
   },
   {
     icon: FileDown,
     title: "PDF magazine-quality",
     description:
-      "Exporta tu viaje completo. Portada, mapa de ruta, itinerario por día, hoteles y links de reserva.",
-    badge: "Imprimible o digital",
-    color: "text-ocean bg-ocean-lighter",
-  },
-  {
-    icon: Sparkles,
-    title: "IA que aprende tu estilo",
-    description:
-      "Primera vez o ya conoces la ciudad: el plan cambia. Mochilero o premium: los precios cambian. Tú decides.",
-    badge: "Claude API",
-    color: "text-[#7B1FA2] bg-[#EDE8FE]",
+      "Portada, mapa de ruta, itinerario por día, hoteles y links de reserva en un solo archivo imprimible.",
+    detail: "Imprimible o digital · comparte con tu grupo",
+    span: "lg:col-span-2",
+    accent: "#1565C0",
+    bg: "#EFF6FF",
   },
 ];
 
@@ -85,33 +79,51 @@ export function Features() {
           className="text-center mb-14"
           style={{ animation: "fadeInUp 0.6s ease-out both" }}
         >
-          <p className="section-label mb-3">Todo incluido</p>
+          <p className="section-label mb-3">En qué somos buenos</p>
           <h2 className="text-[36px] md:text-[44px] font-bold text-[#1A2332] mb-4">
-            Un solo lugar para todo tu viaje
+            Decisiones que nosotros tomamos por ti
           </h2>
           <p className="text-[17px] text-[#78909C] max-w-xl mx-auto">
-            Cada parte del viaje integrada, con precios reales y enlaces directos para reservar.
+            No ves opciones para elegir. Ves el resultado. Cada decisión tiene lógica y puedes revisarla.
           </p>
         </div>
 
-        {/* Features grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {FEATURES.map(({ icon: Icon, title, description, badge, color }, i) => (
+        {/* Bento grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+          {FEATURES.map(({ icon: Icon, title, description, detail, span, accent, bg }, i) => (
             <div
               key={title}
-              className="card p-5 hover:shadow-[0_8px_24px_rgba(21,101,192,0.12)] transition-all hover:-translate-y-0.5"
-              style={{ animation: `fadeInUp 0.5s ease-out ${0.08 + i * 0.07}s both` }}
+              className={`group relative rounded-2xl border border-dashed p-6 hover:shadow-[0_8px_32px_rgba(0,0,0,0.08)] transition-all hover:-translate-y-0.5 ${span}`}
+              style={{
+                backgroundColor: bg,
+                borderColor: accent + "40",
+                animation: `fadeInUp 0.5s ease-out ${0.08 + i * 0.07}s both`,
+              }}
             >
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${color}`}>
+              {/* Corner decoration */}
+              <div
+                className="absolute top-0 right-0 w-16 h-16 rounded-tr-2xl opacity-[0.06]"
+                style={{ background: `radial-gradient(circle at top right, ${accent}, transparent 70%)` }}
+              />
+
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
+                style={{ backgroundColor: accent + "18", color: accent }}
+              >
                 <Icon size={20} />
               </div>
+
               <h3 className="font-serif text-[16px] font-semibold text-[#1A2332] mb-2 leading-snug">
                 {title}
               </h3>
-              <p className="text-[13px] text-[#78909C] leading-relaxed mb-3">{description}</p>
-              <span className="text-[10px] font-semibold bg-[#F5F0E8] text-[#546E7A] px-2 py-0.5 rounded-full">
-                {badge}
-              </span>
+              <p className="text-[13px] text-[#546E7A] leading-relaxed mb-4">{description}</p>
+
+              <div
+                className="text-[11px] font-mono px-3 py-2 rounded-lg border"
+                style={{ backgroundColor: accent + "10", borderColor: accent + "20", color: accent }}
+              >
+                {detail}
+              </div>
             </div>
           ))}
         </div>

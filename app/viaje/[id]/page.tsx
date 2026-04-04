@@ -284,7 +284,7 @@ type ExportTab = "itinerary" | "hotels" | "split" | "optimize";
 
 export default function TripPage() {
   const { trip, selectFlight, displayCurrency } = useTripStore();
-  const [activeTab, setActiveTab] = useState<ExportTab>("hotels");
+  const [activeTab, setActiveTab] = useState<ExportTab>("itinerary");
   const [isScrolled, setIsScrolled] = useState(false);
   const [tabPositions, setTabPositions] = useState<Record<string, { left: number; width: number }>>({});
   const [detailDay, setDetailDay] = useState<DayPlan | null>(null);
@@ -368,6 +368,38 @@ export default function TripPage() {
       .finally(() => setLoadingHotels(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip?.id]);
+
+  // ── Auto-select best flight (index 0) when options arrive ────────────────────
+  useEffect(() => {
+    if (!trip || Object.keys(flightOpts).length === 0) return;
+    setSelectedFlights(prev => {
+      const next = { ...prev };
+      for (const leg of trip.transportLegs) {
+        const key = `${leg.fromCity}-${leg.toCity}`;
+        if (next[key] == null && (flightOpts[key] ?? []).length > 0) next[key] = 0;
+      }
+      return next;
+    });
+    trip.transportLegs.forEach(leg => {
+      const key = `${leg.fromCity}-${leg.toCity}`;
+      const best = flightOpts[key]?.[0];
+      if (best) selectFlight(leg.fromCity, leg.toCity, 0, best.priceClp);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flightOpts]);
+
+  // ── Auto-select best hotel (index 0) when recommendations arrive ─────────────
+  useEffect(() => {
+    if (!trip || Object.keys(hotelRecs).length === 0) return;
+    setSelectedHotels(prev => {
+      const next = { ...prev };
+      for (const city of trip.cities) {
+        if (next[city.name] == null && (hotelRecs[city.name] ?? []).length > 0) next[city.name] = 0;
+      }
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hotelRecs]);
 
   // ── Scroll shadow ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -521,7 +553,7 @@ export default function TripPage() {
               />
             )}
             {([
-              { id: "hotels",    label: "✈️ Vuelos & Hoteles" },
+              { id: "hotels",    label: "✈️ Vuelos & Hotels elegidos" },
               { id: "itinerary", label: "📅 Itinerario" },
               { id: "optimize",  label: "✨ Optimizar" },
               { id: "split",     label: "👥 Dividir costos" },
@@ -674,63 +706,6 @@ export default function TripPage() {
               </div>
             )}
 
-            {/* ── Selected summary (flights + hotels) ── */}
-            {(Object.keys(selectedFlights).length > 0 || Object.keys(selectedHotels).length > 0) && (
-              <div className="bg-[#F1F8E9] border border-[#C8E6C9] rounded-2xl p-4 space-y-3">
-                <p className="text-[11px] font-bold text-[#2E7D32] uppercase tracking-widest">✓ Tu selección</p>
-
-                {/* Flights */}
-                {trip.transportLegs.map((leg) => {
-                  const key = `${leg.fromCity}-${leg.toCity}`;
-                  const f = flightOpts[key]?.[selectedFlights[key]];
-                  if (!f) return null;
-                  return (
-                    <div key={key} className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[12px] font-semibold text-[#1A2332]">✈️ {leg.fromCity} → {leg.toCity}</p>
-                        <p className="text-[11px] text-[#78909C]">{f.airline} · {f.departure}→{f.arrival}{f.stops === 0 ? " · directo" : ` · ${f.stops} escala`}</p>
-                      </div>
-                      <p className="text-[13px] font-bold text-sunset tabular-nums shrink-0 ml-4">{fmtCurrency(f.priceClp, displayCurrency)}</p>
-                    </div>
-                  );
-                })}
-
-                {/* Hotels */}
-                {trip.cities.map((city) => {
-                  const h = hotelRecs[city.name]?.[selectedHotels[city.name]];
-                  if (!h) return null;
-                  return (
-                    <div key={city.name} className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[12px] font-semibold text-[#1A2332]">🏨 {city.name}</p>
-                        <p className="text-[11px] text-[#78909C]">{h.name} · {h.neighborhood}</p>
-                      </div>
-                      <p className="text-[13px] font-bold text-sunset tabular-nums shrink-0 ml-4">{fmtCurrency(h.pricePerNightClp, displayCurrency)}<span className="text-[10px] font-normal text-[#78909C]">/noche</span></p>
-                    </div>
-                  );
-                })}
-
-                {/* Grand total */}
-                {(() => {
-                  const flightTotal = trip.transportLegs.reduce((s, leg) => {
-                    const f = flightOpts[`${leg.fromCity}-${leg.toCity}`]?.[selectedFlights[`${leg.fromCity}-${leg.toCity}`]];
-                    return s + (f?.priceClp ?? 0);
-                  }, 0);
-                  const hotelTotal = trip.cities.reduce((s, city) => {
-                    const h = hotelRecs[city.name]?.[selectedHotels[city.name]];
-                    return s + (h ? h.pricePerNightClp * city.days : 0);
-                  }, 0);
-                  const total = flightTotal + hotelTotal;
-                  if (total === 0) return null;
-                  return (
-                    <div className="pt-3 border-t border-[#C8E6C9] flex justify-between">
-                      <p className="text-[12px] font-bold text-[#2E7D32]">Total vuelos + alojamiento</p>
-                      <p className="text-[14px] font-bold text-sunset tabular-nums">{fmt(total)}</p>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
 
             {/* ── Flight options per leg ── */}
             {trip.transportLegs.map((leg, i) => {
@@ -754,10 +729,10 @@ export default function TripPage() {
                   </div>
                   <p className="text-[13px] text-[#78909C] mb-4">
                     {opts.length > 0
-                      ? `${opts.length} vuelo${opts.length > 1 ? "s" : ""} encontrado${opts.length > 1 ? "s" : ""} · precios reales de Google Flights en CLP`
+                      ? "Mejor opción según precio y duración · Google Flights"
                       : loadingFlights
-                      ? "Buscando vuelos en Google Flights..."
-                      : "Precios en tiempo real en Google Flights"}
+                      ? "Buscando en Google Flights..."
+                      : "Precio en tiempo real en Google Flights"}
                   </p>
 
                   {loadingFlights && opts.length === 0 && (
@@ -834,36 +809,14 @@ export default function TripPage() {
             })}
 
             {/* ── CTA: proceed to itinerary ── */}
-            {!loadingFlights && !loadingHotels && (
-              <div className="sticky bottom-6 pt-4">
-                {(() => {
-                  const allFlights = trip.transportLegs.every(
-                    l => selectedFlights[`${l.fromCity}-${l.toCity}`] != null
-                  );
-                  const allHotels = trip.cities.every(c => selectedHotels[c.name] != null);
-                  const allDone = allFlights && allHotels;
-                  const missing = !allFlights && !allHotels ? "vuelos y hoteles"
-                    : !allFlights ? "vuelos" : "hoteles";
-                  return (
-                    <button
-                      onClick={() => setActiveTab("itinerary")}
-                      className={`w-full py-4 rounded-2xl text-[15px] font-bold transition-all flex items-center justify-center gap-2 shadow-lg ${
-                        allDone
-                          ? "bg-ocean text-white hover:bg-ocean-dark"
-                          : "bg-[#1A2332] text-white/60 hover:text-white/80"
-                      }`}
-                    >
-                      {allDone ? "✅ Ver mi itinerario →" : "Ver itinerario →"}
-                      {!allDone && (
-                        <span className="text-[11px] font-normal opacity-60 ml-1">
-                          (selecciona tus {missing} primero)
-                        </span>
-                      )}
-                    </button>
-                  );
-                })()}
-              </div>
-            )}
+            <div className="sticky bottom-6 pt-4">
+              <button
+                onClick={() => setActiveTab("itinerary")}
+                className="w-full py-4 rounded-2xl text-[15px] font-bold bg-ocean text-white hover:bg-ocean-dark transition-all flex items-center justify-center gap-2 shadow-lg"
+              >
+                📅 Ver mi itinerario →
+              </button>
+            </div>
           </div>
         )}
 

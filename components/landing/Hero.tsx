@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   ArrowRightIcon as ArrowRight,
   PlaneIcon as Plane,
-  BusIcon as Bus,
   BedDoubleIcon as Hotel,
   UtensilsCrossedIcon as UtensilsCrossed,
   MapIcon as Map,
@@ -21,16 +20,16 @@ const LOOP = 13500;
 const TYPED_TEXT = "Quiero ir de Santiago a Buenos Aires y Montevideo, 14 días en julio, somos 2 personas";
 
 const MINI_AGENTS = [
-  { emoji: "✈️", label: "Transport Agent",   duration: 2200 },
-  { emoji: "🏨", label: "Hotels Agent",      duration: 2800 },
-  { emoji: "🤖", label: "Itinerary (Claude)",duration: 3600 },
-  { emoji: "💡", label: "Optimizer Agent",   duration: 2600 },
+  { emoji: "✈️", label: "Buscando mejores vuelos",     duration: 2200 },
+  { emoji: "🏨", label: "Eligiendo hotel por barrio",  duration: 2800 },
+  { emoji: "🗓️", label: "Armando itinerario día a día",duration: 3600 },
+  { emoji: "💰", label: "Calculando costos reales",    duration: 2600 },
 ];
 
 const COSTS = [
-  { label: "✈️ Transporte",         value: "$320.000",   note: "3 vuelos seleccionados" },
-  { label: "🏨 Alojamiento",        value: "$780.000",   note: "13 noches" },
-  { label: "🍽️ Comida + actividades",value: "$570.000",  note: "estimado" },
+  { label: "✈️ Transporte",          value: "$320.000",  note: "3 tramos · mejor vuelo seleccionado" },
+  { label: "🏨 Alojamiento",         value: "$780.000",  note: "13 noches · hoteles en barrios clave" },
+  { label: "🍽️ Comida + actividades", value: "$570.000", note: "estimado por estilo comfort" },
 ];
 
 function HeroProductDemo() {
@@ -61,7 +60,7 @@ function HeroProductDemo() {
     // ── Phase 0: typing ──────────────────────────────────────
     let charIdx = 0;
     const typeInterval = setInterval(() => {
-      charIdx += 2;                           // 2 chars per tick → ~60 wpm feel
+      charIdx += 2;
       setCharCount(Math.min(charIdx, TYPED_TEXT.length));
       if (charIdx >= TYPED_TEXT.length) clearInterval(typeInterval);
     }, 45);
@@ -183,7 +182,7 @@ function HeroProductDemo() {
       >
         <div className="flex items-center justify-between mb-3">
           <p className="text-white/40 text-[10px] font-semibold uppercase tracking-widest">
-            🤖 Agentes trabajando
+            🤖 Nosotros decidimos todo
           </p>
           <span
             className="text-[10px] text-white/30 tabular-nums"
@@ -248,7 +247,7 @@ function HeroProductDemo() {
             className="mt-3 text-center text-[11px] text-white/40"
             style={{ animation: "fadeInUp 0.4s ease-out both" }}
           >
-            ✅ Análisis completo · preparando tu plan...
+            ✅ Todo listo · tu plan está armado
           </div>
         )}
       </div>
@@ -277,7 +276,7 @@ function HeroProductDemo() {
             <p className="text-white/40 text-[11px]">14 días · 2 adultos · comfort</p>
           </div>
           <div className="bg-white/10 border border-white/20 text-[10px] font-bold text-white/70 px-2.5 py-1 rounded-full">
-            ✓ 4.1s
+            ✓ listo
           </div>
         </div>
 
@@ -348,8 +347,7 @@ function HeroProductDemo() {
 // ─── Apps strip ───────────────────────────────────────────────
 const APPS_REPLACED = [
   { icon: Plane,           label: "Google Flights" },
-  { icon: Bus,             label: "Rome2Rio" },
-  { icon: Hotel,           label: "Booking.com" },
+  { icon: Hotel,           label: "Google Hotels" },
   { icon: UtensilsCrossed, label: "TripAdvisor" },
   { icon: Map,             label: "Google Maps" },
   { icon: FileDown,        label: "Excel" },
@@ -387,19 +385,20 @@ export function Hero() {
               className="text-[44px] md:text-[58px] font-bold text-white leading-[1.06] tracking-tight mb-6"
               style={{ animation: "fadeInUp 0.65s ease-out 0.1s both" }}
             >
-              Planifica tu viaje.
+              Describe el viaje.
               <br />
-              <span className="text-sunset">Conoce el costo real.</span>
+              <span className="text-sunset">Nosotros lo armamos.</span>
             </h1>
 
             <p
               className="text-[17px] md:text-[19px] text-white/60 leading-relaxed mb-10 max-w-lg"
               style={{ animation: "fadeInUp 0.65s ease-out 0.22s both" }}
             >
-              Describe tu viaje multi-ciudad y obtén un itinerario completo con
-              vuelos reales, buses, hoteles, actividades y presupuesto exportable.
+              Escribe a dónde quieres ir y cuántos días tienes.
+              Nosotros elegimos el mejor vuelo, el hotel en el barrio correcto
+              y armamos el itinerario completo con costos reales.
               <br className="hidden sm:block" />
-              <span className="text-white/40 text-[15px]"> 6 apps reemplazadas por 1.</span>
+              <span className="text-white/40 text-[15px]"> Tú solo revisas y descargas.</span>
             </p>
 
             <div
