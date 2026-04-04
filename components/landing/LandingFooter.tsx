@@ -5,7 +5,6 @@ const LINKS = {
   Producto: [
     { label: "Cómo funciona", href: "#como-funciona" },
     { label: "Herramientas gratis", href: "#herramientas" },
-    { label: "Precios", href: "#precios" },
     { label: "Planificar viaje", href: "/planificar" },
   ],
   Destinos: [

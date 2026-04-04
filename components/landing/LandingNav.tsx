@@ -27,7 +27,6 @@ export function LandingNav() {
         <div className="hidden md:flex items-center gap-8 text-[14px] font-medium text-[#78909C]">
           <Link href="#como-funciona" className="hover:text-ocean transition-colors">Cómo funciona</Link>
           <Link href="#herramientas" className="hover:text-ocean transition-colors">Herramientas gratis</Link>
-          <Link href="#precios" className="hover:text-ocean transition-colors">Precios</Link>
         </div>
 
         {/* CTAs */}
@@ -63,9 +62,6 @@ export function LandingNav() {
           </Link>
           <Link href="#herramientas" onClick={() => setOpen(false)} className="py-3 text-[15px] font-medium text-[#37474F] hover:text-ocean transition-colors border-b border-[#F5F0E8]">
             Herramientas gratis
-          </Link>
-          <Link href="#precios" onClick={() => setOpen(false)} className="py-3 text-[15px] font-medium text-[#37474F] hover:text-ocean transition-colors border-b border-[#F5F0E8]">
-            Precios
           </Link>
           <Link href="/login" onClick={() => setOpen(false)} className="py-3 text-[15px] font-medium text-[#37474F] hover:text-ocean transition-colors border-b border-[#F5F0E8]">
             Iniciar sesión
