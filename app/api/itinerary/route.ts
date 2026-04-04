@@ -409,30 +409,40 @@ SOLO JSON: { "reasons": { "<leg>": "razón" } }`,
     const optimizerTipsPromise = (async () => {
     try {
       // Transport alternatives: known cheaper options for specific routes
-      const TRANSPORT_ALTERNATIVES: Array<{ from: string; to: string; alt: string }> = [
-        { from: "buenos aires", to: "montevideo", alt: "Ferry Buquebus Buenos Aires→Montevideo: ~$50 USD, 2h30m — más barato que volar y llegas al centro directamente" },
-        { from: "montevideo",   to: "buenos aires", alt: "Ferry Buquebus Montevideo→Buenos Aires: ~$50 USD, 2h30m — evita aeropuertos y sale más barato" },
-        { from: "santiago",     to: "buenos aires", alt: "Bus nocturno Santiago→Buenos Aires (Turbus/Andesmar): ~$30-50 USD, llegas descansado y ahorras una noche de hotel" },
-        { from: "buenos aires", to: "santiago",     alt: "Bus nocturno Buenos Aires→Santiago: ~$30-50 USD — ahorra vuelo y una noche de hotel" },
-        { from: "barcelona",    to: "madrid",        alt: "Tren AVE Barcelona→Madrid: ~€35-60 USD, 2h30m — más rápido que volar si consideras aeropuertos" },
-        { from: "madrid",       to: "barcelona",     alt: "Tren AVE Madrid→Barcelona: ~€35-60 USD, 2h30m — más rápido puerta a puerta que volar" },
-        { from: "paris",        to: "london",        alt: "Eurostar París→Londres: ~€60-100 USD, 2h15m — llega al centro, evita aeropuertos" },
-        { from: "london",       to: "paris",         alt: "Eurostar Londres→París: ~€60-100 USD, 2h15m — más conveniente que volar" },
-        { from: "amsterdam",    to: "paris",         alt: "Tren Thalys Ámsterdam→París: ~€40-80 USD, 3h30m — directamente entre centros de ciudad" },
-        { from: "rome",         to: "florence",      alt: "Tren Frecciarossa Roma→Florencia: ~€20-40 USD, 1h30m — más rápido que volar" },
-        { from: "roma",         to: "florencia",     alt: "Tren Frecciarossa Roma→Florencia: ~€20-40 USD, 1h30m — más rápido que volar" },
-        { from: "lima",         to: "cusco",         alt: "Considera el tren Perurail Lima→Cusco si tienes tiempo — experiencia única atravesando los Andes" },
-        { from: "santiago",     to: "mendoza",       alt: "Bus Santiago→Mendoza: ~$15-20 USD, 7h — atraviesa la cordillera y es mucho más barato que volar" },
+      // altCostUsd = cost of the alternative; description used to build the tip with real savings
+      const TRANSPORT_ALTERNATIVES: Array<{ from: string; to: string; altCostUsd: number; description: string }> = [
+        { from: "buenos aires", to: "montevideo", altCostUsd: 50,  description: "Ferry Buquebus Buenos Aires→Montevideo (~$50 USD, 2h30m) — llegas al centro directamente sin pasar por aeropuertos" },
+        { from: "montevideo",   to: "buenos aires", altCostUsd: 50,  description: "Ferry Buquebus Montevideo→Buenos Aires (~$50 USD, 2h30m) — más conveniente que volar entre estos dos destinos" },
+        { from: "santiago",     to: "buenos aires", altCostUsd: 40,  description: "Bus nocturno Santiago→Buenos Aires (Turbus/Andesmar, ~$30-50 USD) — atraviesas la cordillera y ahorras además una noche de hotel" },
+        { from: "buenos aires", to: "santiago",     altCostUsd: 40,  description: "Bus nocturno Buenos Aires→Santiago (~$30-50 USD) — ahorras el vuelo y además una noche de alojamiento" },
+        { from: "barcelona",    to: "madrid",        altCostUsd: 50,  description: "Tren AVE Barcelona→Madrid (~€35-60, 2h30m) — más rápido puerta a puerta que volar considerando aeropuertos" },
+        { from: "madrid",       to: "barcelona",     altCostUsd: 50,  description: "Tren AVE Madrid→Barcelona (~€35-60, 2h30m) — más rápido puerta a puerta que volar" },
+        { from: "paris",        to: "london",        altCostUsd: 80,  description: "Eurostar París→Londres (~€60-100, 2h15m) — llega a St. Pancras en el centro, evita Heathrow completamente" },
+        { from: "london",       to: "paris",         altCostUsd: 80,  description: "Eurostar Londres→París (~€60-100, 2h15m) — más conveniente que volar entre estas ciudades" },
+        { from: "amsterdam",    to: "paris",         altCostUsd: 60,  description: "Tren Thalys Ámsterdam→París (~€40-80, 3h30m) — directamente entre centros de ciudad" },
+        { from: "rome",         to: "florence",      altCostUsd: 30,  description: "Tren Frecciarossa Roma→Florencia (~€20-40, 1h30m) — más rápido que volar y llegas al centro" },
+        { from: "roma",         to: "florencia",     altCostUsd: 30,  description: "Tren Frecciarossa Roma→Florencia (~€20-40, 1h30m) — más rápido que volar y llegas al centro" },
+        { from: "santiago",     to: "mendoza",       altCostUsd: 18,  description: "Bus Santiago→Mendoza (~$15-20 USD, 7h) — cruza los Andes por mucho menos que un vuelo" },
       ];
 
       const transportTips = TRANSPORT_ALTERNATIVES
-        .filter(alt =>
-          legsForFlights.some(l =>
+        .flatMap(alt => {
+          const matchedLeg = legsForFlights.find(l =>
             l.fromCity?.toLowerCase().includes(alt.from) &&
             l.toCity?.toLowerCase().includes(alt.to)
-          )
-        )
-        .map(alt => alt.alt);
+          );
+          if (!matchedLeg) return [];
+          // Find the real flight price for this leg
+          const legKey = `${matchedLeg.fromCity}-${matchedLeg.toCity}`;
+          const flightPriceClp = flightOptions[legKey]?.[0]?.priceClp ?? 0;
+          const flightPriceUsd = flightPriceClp > 0 ? Math.round(flightPriceClp / USD_TO_CLP / adults) : 0;
+          const savingsUsd = flightPriceUsd > 0 ? flightPriceUsd - alt.altCostUsd : 0;
+          if (savingsUsd > 0) {
+            return [`💡 ${alt.description}. Ahorrarías ~$${savingsUsd} USD/persona vs el vuelo actual ($${flightPriceUsd} USD).`];
+          }
+          // Only show if alternative is actually cheaper (or price unknown)
+          return flightPriceUsd === 0 ? [`💡 ${alt.description}.`] : [];
+        });
 
       // Data-driven tips from real trip data
       const hotelAvgUsd = hotelTotal > 0 ? Math.round(hotelTotal / USD_TO_CLP / totalDays) : 0;
