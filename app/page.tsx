@@ -5,7 +5,6 @@ import { HowItWorks } from "@/components/landing/HowItWorks";
 import { ItineraryPreview } from "@/components/landing/ItineraryPreview";
 import { Features } from "@/components/landing/Features";
 import { SEOTools } from "@/components/landing/SEOTools";
-import { FeedbackSection } from "@/components/landing/FeedbackSection";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 
 export default function HomePage() {
@@ -18,7 +17,6 @@ export default function HomePage() {
       <ItineraryPreview />
       <Features />
       <SEOTools />
-      <FeedbackSection />
       <LandingFooter />
     </div>
   );

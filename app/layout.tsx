@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import { FeedbackFloating } from "@/components/FeedbackFloating";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,6 +25,7 @@ export default function RootLayout({
           gtag('config', 'G-N26SRTMGNS');
         `}</Script>
         {children}
+        <FeedbackFloating />
       </body>
     </html>
   );
