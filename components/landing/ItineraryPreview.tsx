@@ -9,63 +9,64 @@ import {
 
 const DAY_EXAMPLE = {
   number: 2,
-  city: "Buenos Aires",
+  city: "París",
   date: "Miércoles 16 julio",
-  theme: "Lo imperdible de BA",
-  cost: 115000,
+  theme: "Lo imperdible de París",
+  cost: 120,
+  currency: "US$",
   activities: [
     {
       time: "09:00",
-      emoji: "🏛️",
-      name: "Plaza de Mayo + Casa Rosada",
-      duration: "45 min",
-      cost: 0,
-      tip: "Cambio de guardia a las 10:00",
+      emoji: "🗼",
+      name: "Torre Eiffel (subida)",
+      duration: "1.5 hr",
+      cost: 29,
+      tip: "Reserva online con 2 semanas de anticipación",
       category: "culture",
     },
     {
       time: "11:00",
       emoji: "☕",
-      name: "Café Tortoni",
+      name: "Café de Flore, Saint-Germain",
       duration: "45 min",
-      cost: 5000,
-      tip: "El café más antiguo de BA. Pedir cortado + medialunas",
+      cost: 12,
+      tip: "El café más famoso de París. Pedir café au lait + croissant",
       category: "food",
     },
     {
-      time: "12:00",
+      time: "12:30",
       emoji: "🎨",
-      name: "Caminito, La Boca",
-      duration: "1.5 hr",
-      cost: 0,
-      tip: "⚠️ No alejarse de la zona turística",
+      name: "Museo del Louvre",
+      duration: "2 hr",
+      cost: 22,
+      tip: "Entra por la pirámide · llega 30 min antes de apertura",
       category: "culture",
     },
     {
-      time: "13:30",
+      time: "15:30",
       emoji: "🍽️",
-      name: "Almuerzo: La Brigada",
-      duration: "1.5 hr",
-      cost: 12000,
-      tip: "Parrilla clásica de La Boca · ⭐ 4.4",
+      name: "Almuerzo: L'As du Fallafel, Marais",
+      duration: "45 min",
+      cost: 10,
+      tip: "El mejor falafel de París · cola normal de 10 min",
       category: "food",
     },
     {
-      time: "19:00",
-      emoji: "🥩",
-      name: "Cena: Don Julio",
+      time: "20:00",
+      emoji: "🍷",
+      name: "Cena: Bistrot Paul Bert",
       duration: "2 hr",
-      cost: 25000,
-      tip: "Top 50 mejores restaurantes del mundo · Reservar antes",
+      cost: 45,
+      tip: "Bistró clásico parisino · reserva indispensable",
       category: "food",
     },
     {
-      time: "21:30",
-      emoji: "🎭",
-      name: "Show de tango: Café de los Angelitos",
-      duration: "2 hr",
-      cost: 35000,
-      tip: "Show + cena incluida",
+      time: "22:00",
+      emoji: "🌉",
+      name: "Paseo nocturno Pont des Arts",
+      duration: "1 hr",
+      cost: 0,
+      tip: "Gratis · vistas al Sena iluminado",
       category: "nightlife",
     },
   ],
@@ -126,7 +127,7 @@ export function ItineraryPreview() {
                     Costo del día
                   </p>
                   <p className="text-[18px] font-bold tabular-nums">
-                    ${DAY_EXAMPLE.cost.toLocaleString("en-US")}
+                    {DAY_EXAMPLE.currency}{DAY_EXAMPLE.cost.toLocaleString("en-US")}
                   </p>
                 </div>
                 {expanded ? <ChevronUp size={18} className="opacity-60" /> : <ChevronDown size={18} className="opacity-60" />}
@@ -155,7 +156,7 @@ export function ItineraryPreview() {
                         <div className="text-right shrink-0">
                           {act.cost > 0 ? (
                             <p className="text-[13px] font-bold text-sunset tabular-nums">
-                              ${act.cost.toLocaleString("en-US")}
+                              {DAY_EXAMPLE.currency}{act.cost.toLocaleString("en-US")}
                             </p>
                           ) : (
                             <span className="text-[11px] font-semibold text-[#2E7D32] bg-[#E8F5E9] px-2 py-0.5 rounded-full">

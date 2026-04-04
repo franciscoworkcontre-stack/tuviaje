@@ -415,7 +415,7 @@ export function AgentDemo() {
               <span className="text-[18px]">🗺️</span>
               <div className="min-w-0">
                 <p className="text-white text-[13px] font-semibold truncate">
-                  "Santiago → Buenos Aires → São Paulo, 14 días, 2 personas"
+                  "Nueva York → París → Roma, 14 días, 2 personas"
                 </p>
                 <p className="text-white/35 text-[10px] mt-0.5">
                   Solicitud recibida · {phase < 2 ? "Agentes trabajando..." : "¡Plan listo!"}
