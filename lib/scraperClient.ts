@@ -38,7 +38,7 @@ export interface ScraperHotel {
 
 async function pollJob<T>(
   jobId: string,
-  maxWaitMs = 12_000,
+  maxWaitMs = 20_000,
   intervalMs = 700,
 ): Promise<T> {
   const deadline = Date.now() + maxWaitMs;
