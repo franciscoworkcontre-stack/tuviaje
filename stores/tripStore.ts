@@ -136,16 +136,25 @@ export const useTripStore = create<TripStore>()(
       selectFlight: (fromCity, toCity, flightIndex, priceClp) =>
         set((s) => {
           if (!s.trip) return s;
-          return {
-            trip: {
-              ...s.trip,
-              transportLegs: s.trip.transportLegs.map((leg) =>
-                leg.fromCity === fromCity && leg.toCity === toCity
-                  ? { ...leg, selectedFlightIndex: flightIndex, selectedFlightPriceClp: priceClp }
-                  : leg
-              ),
-            },
+          const updatedLegs = s.trip.transportLegs.map((leg) =>
+            leg.fromCity === fromCity && leg.toCity === toCity
+              ? { ...leg, selectedFlightIndex: flightIndex, selectedFlightPriceClp: priceClp }
+              : leg
+          );
+          // Recalculate transport total from all selected flight prices
+          const transportTotal = updatedLegs.reduce(
+            (sum, leg) => sum + (leg.selectedFlightPriceClp ?? 0), 0
+          );
+          const costs = {
+            ...s.trip.costs,
+            transport: transportTotal,
+            total: transportTotal + s.trip.costs.accommodation + s.trip.costs.food +
+              s.trip.costs.activities + s.trip.costs.localTransport + s.trip.costs.extras,
           };
+          const adults = s.trip.travelers.adults;
+          costs.perPerson = Math.round(costs.total / adults);
+          costs.perDayPerPerson = Math.round(costs.total / adults / Math.max(s.trip.totalDays, 1));
+          return { trip: { ...s.trip, transportLegs: updatedLegs, costs } };
         }),
 
       // ─── Cost splitting ────────────────────────────────────────
