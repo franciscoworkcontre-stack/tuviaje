@@ -231,9 +231,21 @@ REGLAS ESTRICTAS:
 - Exactamente ${batchDays} días, dayNumber empieza en ${batchOffset + 1}, fechas desde ${batchStartDate}
 - Nombres REALES y ESPECÍFICOS — nunca genéricos ("Restaurante local" o "Museo de la ciudad" no son válidos)
 - Tips con datos concretos: línea de metro, precio de entrada, horario real, cómo reservar
-- Costos en CLP para estilo ${travelStyle}, realistas para 2026
 - dayTotalClp = suma exacta de todos los costClp del día
-- SOLO el array dentro de {"days":[...]}`;
+- SOLO el array dentro de {"days":[...]}
+
+COSTOS DE ACTIVIDADES — usa el precio de entrada REAL en CLP (para ${adults} persona${adults > 1 ? "s" : ""}):
+- Convierte USD→CLP multiplicando por ${USD_TO_CLP}. Ej: $33 USD = ${33 * USD_TO_CLP} CLP × ${adults} = ${33 * USD_TO_CLP * adults} CLP total
+- Actividades GRATIS (parques, plazas, catedrales, miradores públicos): costClp = 0
+- Precio de entrada conocido: precio real × ${adults} personas
+- Precio sugerido/donación (ej: The Met NYC sugiere $30): usa ese precio sugerido real × ${adults}
+- NO infles costos — si no sabes el precio exacto, estima conservadoramente
+
+COSTOS DE TRANSPORTE LOCAL (localTransportCostClp):
+- Solo los trayectos necesarios para moverse entre atracciones ESE día
+- NO cobres tarjetas, pases semanales ni abonos — solo el costo de los viajes del día
+- ${travelStyle === "mochilero" ? `Metro/bus ~800-1500 CLP/trayecto × 2-4 trayectos = 2000-5000 CLP total` : travelStyle === "comfort" ? `Mix metro/taxi: 2000-8000 CLP total según distancias del día` : `Taxis/Uber: 5000-15000 CLP total`}
+- Días de viaje (isTravelDay=true): cobra solo traslado aeropuerto↔hotel, no trayectos turísticos`;
     }
 
     // ── Hoteles + vuelos en paralelo con días ────────────────────
