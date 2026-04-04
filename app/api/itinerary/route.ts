@@ -242,9 +242,12 @@ COSTOS DE ACTIVIDADES — usa el precio de entrada REAL en CLP (para ${adults} p
 - NO infles costos — si no sabes el precio exacto, estima conservadoramente
 
 COSTOS DE TRANSPORTE LOCAL (localTransportCostClp):
-- Solo los trayectos necesarios para moverse entre atracciones ESE día
-- NO cobres tarjetas, pases semanales ni abonos — solo el costo de los viajes del día
-- ${travelStyle === "mochilero" ? `Metro/bus ~800-1500 CLP/trayecto × 2-4 trayectos = 2000-5000 CLP total` : travelStyle === "comfort" ? `Mix metro/taxi: 2000-8000 CLP total según distancias del día` : `Taxis/Uber: 5000-15000 CLP total`}
+- Usa el precio REAL de cada medio de transporte en ${city} en 2026 y multiplica por los trayectos necesarios
+- Suma trayecto a trayecto: metro×N + bus×M + taxi×P = total del día
+- Ejemplos de lógica (adapta al precio real de ${city}):
+  · Si metro en ${city} cuesta X CLP y toman 2 viajes → 2X
+  · Si además toman 1 taxi corto Y CLP → total 2X + Y
+- NO cobres tarjetas recargables, pases diarios ni abonos — solo los viajes que realmente usan
 - Días de viaje (isTravelDay=true): cobra solo traslado aeropuerto↔hotel, no trayectos turísticos`;
     }
 
