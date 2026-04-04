@@ -40,12 +40,12 @@ Colombia (sin ciudad) → [Bogotá, Cartagena]
 México (sin ciudad) → [Ciudad de México]
 Patagonia → [Bariloche, El Calafate]
 
-═══ FERIADOS CHILENOS → FECHAS ═══
-semana santa / pascua → abril (flexible)
-vacaciones de invierno / vacaciones julio → julio (flexible)
-fiestas patrias / 18 de septiembre / dieciocho → septiembre 15-20
-año nuevo / fin de año → diciembre 28 - enero 5
-verano / vacaciones de verano → enero-febrero (flexible)
+═══ PERÍODOS COMUNES → FECHAS ═══
+semana santa / pascua / easter → abril (flexible)
+verano / summer / vacaciones de verano → junio-agosto si hemisferio norte, diciembre-febrero si sur (flexible)
+navidad / christmas → diciembre 24-26
+año nuevo / new year / fin de año → diciembre 28 - enero 5
+vacaciones de invierno → julio (flexible, hemisferio sur)
 
 ═══ VIAJEROS ═══
 solo / sola / yo solo → adults: 1

@@ -26,7 +26,7 @@ const STYLE_OPTIONS: { value: TravelStyle; emoji: string; label: string; range: 
 ];
 
 const EXAMPLES = [
-  "Quiero ir de Santiago a Buenos Aires y Montevideo, 2 semanas en julio, somos 2",
+  "Quiero ir de Nueva York a París y Roma, 2 semanas en julio, somos 2",
   "Viaje a Lima y Cartagena, 10 días en agosto, mi esposa y yo",
   "Mochilero por Brasil: São Paulo, Río y Florianópolis, 3 semanas",
 ];
@@ -65,7 +65,7 @@ export default function PlanificarPage() {
   const [clarificationAnswer, setClarificationAnswer] = useState("");
 
   // Route state
-  const [origin] = useState("Santiago");
+  const [origin, setOrigin] = useState("");
   const [cityRows, setCityRows] = useState<CityRow[]>([]);
   const [departureDate, setDepartureDate] = useState("");
   const [adults, setAdults] = useState(2);
@@ -135,6 +135,7 @@ export default function PlanificarPage() {
       const cities: string[] = p.destinationCities ?? ["Buenos Aires"];
       const days: number[] = p.daysPerCity ?? cities.map(() => 4);
       setCityRows(cities.map((name: string, i: number) => ({ name, days: days[i] ?? 4, firstTime: true })));
+      setOrigin(p.originCity ?? "");
       setAdults(p.adults ?? 2);
       setStyle(p.travelStyle ?? "comfort");
 
@@ -185,7 +186,7 @@ export default function PlanificarPage() {
             durationDays: ctx.duration,
             destinations: cities,
             travelStyle: p.travelStyle ?? "comfort",
-            originCity: "Santiago",
+            originCity: p.originCity ?? origin,
           }),
         });
         const sugData = await sugRes.json();
@@ -505,7 +506,7 @@ export default function PlanificarPage() {
                 <textarea
                   value={rawText}
                   onChange={(e) => setRawText(e.target.value)}
-                  placeholder="Quiero ir de Santiago a Buenos Aires y Montevideo, 2 semanas en julio, somos 2 personas..."
+                  placeholder="Quiero ir de Nueva York a París y Roma, 2 semanas en julio, somos 2 personas..."
                   rows={5}
                   className="w-full bg-transparent text-white placeholder-white/30 text-[16px] resize-none focus:outline-none leading-relaxed"
                   onKeyDown={(e) => e.key === "Enter" && e.metaKey && handleParse()}

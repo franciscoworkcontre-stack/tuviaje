@@ -511,7 +511,7 @@ SOLO JSON: { "tips": ["tip1", "tip2", ...] } — sin límite de cantidad, todos 
 
     const trip = {
       id: `trip-${Date.now()}`,
-      title: (structure.title as string) ?? `${originCity} → ${allCities.join(" → ")}`,
+      title: (structure.title as string) ?? `${originCity} > ${allCities.join(" > ")}`,
       originCity,
       cities: allCities.map((name, i) => ({ name, country: "", days: daysPerCity(i), firstTime: true, interests: [] })),
       startDate, endDate, totalDays,

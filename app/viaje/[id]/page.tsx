@@ -454,7 +454,7 @@ export default function TripPage() {
       const res = await fetch("/api/export/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(trip),
+        body: JSON.stringify({ trip, displayCurrency }),
       });
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);

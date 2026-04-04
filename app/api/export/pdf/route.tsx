@@ -5,6 +5,7 @@ import {
   Document, Page, View, Text, StyleSheet, Font,
 } from "@react-pdf/renderer";
 import type { Trip, TravelerBalance } from "@/types/trip";
+import { convertFromClp, type DisplayCurrency } from "@/lib/currency";
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
 // Use ONLY built-in PDF fonts — zero network calls, zero cold-start timeouts.
@@ -164,8 +165,17 @@ const s = StyleSheet.create({
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function fmt(n: number) {
-  return "$" + Math.abs(Math.round(n)).toLocaleString("en-US");
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "US$", EUR: "€", GBP: "£", CAD: "CA$", AUD: "A$",
+  BRL: "R$", MXN: "MX$", ARS: "AR$", PEN: "S/", COP: "CO$", CLP: "$",
+};
+
+let _displayCurrency: DisplayCurrency = "USD";
+
+function fmt(clpAmount: number) {
+  const converted = Math.round(convertFromClp(Math.abs(clpAmount), _displayCurrency));
+  const symbol = CURRENCY_SYMBOLS[_displayCurrency] ?? "US$";
+  return symbol + converted.toLocaleString("en-US");
 }
 
 function stars(n: number) {
@@ -178,10 +188,10 @@ const STYLE_BADGE: Record<string, { label: string; bg: string; color: string }> 
   premium:   { label: "Premium",       bg: "#FFF8E1", color: "#F57F17" },
 };
 
-const STYLE_EMOJI: Record<string, string> = {
-  mochilero: "Mochilero",
-  comfort:   "Comfort",
-  premium:   "Premium",
+const STYLE_ICON: Record<string, string> = {
+  mochilero: "[M]",
+  comfort:   "[C]",
+  premium:   "[P]",
 };
 
 const COST_CATEGORIES = [
@@ -260,7 +270,7 @@ function ActRow({ act }: { act: { time: string; emoji?: string; name: string; ti
 function TripPDF({ trip }: { trip: Trip }) {
   const balances = computeBalances(trip);
   const today = new Date().toLocaleDateString("en-US");
-  const destinations = trip.cities.map((city) => city.name).join(" → ");
+  const destinations = trip.cities.map((city) => city.name).join(" >> ");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const optimizerTips: string[] = (trip as any).optimizerTips ?? [];
   const hasTips = optimizerTips.length > 0;
@@ -283,14 +293,14 @@ function TripPDF({ trip }: { trip: Trip }) {
           {/* Travel style badge */}
           <View style={[s.coverStyleBadge, { backgroundColor: styleInfo.bg }]}>
             <Text style={[s.coverStyleText, { color: styleInfo.color }]}>
-              {STYLE_EMOJI[trip.travelStyle] ?? trip.travelStyle}  {styleInfo.label}
+              {styleInfo.label}
             </Text>
           </View>
 
           {/* Title */}
-          <Text style={s.coverTitle}>{trip.originCity} → {destinations}</Text>
+          <Text style={s.coverTitle}>{trip.originCity}  {">>"}  {destinations}</Text>
           <Text style={s.coverSub}>
-            {trip.startDate}  →  {trip.endDate}  ·  {trip.totalDays} dias  ·  {trip.travelers.adults}{trip.travelers.adults === 1 ? " viajero" : " viajeros"}
+            {trip.startDate}  {">>"}  {trip.endDate}  {"·"}  {trip.totalDays} dias  {"·"}  {trip.travelers.adults}{trip.travelers.adults === 1 ? " viajero" : " viajeros"}
           </Text>
 
           {/* Route map */}
@@ -300,7 +310,7 @@ function TripPDF({ trip }: { trip: Trip }) {
             <View style={s.routeStops}>
               {trip.cities.map((city) => (
                 <View key={city.name} style={s.routeStop}>
-                  <Text style={s.routeStopText}>Pin {city.name}</Text>
+                  <Text style={s.routeStopText}>{city.name}</Text>
                   <Text style={s.routeStopDays}>{city.days} {city.days === 1 ? "dia" : "dias"}</Text>
                 </View>
               ))}
@@ -360,7 +370,7 @@ function TripPDF({ trip }: { trip: Trip }) {
         <PageHeader title="Presupuesto" tripTitle={trip.title} />
 
         <Text style={s.sectionLabel}>{"Resumen de costos".toUpperCase()}</Text>
-        <Text style={s.h2}>Cuanto cuesta el viaje?</Text>
+        <Text style={s.h2}>Cuanto cuesta el viaje</Text>
         <View style={s.divider} />
 
         <View style={s.costCard}>
@@ -379,7 +389,7 @@ function TripPDF({ trip }: { trip: Trip }) {
           </View>
           <View style={s.perPersonBadge}>
             <Text style={s.perPersonText}>
-              {fmt(trip.costs.perPerson)} por persona  ·  {fmt(trip.costs.perDayPerPerson)} / dia
+              {fmt(trip.costs.perPerson)} por persona  ·  {fmt(trip.costs.perDayPerPerson)} por dia
             </Text>
           </View>
         </View>
@@ -388,7 +398,7 @@ function TripPDF({ trip }: { trip: Trip }) {
         {balances.length >= 2 && (
           <>
             <Text style={[s.sectionLabel, { marginTop: 20 }]}>{"Division de gastos".toUpperCase()}</Text>
-            <Text style={s.h2}>Quien le debe a quien?</Text>
+            <Text style={s.h2}>Quien le debe a quien</Text>
             <View style={s.divider} />
             {balances.map((b) => (
               <View key={b.travelerId} style={[s.splitCard, { backgroundColor: b.color + "18" }]}>
@@ -430,7 +440,7 @@ function TripPDF({ trip }: { trip: Trip }) {
             <View>
               <Text style={s.dayNum}>{`DIA ${day.dayNumber}  ·  ${day.date}`}</Text>
               <Text style={s.dayTitle}>{day.isTravelDay ? "Dia de viaje" : day.theme}</Text>
-              <Text style={s.dayCity}>Pin {day.city}</Text>
+              <Text style={s.dayCity}>{day.city}</Text>
             </View>
             <View style={{ alignItems: "flex-end" }}>
               <Text style={[s.caption, { color: "rgba(255,255,255,0.45)" }]}>Costo del dia</Text>
@@ -454,7 +464,7 @@ function TripPDF({ trip }: { trip: Trip }) {
           {/* Morning — always show if exists */}
           {(day.morning?.length > 0) && (
             <>
-              <Text style={[s.sectionLabel, { marginTop: 10 }]}>{"Manana".toUpperCase()}</Text>
+              <Text style={[s.sectionLabel, { marginTop: 10 }]}>{"MANANA"}</Text>
               {day.morning.map((act, i) => (
                 <ActRow key={i} act={act} />
               ))}
@@ -525,7 +535,7 @@ function TripPDF({ trip }: { trip: Trip }) {
       <Page size="A4" style={s.page}>
         <PageHeader title="Alojamiento" tripTitle={trip.title} />
         <Text style={s.sectionLabel}>{"Alojamiento".toUpperCase()}</Text>
-        <Text style={s.h2}>Donde te quedas?</Text>
+        <Text style={s.h2}>Donde te quedas</Text>
         <View style={s.divider} />
 
         {/* Table header */}
@@ -590,8 +600,8 @@ function TripPDF({ trip }: { trip: Trip }) {
       {hasTips && (
         <Page size="A4" style={s.page}>
           <PageHeader title="Consejos" tripTitle={trip.title} />
-          <Text style={s.sectionLabel}>{"Optimizacion del viaje".toUpperCase()}</Text>
-          <Text style={s.h2}>Consejos para ahorrar y disfrutar mas</Text>
+          <Text style={s.sectionLabel}>{"OPTIMIZACION DEL VIAJE"}</Text>
+          <Text style={s.h2}>Consejos para ahorrar y disfrutar mas del viaje</Text>
           <View style={s.divider} />
 
           {optimizerTips.map((tip, i) => (
@@ -610,7 +620,7 @@ function TripPDF({ trip }: { trip: Trip }) {
         <View style={s.backCover}>
           <View>
             <Text style={[s.sectionLabel, { color: "rgba(255,255,255,0.3)", marginBottom: 16 }]}>
-              TE GUSTO EL PLAN?
+              TE GUSTO EL PLAN
             </Text>
             <Text style={s.backTitle}>
               Planifica tu{"\n"}proximo viaje{"\n"}en segundos
@@ -652,10 +662,14 @@ function TripPDF({ trip }: { trip: Trip }) {
 // ─── Route handler ────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    const trip: Trip = await req.json();
+    const body = await req.json();
+    // Accept both { trip, displayCurrency } and legacy bare trip
+    const trip: Trip = body.trip ?? body;
+    const currency: DisplayCurrency = body.displayCurrency ?? "USD";
+    _displayCurrency = currency;
 
     if (!trip || !trip.days || !trip.cities) {
-      return new NextResponse(JSON.stringify({ error: "Datos de viaje inválidos" }), {
+      return new NextResponse(JSON.stringify({ error: "Datos de viaje invalidos" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
