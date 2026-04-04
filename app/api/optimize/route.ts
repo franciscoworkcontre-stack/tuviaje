@@ -23,11 +23,20 @@ export interface OptimizationTip {
 
 export async function POST(req: NextRequest) {
   try {
-    const { trip } = await req.json() as { trip: Trip };
-    if (!trip) return NextResponse.json({ error: "No trip" }, { status: 400 });
+    const body = await req.json();
+    const { trip } = (body ?? {}) as { trip: Trip };
+    if (!trip?.cities || !Array.isArray(trip.cities)) {
+      return NextResponse.json({ error: "No trip" }, { status: 400 });
+    }
 
-    const cityList = trip.cities.map(c => `${c.name} (${c.days} días)`).join(", ");
-    const style = trip.travelStyle;
+    // Sanitize before injecting into prompt — cap counts and lengths
+    const safeCities = trip.cities.slice(0, 10).map(c => ({
+      name: String(c.name ?? "").slice(0, 100),
+      days: Math.min(Math.max(Number(c.days) || 1, 1), 30),
+    }));
+    const cityList = safeCities.map(c => `${c.name} (${c.days} días)`).join(", ");
+    const VALID_STYLES = new Set(["mochilero", "comfort", "premium"]);
+    const style = VALID_STYLES.has(trip.travelStyle) ? trip.travelStyle : "comfort";
 
     const prompt = `Eres experto en viajes y optimización de presupuesto. Analiza este viaje y genera tips concretos y honestos.
 

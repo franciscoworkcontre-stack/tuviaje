@@ -3,7 +3,21 @@
  * Handles the async job pattern: POST → job_id → poll until done.
  */
 
-const SCRAPER_URL = process.env.SCRAPER_API_URL ?? "https://google-travel-scraper.vercel.app";
+// Allowlist-only validation for SCRAPER_URL — prevents SSRF if env var is tampered
+const SCRAPER_ALLOWED_HOSTS = ["google-travel-scraper.vercel.app"];
+function resolveScraperUrl(): string {
+  const configured = process.env.SCRAPER_API_URL;
+  if (configured) {
+    try {
+      const { hostname, protocol } = new URL(configured);
+      if (protocol === "https:" && SCRAPER_ALLOWED_HOSTS.some(h => hostname === h)) {
+        return configured.replace(/\/$/, "");
+      }
+    } catch { /* invalid URL — fall through to default */ }
+  }
+  return "https://google-travel-scraper.vercel.app";
+}
+const SCRAPER_URL = resolveScraperUrl();
 const SCRAPER_KEY = process.env.SCRAPER_API_KEY ?? "";
 
 const HEADERS = {

@@ -5,12 +5,18 @@ export const maxDuration = 30;
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  // Block in production — this endpoint leaks internal details
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const steps: string[] = [];
   try {
     steps.push("1. starting");
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    steps.push(`2. api key present: ${!!apiKey}, length: ${apiKey?.length ?? 0}, prefix: ${apiKey?.slice(0, 10) ?? "none"}`);
+    // Never expose key prefix, length, or presence in logs
+    steps.push(`2. api key configured: ${!!apiKey}`);
 
     const client = new Anthropic();
     steps.push("3. client created");
@@ -24,11 +30,11 @@ export async function GET() {
 
     return NextResponse.json({ ok: true, steps });
   } catch (err) {
+    // In dev, stack traces are useful
     return NextResponse.json({
       ok: false,
       steps,
       error: err instanceof Error ? err.message : String(err),
-      stack: err instanceof Error ? err.stack : undefined,
     }, { status: 500 });
   }
 }
