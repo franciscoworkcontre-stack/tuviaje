@@ -49,6 +49,9 @@ interface TripStore {
   displayCurrency: DisplayCurrency;
   setDisplayCurrency: (currency: DisplayCurrency) => void;
 
+  // Optimization savings
+  applyOptimizationSavings: (savingsClp: number) => void;
+
   // Cost splitting
   addTraveler: (name: string) => void;
   removeTraveler: (id: string) => void;
@@ -155,6 +158,33 @@ export const useTripStore = create<TripStore>()(
           costs.perPerson = Math.round(costs.total / adults);
           costs.perDayPerPerson = Math.round(costs.total / adults / Math.max(s.trip.totalDays, 1));
           return { trip: { ...s.trip, transportLegs: updatedLegs, costs } };
+        }),
+
+      // ─── Optimization savings ──────────────────────────────────
+      applyOptimizationSavings: (savingsClp) =>
+        set((s) => {
+          if (!s.trip) return s;
+          const newExtras = Math.max(0, s.trip.costs.extras - savingsClp);
+          const saved = s.trip.costs.extras - newExtras;
+          const remaining = savingsClp - saved;
+          // Apply to extras first, then activities, then food
+          const newActivities = Math.max(0, s.trip.costs.activities - remaining);
+          const total = s.trip.costs.transport + s.trip.costs.accommodation + s.trip.costs.food +
+            newActivities + s.trip.costs.localTransport + newExtras;
+          const adults = s.trip.travelers.adults;
+          return {
+            trip: {
+              ...s.trip,
+              costs: {
+                ...s.trip.costs,
+                extras: newExtras,
+                activities: newActivities,
+                total,
+                perPerson: Math.round(total / adults),
+                perDayPerPerson: Math.round(total / adults / Math.max(s.trip.totalDays, 1)),
+              },
+            },
+          };
         }),
 
       // ─── Cost splitting ────────────────────────────────────────

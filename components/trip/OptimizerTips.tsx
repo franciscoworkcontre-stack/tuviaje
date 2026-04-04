@@ -17,12 +17,13 @@ const CATEGORY_CONFIG: Record<OptimizationTip["category"], { label: string; bg: 
 };
 
 export function OptimizerTips() {
-  const { trip, displayCurrency } = useTripStore();
+  const { trip, displayCurrency, applyOptimizationSavings } = useTripStore();
   const [tips, setTips] = useState<OptimizationTip[]>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [activated, setActivated] = useState<Set<string>>(new Set());
+  const [applied, setApplied] = useState(false);
 
   useEffect(() => {
     if (!trip || loaded) return;
@@ -230,12 +231,30 @@ export function OptimizerTips() {
             })}
           </div>
 
+          {/* Apply savings */}
+          {totalSavings > 0 && !applied && (
+            <button
+              onClick={() => {
+                applyOptimizationSavings(totalSavings);
+                setApplied(true);
+              }}
+              className="w-full py-3.5 rounded-xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white text-[13px] font-bold transition-all flex items-center justify-center gap-2 shadow-sm"
+            >
+              💰 Aplicar {fmtCurrency(totalSavings, displayCurrency)} de ahorro al presupuesto
+            </button>
+          )}
+          {applied && (
+            <div className="w-full py-3 rounded-xl bg-[#E8F5E9] border border-[#A5D6A7] text-[13px] font-bold text-[#2E7D32] text-center">
+              ✓ Ahorro aplicado — el resumen de costos ya refleja el nuevo total
+            </div>
+          )}
+
           {/* Regenerate */}
           <button
-            onClick={() => { setLoaded(false); setTips([]); setActivated(new Set()); }}
+            onClick={() => { setLoaded(false); setTips([]); setActivated(new Set()); setApplied(false); }}
             className="w-full py-3 rounded-xl border border-[#E0D5C5] hover:border-ocean text-[13px] font-semibold text-[#78909C] hover:text-ocean transition-all"
           >
-            Regenerar análisis
+            Regenerar tips
           </button>
         </>
       )}
