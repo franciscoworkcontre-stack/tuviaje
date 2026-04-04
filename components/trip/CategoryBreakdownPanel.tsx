@@ -18,6 +18,8 @@ interface BreakdownItem {
 
 
 function buildItems(trip: Trip, category: CostCategory, selectedHotels: Record<string, number>): BreakdownItem[] {
+  const adults = trip.travelers.adults;
+
   switch (category) {
     case "activities": {
       const items: BreakdownItem[] = [];
@@ -27,7 +29,7 @@ function buildItems(trip: Trip, category: CostCategory, selectedHotels: Record<s
             items.push({
               label: act.name,
               sublabel: `Día ${day.dayNumber} · ${day.city} · ${act.time}`,
-              costClp: act.costClp,
+              costClp: act.costClp * adults, // LLM gives per-person, scale to group
               emoji: act.emoji ?? "📍",
             });
           }
@@ -39,12 +41,13 @@ function buildItems(trip: Trip, category: CostCategory, selectedHotels: Record<s
     case "food": {
       const items: BreakdownItem[] = [];
       for (const day of trip.days) {
+        if (day.isTravelDay) continue; // matches route.ts foodTotal calculation
         const lunch = day.lunch?.options?.[0];
         if (lunch && lunch.costClp > 0) {
           items.push({
             label: `Almuerzo: ${day.lunch.recommended}`,
             sublabel: `Día ${day.dayNumber} · ${day.city} · ${lunch.cuisine}`,
-            costClp: lunch.costClp,
+            costClp: lunch.costClp * adults, // LLM gives per-person, scale to group
             emoji: "🍽️",
             badge: lunch.priceTier,
           });
@@ -54,7 +57,7 @@ function buildItems(trip: Trip, category: CostCategory, selectedHotels: Record<s
           items.push({
             label: `Cena: ${day.dinner.recommended}`,
             sublabel: `Día ${day.dayNumber} · ${day.city} · ${dinner.cuisine}`,
-            costClp: dinner.costClp,
+            costClp: dinner.costClp * adults, // LLM gives per-person, scale to group
             emoji: "🌙",
             badge: dinner.priceTier,
           });
@@ -73,7 +76,7 @@ function buildItems(trip: Trip, category: CostCategory, selectedHotels: Record<s
           items.push({
             label: hotel.name,
             sublabel: `${city.name} · ${hotel.neighborhood} · ${city.days} noche${city.days !== 1 ? "s" : ""}`,
-            costClp: hotel.pricePerNightClp * city.days,
+            costClp: hotel.pricePerNightClp * city.days, // already total (not per-person)
             emoji: "🏨",
             badge: `${hotel.stars}★`,
           });
@@ -95,8 +98,14 @@ function buildItems(trip: Trip, category: CostCategory, selectedHotels: Record<s
     case "transport": {
       const items: BreakdownItem[] = [];
       for (const leg of trip.transportLegs) {
-        const price = leg.selectedFlightPriceClp ?? leg.selected?.priceTotal ?? 0;
+        const key = `${leg.fromCity}-${leg.toCity}`;
+        // flightOptions[key][0].priceClp is the authoritative real price (total for all adults)
+        const price = (trip.flightOptions?.[key]?.[0]?.priceClp)
+          ?? leg.selectedFlightPriceClp
+          ?? leg.selected?.priceTotal
+          ?? 0;
         if (price > 0) {
+          const flight = trip.flightOptions?.[key]?.[0];
           items.push({
             label: `${leg.fromCity} → ${leg.toCity}`,
             sublabel: leg.fromIata && leg.toIata
@@ -104,7 +113,7 @@ function buildItems(trip: Trip, category: CostCategory, selectedHotels: Record<s
               : leg.date ?? "",
             costClp: price,
             emoji: "✈️",
-            badge: leg.selected?.type ?? "vuelo",
+            badge: flight ? `${flight.airline}${flight.stops === 0 ? " · directo" : ""}` : "vuelo",
           });
         }
       }
@@ -117,7 +126,7 @@ function buildItems(trip: Trip, category: CostCategory, selectedHotels: Record<s
         .map(d => ({
           label: `Día ${d.dayNumber} — ${d.city}`,
           sublabel: d.isTravelDay ? "Día de viaje" : d.theme,
-          costClp: d.localTransportCostClp,
+          costClp: d.localTransportCostClp * adults, // LLM gives per-person, scale to group
           emoji: "🚇",
         }))
         .sort((a, b) => b.costClp - a.costClp);
