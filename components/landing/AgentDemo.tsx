@@ -436,9 +436,9 @@ export function AgentDemo() {
               ))}
             </div>
 
-            {/* Summary footer */}
+            {/* Summary footer — fixed height, no layout shift */}
             <div
-              className="mt-4 rounded-xl border px-4 py-3 flex items-center justify-between transition-all duration-600"
+              className="mt-4 rounded-xl border px-4 py-3 flex items-center justify-between transition-colors duration-600"
               style={{
                 backgroundColor: allDone ? "rgba(46,125,50,0.12)" : "rgba(255,255,255,0.03)",
                 borderColor:     allDone ? "rgba(46,125,50,0.35)" : "rgba(255,255,255,0.07)",
@@ -449,19 +449,16 @@ export function AgentDemo() {
                   style={{ color: allDone ? "#4CAF50" : "rgba(255,255,255,0.25)" }}>
                   {allDone ? "✅ Plan listo en 4.3 segundos" : "⏳ Agentes trabajando..."}
                 </p>
-                {allDone && (
-                  <p className="text-white/40 text-[10px] mt-0.5"
-                    style={{ animation: "fadeInUp 0.4s ease-out both" }}>
-                    14 días · US$2,650 total · PDF generado
-                  </p>
-                )}
+                {/* Always rendered — opacity only, no height change */}
+                <p className="text-white/40 text-[10px] mt-0.5 transition-opacity duration-400"
+                  style={{ opacity: allDone ? 1 : 0 }}>
+                  14 días · US$2,650 total · PDF generado
+                </p>
               </div>
-              {allDone && (
-                <div className="text-[20px] font-bold tabular-nums text-sunset"
-                  style={{ animation: "scaleIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both" }}>
-                  US$2,650
-                </div>
-              )}
+              <div className="text-[20px] font-bold tabular-nums text-sunset transition-opacity duration-500"
+                style={{ opacity: allDone ? 1 : 0 }}>
+                US$2,650
+              </div>
             </div>
           </div>
 
