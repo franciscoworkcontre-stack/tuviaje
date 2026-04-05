@@ -1,8 +1,8 @@
 const STATS = [
-  { value: "6 apps", label: "reemplazadas por una sola" },
-  { value: "15–30 seg", label: "para generar itinerario completo" },
-  { value: "100% real", label: "precios de vuelos y hoteles en vivo" },
-  { value: "PDF incluido", label: "exportable, magazine-style" },
+  { value: "6 apps",    label: "en una sola" },
+  { value: "~20 seg",   label: "para generar el itinerario" },
+  { value: "Sin cuenta", label: "para empezar" },
+  { value: "PDF",        label: "para llevar en el viaje" },
 ];
 
 export function SocialProof() {

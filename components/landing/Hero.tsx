@@ -415,14 +415,6 @@ export function Hero() {
 
           {/* ── Left — copy ── */}
           <div>
-            <div
-              className="inline-flex items-center gap-2 bg-white/10 text-white/75 px-4 py-1.5 rounded-full text-[12px] font-semibold mb-8 border border-white/10"
-              style={{ animation: "fadeInDown 0.5s ease-out both" }}
-            >
-              <span className="w-2 h-2 rounded-full bg-[#2E7D32] animate-pulse" />
-              Para viajeros del mundo
-            </div>
-
             <h1
               className="text-[44px] md:text-[58px] font-bold text-white leading-[1.06] tracking-tight mb-6"
               style={{ animation: "fadeInUp 0.65s ease-out 0.1s both" }}
