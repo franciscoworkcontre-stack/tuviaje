@@ -11,13 +11,49 @@ import {
 } from "@/components/ui/AnimatedIcons";
 import { useEffect, useRef, useState } from "react";
 
-// ─── Product demo phases ──────────────────────────────────────
-// Phase 0: typing          0 – 3 500ms
-// Phase 1: agents working  3 500 – 7 800ms
-// Phase 2: result / pdf    7 800 – 13 000ms → restart
-
-const LOOP = 13500;
-const TYPED_TEXT = "Quiero ir de Nueva York a París y Roma, 14 días en julio, somos 2 personas";
+// ─── Demo trip scenarios — rotate each loop ───────────────────
+// Each scenario has its own text, cities, cost breakdown, and result
+const SCENARIOS = [
+  {
+    text:    "Quiero ir de Buenos Aires a Tokio y Kioto, 20 días en octubre, somos 2 personas",
+    cities:  ["Tokio", "Kioto"],
+    title:   "Buenos Aires → Tokio → Kioto",
+    summary: "20 días · 2 adultos · comfort",
+    costs: [
+      { label: "✈️ Transporte",          value: "US$2,800", note: "vuelo BUE→TYO + tren bala Kioto" },
+      { label: "🏨 Alojamiento",         value: "US$1,100", note: "19 noches · ryokan + hotel boutique" },
+      { label: "🍽️ Comida + actividades", value: "US$960",  note: "ramen, sushi omakase, templos" },
+    ],
+    total: "US$4,860",
+    perPerson: "US$2,430 por persona · US$121/día",
+  },
+  {
+    text:    "Quiero ir de Nueva York a París y Roma, 14 días en julio, somos 2 personas",
+    cities:  ["París", "Roma"],
+    title:   "Nueva York → París → Roma",
+    summary: "14 días · 2 adultos · comfort",
+    costs: [
+      { label: "✈️ Transporte",          value: "US$1,240", note: "3 tramos · mejor vuelo seleccionado" },
+      { label: "🏨 Alojamiento",         value: "US$820",   note: "13 noches · hoteles en barrios clave" },
+      { label: "🍽️ Comida + actividades", value: "US$590",  note: "estimado por estilo comfort" },
+    ],
+    total: "US$2,650",
+    perPerson: "US$1,325 por persona · US$95/día",
+  },
+  {
+    text:    "Lima, Cusco y Machu Picchu, 10 días en septiembre, mochilero, voy solo",
+    cities:  ["Lima", "Cusco"],
+    title:   "Lima → Cusco → Machu Picchu",
+    summary: "10 días · 1 adulto · mochilero",
+    costs: [
+      { label: "✈️ Transporte",          value: "US$180",  note: "vuelo LIM→CUZ + tren a Aguas Calientes" },
+      { label: "🏨 Alojamiento",         value: "US$210",  note: "9 noches · hostales recomendados" },
+      { label: "🍽️ Comida + actividades", value: "US$280", note: "mercados, ceviche, entrada Machu Picchu" },
+    ],
+    total: "US$670",
+    perPerson: "US$670 total · US$67/día",
+  },
+];
 
 const MINI_AGENTS = [
   { emoji: "✈️", label: "Buscando mejores vuelos",     duration: 2200 },
@@ -26,18 +62,21 @@ const MINI_AGENTS = [
   { emoji: "💰", label: "Calculando costos reales",    duration: 2600 },
 ];
 
-const COSTS = [
-  { label: "✈️ Transporte",          value: "US$1,240",  note: "3 tramos · mejor vuelo seleccionado" },
-  { label: "🏨 Alojamiento",         value: "US$820",    note: "13 noches · hoteles en barrios clave" },
-  { label: "🍽️ Comida + actividades", value: "US$590",   note: "estimado por estilo comfort" },
-];
+// ─── Phase timing ─────────────────────────────────────────────
+// Phase 0: typing          0 – 3 500ms
+// Phase 1: agents working  3 500 – 7 800ms
+// Phase 2: result / pdf    7 800 – 14 000ms → restart with next scenario
+const LOOP = 14000;
 
 function HeroProductDemo() {
+  const [scenarioIdx, setScenarioIdx]   = useState(0);
   const [phase, setPhase]               = useState<0 | 1 | 2>(0);
   const [charCount, setCharCount]       = useState(0);
   const [agentsDone, setAgentsDone]     = useState<boolean[]>(MINI_AGENTS.map(() => false));
   const [showResult, setShowResult]     = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const scenario = SCENARIOS[scenarioIdx];
 
   function clear() {
     timers.current.forEach(clearTimeout);
@@ -50,19 +89,22 @@ function HeroProductDemo() {
     return id;
   }
 
-  function run() {
+  function run(idx: number) {
     clear();
+    setScenarioIdx(idx);
     setPhase(0);
     setCharCount(0);
     setAgentsDone(MINI_AGENTS.map(() => false));
     setShowResult(false);
 
+    const text = SCENARIOS[idx].text;
+
     // ── Phase 0: typing ──────────────────────────────────────
     let charIdx = 0;
     const typeInterval = setInterval(() => {
       charIdx += 2;
-      setCharCount(Math.min(charIdx, TYPED_TEXT.length));
-      if (charIdx >= TYPED_TEXT.length) clearInterval(typeInterval);
+      setCharCount(Math.min(charIdx, text.length));
+      if (charIdx >= text.length) clearInterval(typeInterval);
     }, 45);
     timers.current.push(typeInterval as unknown as ReturnType<typeof setTimeout>);
 
@@ -86,12 +128,12 @@ function HeroProductDemo() {
       schedule(() => setShowResult(true), 300);
     }, 7800);
 
-    // ── Restart ───────────────────────────────────────────────
-    schedule(run, LOOP);
+    // ── Restart with next scenario ────────────────────────────
+    schedule(() => run((idx + 1) % SCENARIOS.length), LOOP);
   }
 
   useEffect(() => {
-    run();
+    run(0);
     return clear;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -110,16 +152,16 @@ function HeroProductDemo() {
           </div>
           <span className="text-white/30 text-[11px] font-mono ml-1">tu[viaje]</span>
         </div>
-        {/* Step dots */}
+        {/* Scenario dots */}
         <div className="flex items-center gap-1.5">
-          {[0, 1, 2].map((i) => (
+          {SCENARIOS.map((_, i) => (
             <div
               key={i}
               className="rounded-full transition-all duration-500"
               style={{
-                width: phase === i ? 16 : 6,
+                width: scenarioIdx === i ? 16 : 6,
                 height: 6,
-                backgroundColor: phase === i ? "#FF7043" : "rgba(255,255,255,0.2)",
+                backgroundColor: scenarioIdx === i ? "#FF7043" : "rgba(255,255,255,0.2)",
               }}
             />
           ))}
@@ -141,7 +183,7 @@ function HeroProductDemo() {
         </p>
         <div className="bg-white/8 border border-white/12 rounded-xl px-3.5 py-3 min-h-[80px]">
           <p className="text-white/85 text-[13px] leading-relaxed">
-            {TYPED_TEXT.slice(0, charCount)}
+            {scenario.text.slice(0, charCount)}
             <span
               className="inline-block w-0.5 h-3.5 bg-white/70 ml-0.5 align-middle"
               style={{ animation: "pulse 0.8s ease-in-out infinite" }}
@@ -149,7 +191,7 @@ function HeroProductDemo() {
           </p>
         </div>
         <div className="flex gap-2 mt-3">
-          {["Nueva York", "París", "Roma"].map((c) => (
+          {scenario.cities.map((c) => (
             <div
               key={c}
               className="text-[10px] text-white/50 bg-white/8 border border-white/10 rounded-full px-2.5 py-1"
@@ -161,7 +203,7 @@ function HeroProductDemo() {
         </div>
         <div
           className="mt-4 mb-1"
-          style={{ opacity: charCount >= TYPED_TEXT.length ? 1 : 0, transition: "opacity 0.5s" }}
+          style={{ opacity: charCount >= scenario.text.length ? 1 : 0, transition: "opacity 0.5s" }}
         >
           <div className="btn btn-accent w-full text-[13px] min-h-[40px] justify-center gap-1.5 cursor-default">
             Planificar mi viaje
@@ -272,8 +314,8 @@ function HeroProductDemo() {
           }}
         >
           <div>
-            <p className="text-white text-[13px] font-semibold">NYC → París → Roma</p>
-            <p className="text-white/40 text-[11px]">14 días · 2 adultos · comfort</p>
+            <p className="text-white text-[13px] font-semibold">{scenario.title}</p>
+            <p className="text-white/40 text-[11px]">{scenario.summary}</p>
           </div>
           <div className="bg-white/10 border border-white/20 text-[10px] font-bold text-white/70 px-2.5 py-1 rounded-full">
             ✓ listo
@@ -288,7 +330,7 @@ function HeroProductDemo() {
             transition: "opacity 0.5s ease-out 0.15s",
           }}
         >
-          {COSTS.map(({ label, value, note }, i) => (
+          {scenario.costs.map(({ label, value, note }, i) => (
             <div
               key={label}
               className="flex items-center justify-between py-2 border-b border-white/8"
@@ -313,13 +355,13 @@ function HeroProductDemo() {
             }}
           >
             <p className="text-white/60 text-[13px] font-semibold">TOTAL estimado</p>
-            <p className="text-sunset text-[22px] font-bold tabular-nums">US$2,650</p>
+            <p className="text-sunset text-[22px] font-bold tabular-nums">{scenario.total}</p>
           </div>
           <p
             className="text-white/30 text-[10px] text-right"
             style={{ opacity: showResult ? 1 : 0, transition: "opacity 0.4s 0.6s" }}
           >
-            US$1,325 por persona · US$95/día
+            {scenario.perPerson}
           </p>
         </div>
 

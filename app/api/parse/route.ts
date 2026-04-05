@@ -34,13 +34,47 @@ Barna / BCN → Barcelona
 NY / Nueva York → Nueva York
 Cusco / Machu Picchu → [Lima, Cusco]
 
-═══ PAÍS → CIUDADES DEFAULT ═══
+═══ PAÍS / REGIÓN → CIUDADES DEFAULT ═══
 Argentina (sin ciudad) → [Buenos Aires]
 Brasil (sin ciudad) → [São Paulo, Río de Janeiro]
 Perú (sin ciudad) → [Lima, Cusco]
 Colombia (sin ciudad) → [Bogotá, Cartagena]
 México (sin ciudad) → [Ciudad de México]
 Patagonia → [Bariloche, El Calafate]
+
+Japón / Japan (sin ciudad, ≤10d) → [Tokio]
+Japón / Japan (sin ciudad, 11-18d) → [Tokio, Kioto]
+Japón / Japan (sin ciudad, 19d+) → [Tokio, Kioto, Osaka, Hiroshima]
+Tailandia / Thailand (sin ciudad, ≤10d) → [Bangkok, Chiang Mai]
+Tailandia / Thailand (sin ciudad, 11d+) → [Bangkok, Chiang Mai, Phuket]
+Vietnam (sin ciudad, ≤10d) → [Hanói, Ciudad Ho Chi Minh]
+Vietnam (sin ciudad, 11d+) → [Hanói, Hội An, Ciudad Ho Chi Minh]
+Indonesia (sin ciudad) → [Bali]
+Bali (sin ciudad) → [Bali]
+India (sin ciudad, ≤12d) → [Delhi, Agra, Jaipur]
+India (sin ciudad, 13d+) → [Delhi, Agra, Jaipur, Mumbai]
+Europa / Europe sin ciudad específica (≤12d) → [Barcelona, París]
+Europa / Europe sin ciudad específica (13-18d) → [París, Roma, Barcelona]
+Europa / Europe sin ciudad específica (19d+) → [París, Roma, Barcelona, Ámsterdam]
+Francia / France (sin ciudad) → [París]
+Italia / Italy (sin ciudad, ≤10d) → [Roma]
+Italia / Italy (sin ciudad, 11d+) → [Roma, Florencia, Venecia]
+España / Spain (sin ciudad, ≤10d) → [Barcelona]
+España / Spain (sin ciudad, 11d+) → [Barcelona, Madrid, Sevilla]
+Grecia / Greece (sin ciudad, ≤10d) → [Atenas, Santorini]
+Grecia / Greece (sin ciudad, 11d+) → [Atenas, Santorini, Creta]
+Turquía / Turkey (sin ciudad) → [Estambul, Capadocia]
+Marruecos / Morocco (sin ciudad) → [Marrakech, Fez]
+Egipto / Egypt (sin ciudad) → [El Cairo, Luxor]
+
+═══ DÍAS MÁXIMOS ═══
+Máximo recomendado por destino:
+- Japón: 21 días (más rinde con circuito de 4 ciudades)
+- Tailandia/Vietnam: 21 días
+- Europa: 30 días
+- LATAM: 30 días
+- Por defecto: 45 días máximo total
+Si el usuario pide más días del máximo, distribuye entre más ciudades y ajusta daysPerCity.
 
 ═══ PERÍODOS COMUNES → FECHAS ═══
 semana santa / pascua / easter → abril (flexible)
