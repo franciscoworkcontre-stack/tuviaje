@@ -64,8 +64,8 @@ const DECIMALS: Record<DisplayCurrency, number> = {
   COP: 0,
 };
 
-// CLP is intentionally excluded from UI options — it's an internal unit only
 export const CURRENCY_OPTIONS: { value: DisplayCurrency; label: string; flag: string }[] = [
+  { value: "CLP", label: "Peso chileno",      flag: "🇨🇱" },
   { value: "USD", label: "US Dollar",        flag: "🇺🇸" },
   { value: "EUR", label: "Euro",             flag: "🇪🇺" },
   { value: "GBP", label: "British Pound",    flag: "🇬🇧" },

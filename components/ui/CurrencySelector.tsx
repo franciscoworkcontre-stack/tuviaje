@@ -20,7 +20,10 @@ export function CurrencySelector() {
   const selected = CURRENCY_OPTIONS.find(o => o.value === displayCurrency) ?? CURRENCY_OPTIONS[0];
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative flex flex-col items-end gap-0.5">
+      {/* Hint label */}
+      <p className="text-[9px] text-white/40 font-medium pr-0.5 hidden sm:block">¿Cambiar moneda?</p>
+
       <button
         onClick={() => setOpen(v => !v)}
         className="flex items-center gap-1.5 bg-white/6 hover:bg-white/10 border border-white/12 hover:border-white/25 rounded-xl px-3 py-2 text-[12px] font-semibold text-white/80 transition-all"
@@ -34,7 +37,7 @@ export function CurrencySelector() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 z-50 bg-[#0D1F3C] border border-white/12 rounded-xl shadow-2xl overflow-hidden min-w-[180px]">
+        <div className="absolute right-0 top-full mt-1.5 z-50 bg-[#0D1F3C] border border-white/12 rounded-xl shadow-2xl overflow-hidden min-w-[200px]">
           {CURRENCY_OPTIONS.map(opt => (
             <button
               key={opt.value}
@@ -56,6 +59,14 @@ export function CurrencySelector() {
               )}
             </button>
           ))}
+
+          {/* Exchange rate source */}
+          <div className="border-t border-white/8 px-3.5 py-2.5">
+            <p className="text-[10px] text-white/30 leading-relaxed">
+              Tipos de cambio aproximados.<br />
+              Fuente: Google Finance · referencia mensual.
+            </p>
+          </div>
         </div>
       )}
     </div>
