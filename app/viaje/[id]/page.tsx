@@ -16,6 +16,7 @@ import {
   ThumbsUpIcon as ThumbsUp,
   ThumbsDownIcon as ThumbsDown,
   LoaderIcon as Loader2,
+  MapIcon as MapRoute,
 } from "@/components/ui/AnimatedIcons";
 import { useTripStore } from "@/stores/tripStore";
 import { CostSummary } from "@/components/trip/CostSummary";
@@ -32,6 +33,57 @@ import type { DayPlan, HotelRecommendation, FlightOption } from "@/types/trip";
 
 function fmt(n: number) {
   return "$" + n.toLocaleString("en-US");
+}
+
+/**
+ * Builds a Google Maps directions URL for a full day.
+ * Stops in chronological order: morning → lunch → afternoon → dinner → evening.
+ * Uses lat/lng when available, falls back to "place name, city" for geocoding.
+ * Skipped activities (optional ones the user deselected) are excluded.
+ */
+function buildDayMapUrl(day: DayPlan, skipped: Set<string>): string | null {
+  if (day.isTravelDay) return null;
+
+  // Encode a stop as "lat,lng" or URL-encoded place string
+  const enc = (name: string, address?: string, lat?: number, lng?: number): string => {
+    if (lat && lng) return `${lat},${lng}`;
+    return encodeURIComponent(address?.trim() || `${name}, ${day.city}`);
+  };
+
+  const stops: string[] = [];
+
+  for (const act of day.morning ?? []) {
+    if (!skipped.has(activityKey(day.dayNumber, act.name))) {
+      stops.push(enc(act.name, act.address, act.lat, act.lng));
+    }
+  }
+
+  const lunch = day.lunch?.options?.[0];
+  if (lunch) stops.push(enc(lunch.name, lunch.address));
+
+  for (const act of day.afternoon ?? []) {
+    if (!skipped.has(activityKey(day.dayNumber, act.name))) {
+      stops.push(enc(act.name, act.address, act.lat, act.lng));
+    }
+  }
+
+  const dinner = day.dinner?.options?.[0];
+  if (dinner) stops.push(enc(dinner.name, dinner.address));
+
+  if (day.eveningActivity && !skipped.has(activityKey(day.dayNumber, day.eveningActivity.name))) {
+    stops.push(enc(day.eveningActivity.name, day.eveningActivity.address, day.eveningActivity.lat, day.eveningActivity.lng));
+  }
+
+  if (stops.length < 2) return null;
+
+  const origin      = stops[0];
+  const destination = stops[stops.length - 1];
+  // Google Maps directions URL supports up to 9 waypoints (10 stops total)
+  const waypoints   = stops.slice(1, -1).slice(0, 9);
+
+  let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=walking`;
+  if (waypoints.length > 0) url += `&waypoints=${waypoints.join("%7C")}`; // %7C = encoded |
+  return url;
 }
 
 function HotelCard({ hotel, onSelect }: { hotel: HotelRecommendation; onSelect: () => void }) {
@@ -140,6 +192,7 @@ function DayCard({ day, flightSearchUrl, onOpenDetail, skipped }: {
 }) {
   const [open, setOpen] = useState(day.dayNumber <= 2);
   const activities = [...(day.morning ?? []), ...(day.afternoon ?? [])];
+  const mapUrl = buildDayMapUrl(day, skipped);
 
   return (
     <div
@@ -168,17 +221,32 @@ function DayCard({ day, flightSearchUrl, onOpenDetail, skipped }: {
           </div>
         </button>
 
-        {/* Right: cost calculator — opens detail panel */}
-        <button
-          onClick={onOpenDetail}
-          className="text-right ml-3 shrink-0 group rounded-xl px-3 py-1.5 hover:bg-white/15 transition-colors"
-          title="Ver desglose de actividades por costo"
-        >
-          <p className="text-white/50 text-[9px] uppercase font-bold tracking-wide group-hover:text-white/80 transition-colors">
-            Costo día 🧮
-          </p>
-          <p className="text-[16px] font-bold text-white tabular-nums">{fmt(day.dayTotalClp)}</p>
-        </button>
+        {/* Right: map link + cost */}
+        <div className="flex items-center gap-1 ml-3 shrink-0">
+          {mapUrl && (
+            <a
+              href={mapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title="Ver ruta del día en Google Maps"
+              className="flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-white/60 hover:text-white hover:bg-white/15 transition-colors text-[11px] font-semibold"
+            >
+              <MapRoute size={13} />
+              <span className="hidden sm:inline">Ruta</span>
+            </a>
+          )}
+          <button
+            onClick={onOpenDetail}
+            className="text-right group rounded-xl px-3 py-1.5 hover:bg-white/15 transition-colors"
+            title="Ver desglose de actividades por costo"
+          >
+            <p className="text-white/50 text-[9px] uppercase font-bold tracking-wide group-hover:text-white/80 transition-colors">
+              Costo día 🧮
+            </p>
+            <p className="text-[16px] font-bold text-white tabular-nums">{fmt(day.dayTotalClp)}</p>
+          </button>
+        </div>
       </div>
 
       {open && (
