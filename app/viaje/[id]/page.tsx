@@ -42,12 +42,18 @@ function fmt(n: number) {
  * Skipped activities (optional ones the user deselected) are excluded.
  */
 function buildDayMapUrl(day: DayPlan, skipped: Set<string>): string | null {
+  try {
   if (day.isTravelDay) return null;
 
   // Encode a stop as "lat,lng" or URL-encoded place string
   const enc = (name: string, address?: string, lat?: number, lng?: number): string => {
     if (lat && lng) return `${lat},${lng}`;
-    return encodeURIComponent(address?.trim() || `${name}, ${day.city}`);
+    // encodeURIComponent can throw on lone surrogates — fallback to empty string
+    try {
+      return encodeURIComponent(String(address ?? "").trim() || `${String(name ?? "")}, ${day.city ?? ""}`);
+    } catch {
+      return "";
+    }
   };
 
   const stops: string[] = [];
@@ -84,6 +90,9 @@ function buildDayMapUrl(day: DayPlan, skipped: Set<string>): string | null {
   let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=walking`;
   if (waypoints.length > 0) url += `&waypoints=${waypoints.join("%7C")}`; // %7C = encoded |
   return url;
+  } catch {
+    return null;
+  }
 }
 
 function HotelCard({ hotel, onSelect }: { hotel: HotelRecommendation; onSelect: () => void }) {
@@ -667,7 +676,7 @@ export default function TripPage() {
           <div className="grid lg:grid-cols-[1fr_300px] gap-6">
             {/* Days */}
             <div className="space-y-3">
-              {trip.days.map((day) => {
+              {(trip.days ?? []).map((day) => {
                 const leg = trip.transportLegs.find((l) => l.toCity === day.city && day.isTravelDay);
                 return (
                   <DayCard
