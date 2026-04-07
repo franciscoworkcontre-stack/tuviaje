@@ -416,6 +416,8 @@ export default function TripPage() {
         })),
         travelStyle: trip.travelStyle,
         adults: trip.travelers.adults,
+        children: trip.travelers.children,
+        infants: trip.travelers.infants,
       }),
     })
       .then(r => r.json())
@@ -435,7 +437,7 @@ export default function TripPage() {
     fetch("/api/hotels", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cities: trip.cities.map(c => c.name), travelStyle: trip.travelStyle }),
+      body: JSON.stringify({ cities: trip.cities.map(c => c.name), travelStyle: trip.travelStyle, adults: trip.travelers.adults, children: trip.travelers.children }),
     })
       .then(r => r.json())
       .then(data => { if (data.hotelRecommendations) setHotelRecs(data.hotelRecommendations); })

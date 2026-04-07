@@ -28,15 +28,16 @@ const HEADERS = {
 // ── Raw scraper types ─────────────────────────────────────────────────────────
 
 export interface ScraperFlight {
-  airline:          string;
-  flight_number:    string;
-  departure_time:   string; // "HH:MM"
-  arrival_time:     string;
-  duration_minutes: number;
-  stops:            number;
-  price_usd:        number;
-  cabin:            string;
-  scraped_at:       string;
+  airline:              string;
+  flight_number:        string;
+  departure_time:       string; // "HH:MM"
+  arrival_time:         string;
+  duration_minutes:     number;
+  stops:                number;
+  price_usd:            number; // group total
+  price_usd_per_adult:  number;
+  cabin:                string;
+  scraped_at:           string;
 }
 
 export interface ScraperHotel {
@@ -73,18 +74,21 @@ async function pollJob<T>(
 // ── Flights ───────────────────────────────────────────────────────────────────
 
 export async function fetchScraperFlights(
-  origin:      string,
-  destination: string,
-  date:        string,
-  passengers:  number = 1,
-  cabin:       string = "economy",
+  origin:          string,
+  destination:     string,
+  date:            string,
+  adults:          number = 1,
+  cabin:           string = "economy",
+  children:        number = 0,
+  infantsInSeat:   number = 0,
+  infantsOnLap:    number = 0,
 ): Promise<ScraperFlight[]> {
   if (!SCRAPER_KEY) return [];
 
   const res = await fetch(`${SCRAPER_URL}/flights`, {
     method: "POST",
     headers: HEADERS,
-    body: JSON.stringify({ origin, destination, date, passengers, cabin }),
+    body: JSON.stringify({ origin, destination, date, adults, cabin, children, infants_in_seat: infantsInSeat, infants_on_lap: infantsOnLap }),
     signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) return [];
@@ -119,13 +123,14 @@ export async function fetchScraperHotels(
   checkIn:     string,
   checkOut:    string,
   adults:      number = 2,
+  children:    number = 0,
 ): Promise<ScraperHotel[]> {
   if (!SCRAPER_KEY) return [];
 
   const res = await fetch(`${SCRAPER_URL}/hotels`, {
     method: "POST",
     headers: HEADERS,
-    body: JSON.stringify({ destination, check_in: checkIn, check_out: checkOut, adults }),
+    body: JSON.stringify({ destination, check_in: checkIn, check_out: checkOut, adults, children }),
     signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) return [];

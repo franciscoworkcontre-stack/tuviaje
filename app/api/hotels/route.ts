@@ -9,13 +9,14 @@ const VALID_STYLES = new Set(["mochilero", "comfort", "premium"]);
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { cities, travelStyle, checkIn, checkOut, adults } = body ?? {};
+  const { cities, travelStyle, checkIn, checkOut, adults, children } = body ?? {};
 
   if (!Array.isArray(cities) || cities.length === 0 || cities.length > 10) {
     return NextResponse.json({ error: "cities debe ser un array de 1 a 10 elementos" }, { status: 400 });
   }
-  const safeStyle = VALID_STYLES.has(travelStyle) ? travelStyle : "comfort";
-  const safeAdults = Math.min(Math.max(Number.isInteger(adults) ? adults : 2, 1), 20);
+  const safeStyle    = VALID_STYLES.has(travelStyle) ? travelStyle : "comfort";
+  const safeAdults   = Math.min(Math.max(Number.isInteger(adults)   ? adults   : 2, 1), 20);
+  const safeChildren = Math.min(Math.max(Number.isInteger(children) ? children : 0, 0), 10);
 
   const today = new Date();
   const defaultCheckIn  = new Date(today.getTime() + 90 * 86400000).toISOString().slice(0, 10);
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
     safeCheckIn,
     safeCheckOut,
     safeAdults,
+    safeChildren,
   );
 
   return NextResponse.json({ hotelRecommendations });

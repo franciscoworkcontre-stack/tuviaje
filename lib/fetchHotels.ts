@@ -181,7 +181,7 @@ async function scrapeCity(
   // Use neighborhood-aware query for better candidates
   const searchQuery = getSearchQuery(city, travelStyle);
 
-  const raw: ScraperHotel[] = await fetchScraperHotels(searchQuery, checkIn, checkOut, adults);
+  const raw: ScraperHotel[] = await fetchScraperHotels(searchQuery, checkIn, checkOut, adults, children);
   if (!raw.length) return null;
 
   // Scraper returns rating on 0-5 scale; convert to 0-10 for compatibility
