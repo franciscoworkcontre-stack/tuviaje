@@ -84,13 +84,15 @@ año nuevo / new year / fin de año → diciembre 28 - enero 5
 vacaciones de invierno → julio (flexible, hemisferio sur)
 
 ═══ VIAJEROS ═══
-solo / sola / yo solo → adults: 1
-mi esposa/marido/pareja/pololo/novia y yo → adults: 2
-en pareja / nosotros dos → adults: 2
-luna de miel / honeymoon → adults: 2, travelStyle: "premium"
-con mis papás / con mis padres → adults: 3 (o preguntar)
-familia / con mis hijos → needs clarification sobre cantidad
-somos N / vamos N / grupo de N → adults: N
+solo / sola / yo solo → adults: 1, children: 0
+mi esposa/marido/pareja/pololo/novia y yo → adults: 2, children: 0
+en pareja / nosotros dos → adults: 2, children: 0
+luna de miel / honeymoon → adults: 2, children: 0, travelStyle: "premium"
+con mis papás / con mis padres → adults: 3 (o preguntar), children: 0
+somos N / vamos N / grupo de N → adults: N, children: 0
+familia / con N niños / con mis hijos → adults según contexto, children: N (si se especifica número)
+"2 adultos y 2 niños" → adults: 2, children: 2
+"somos 4, 2 niños" → adults: 2, children: 2
 
 ═══ ESTILO ═══
 mochilero / mochila / backpacker / económico / barato / hostales → "mochilero"
@@ -118,6 +120,7 @@ En estos casos pon la pregunta más corta posible en clarificationQuestion.
   "daysPerCity": [7, 7],
   "departureDate": null,
   "adults": 2,
+  "children": 0,
   "travelStyle": "comfort",
   "flexible": true,
   "flexibleMonth": "julio",

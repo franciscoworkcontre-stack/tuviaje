@@ -69,6 +69,7 @@ export default function PlanificarPage() {
   const [cityRows, setCityRows] = useState<CityRow[]>([]);
   const [departureDate, setDepartureDate] = useState("");
   const [adults, setAdults] = useState(2);
+  const [children, setChildren] = useState(0);
   const [style, setStyle] = useState<TravelStyle>("comfort");
   const [newCity, setNewCity] = useState("");
   const [roundTrip, setRoundTrip] = useState(true);
@@ -137,6 +138,7 @@ export default function PlanificarPage() {
       setCityRows(cities.map((name: string, i: number) => ({ name, days: days[i] ?? 4, firstTime: true })));
       setOrigin(p.originCity ?? "");
       setAdults(p.adults ?? 2);
+      setChildren(p.children ?? 0);
       setStyle(p.travelStyle ?? "comfort");
 
       // Needs clarification?
@@ -146,6 +148,7 @@ export default function PlanificarPage() {
         const days: number[] = p.daysPerCity ?? cities.map(() => 4);
         setCityRows(cities.map((name: string, i: number) => ({ name, days: days[i] ?? 4, firstTime: true })));
         setAdults(p.adults ?? 2);
+        setChildren(p.children ?? 0);
         setStyle(p.travelStyle ?? "comfort");
         setParsing(false);
         setStep("clarify");
@@ -204,16 +207,10 @@ export default function PlanificarPage() {
   }
 
   function pickSuggestion(s: DateSuggestion) {
+    // Just set the departure date — keep the daysPerCity already parsed from user text.
+    // Recalculating from the suggestion's date window caused bugs when the LLM returned
+    // a slightly different duration than what the user described.
     setDepartureDate(s.startDate);
-    // Distribute total days across cities
-    const totalTripDays = Math.ceil(
-      (new Date(s.endDate).getTime() - new Date(s.startDate).getTime()) / 86400000
-    );
-    const transitDays = cityRows.length;
-    const availableDays = totalTripDays - transitDays;
-    const basePerCity = Math.floor(availableDays / cityRows.length);
-    const remainder = availableDays % cityRows.length;
-    setCityRows((rows) => rows.map((r, i) => ({ ...r, days: basePerCity + (i < remainder ? 1 : 0) })));
     setStep("confirm");
   }
 
@@ -239,7 +236,7 @@ export default function PlanificarPage() {
       startDate: departureDate,
       endDate: computedEndDate,
       adults,
-      children: 0,
+      children,
       travelStyle: style,
       flexibleDates: false,
       roundTrip,
@@ -732,7 +729,7 @@ export default function PlanificarPage() {
             {/* Travelers + style */}
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
               {/* Adults */}
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-3">
                 <p className="text-white/60 text-[13px] font-semibold">Viajeros</p>
                 <div className="flex items-center gap-3">
                   <button
@@ -748,7 +745,28 @@ export default function PlanificarPage() {
                   >
                     <Plus size={13} />
                   </button>
-                  <span className="text-white/35 text-[12px]">adultos</span>
+                  <span className="text-white/35 text-[12px] w-[48px]">adultos</span>
+                </div>
+              </div>
+
+              {/* Children */}
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-white/40 text-[12px]">Niños <span className="text-white/25">(menores de 12)</span></p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setChildren((c) => Math.max(0, c - 1))}
+                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                  >
+                    <Minus size={13} />
+                  </button>
+                  <span className="text-white font-bold text-[18px] w-6 text-center tabular-nums">{children}</span>
+                  <button
+                    onClick={() => setChildren((c) => Math.min(8, c + 1))}
+                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                  >
+                    <Plus size={13} />
+                  </button>
+                  <span className="text-white/35 text-[12px] w-[48px]">niños</span>
                 </div>
               </div>
 

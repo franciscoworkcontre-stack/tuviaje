@@ -90,6 +90,8 @@ export async function POST(req: NextRequest) {
   try {
     const input: PlanningInput = await req.json();
     const { adults, travelStyle, originCity, destinationCities, startDate, endDate } = input;
+    const children = input.children ?? 0;
+    const totalPax = adults + children;
     const roundTrip = input.roundTrip !== false; // default true
     const firstTimeCities = input.firstTimeCities ?? {};
 
@@ -112,7 +114,7 @@ export async function POST(req: NextRequest) {
 
 Origen: ${originCity} → ${allCities.join(" → ")}
 Fechas: ${startDate} → ${endDate} (${totalDays} días)
-Viajeros: ${adults} | Estilo: ${travelStyle}
+Viajeros: ${adults} adultos${children > 0 ? ` + ${children} niños` : ""} | Estilo: ${travelStyle}
 Días por ciudad: ${allCities.map((c, i) => `${c}=${daysPerCity(i)}d`).join(", ")}
 
 Formato exacto:
@@ -203,7 +205,7 @@ CRÍTICO — EL ÚLTIMO DÍA (día ${batchOffset + batchDays}) ES EL DÍA DE REG
 isTravelDay=true, theme="Regreso a ${originCity}"` : "";
 
       return `Genera exactamente ${batchDays} días del itinerario en ${city}. Año 2026 — usa precios, lugares y referencias actuales.
-Estilo: ${travelStyle} | ${adults} viajeros | ${firstTimeLine}
+Estilo: ${travelStyle} | ${adults} adultos${children > 0 ? ` + ${children} niños` : ""} (${totalPax} personas) | ${firstTimeLine}
 Origen vuelo: ${prevCity}→${city} | Fecha primer día del bloque: ${batchStartDate}
 SOLO JSON válido sin markdown.
 ${day1Block}${departureDayBlock}
@@ -256,16 +258,16 @@ REGLAS ESTRICTAS:
 - SOLO el array dentro de {"days":[...]}
 
 COSTOS — regla por tipo:
-- costClp en actividades = precio de entrada POR 1 PERSONA (el sistema multiplica por ${adults})
-- costClp en comidas = precio POR 1 PERSONA (el sistema multiplica por ${adults})
-- localTransportCostClp = total para TODO el grupo (${adults} personas) — NO se multiplica después
+- costClp en actividades = precio de entrada POR 1 PERSONA adulta (el sistema multiplica por ${totalPax})
+- costClp en comidas = precio POR 1 PERSONA (el sistema multiplica por ${totalPax})
+- localTransportCostClp = total para TODO el grupo (${totalPax} personas) — NO se multiplica después
 - Convierte USD→CLP multiplicando por ${USD_TO_CLP}. Ej: entrada $33 USD → ${33 * USD_TO_CLP} CLP por persona
 - Actividades GRATIS (parques, plazas, catedrales, miradores públicos): costClp = 0
 - NO infles costos — si no sabes el precio exacto, estima conservadoramente
 
-TRANSPORTE LOCAL (localTransportCostClp) — TOTAL PARA ${adults} PERSONA${adults > 1 ? "S" : ""}:
+TRANSPORTE LOCAL (localTransportCostClp) — TOTAL PARA ${totalPax} PERSONA${totalPax > 1 ? "S" : ""}:
 - Razona por tipo de transporte:
-  · Metro/bus: precio por trayecto × viajes × ${adults} personas (cada uno paga su pasaje)
+  · Metro/bus: precio por trayecto × viajes × ${totalPax} personas (cada uno paga su pasaje)
   · Taxi/Uber/Remis: precio del vehículo × viajes (se comparte, NO multiplicar por personas)
 - Usa el precio REAL por trayecto en ${city} en 2026
 - Suma solo los viajes necesarios ese día — NO cobres tarjetas, pases ni abonos
@@ -423,11 +425,11 @@ SOLO JSON: { "reasons": { "<leg>": "razón" } }`,
     const transportTotal = realFlightTotal > 0 ? realFlightTotal : 0; // 0 = no real price found, don't show a fake number
 
     const foodTotal = allDays.reduce((s, d) => d.isTravelDay ? s :
-      s + (d.lunch?.options?.[0]?.costClp ?? budget.food/2) + (d.dinner?.options?.[0]?.costClp ?? budget.food/2), 0) * adults;
+      s + (d.lunch?.options?.[0]?.costClp ?? budget.food/2) + (d.dinner?.options?.[0]?.costClp ?? budget.food/2), 0) * totalPax;
     const activitiesTotal = allDays.reduce((s, d) =>
       s + [...(d.morning??[]),...(d.afternoon??[])]
         .filter((a: {category?: string}) => a.category !== "transport" && a.category !== "food")
-        .reduce((ss: number, a: {costClp?:number}) => ss+(a.costClp??0), 0), 0) * adults;
+        .reduce((ss: number, a: {costClp?:number}) => ss+(a.costClp??0), 0), 0) * totalPax;
     const localTotal = allDays.reduce((s, d) => s + (d.localTransportCostClp ?? 0), 0); // LLM generates total for group
     const extras = Math.round((hotelTotal + foodTotal + activitiesTotal) * 0.06);
     const total = transportTotal + hotelTotal + foodTotal + activitiesTotal + localTotal + extras;
@@ -435,8 +437,8 @@ SOLO JSON: { "reasons": { "<leg>": "razón" } }`,
     const costs: CostBreakdown = {
       transport: transportTotal, accommodation: hotelTotal, food: foodTotal,
       activities: activitiesTotal, localTransport: localTotal, extras, total,
-      perPerson: Math.round(total / adults),
-      perDayPerPerson: Math.round(total / adults / Math.max(totalDays, 1)),
+      perPerson: Math.round(total / totalPax),
+      perDayPerPerson: Math.round(total / totalPax / Math.max(totalDays, 1)),
       byCityClp: Object.fromEntries(allCities.map(c => [c, Math.round(total / allCities.length)])),
     };
 
@@ -524,11 +526,18 @@ SOLO JSON: { "tips": ["tip1", "tip2", ...] } — sin límite de cantidad, todos 
     await Promise.all([flightReasonsPromise, optimizerTipsPromise]);
     lap("flight reasons + optimizer tips");
 
-    const travelers_list: Traveler[] = Array.from({ length: adults }, (_, i) => ({
-      id: `t-${i}`, name: i === 0 ? "Tú" : `Persona ${i + 1}`,
-      emoji: TRAVELER_EMOJIS[i % TRAVELER_EMOJIS.length],
-      color: TRAVELER_COLORS[i % TRAVELER_COLORS.length],
-    }));
+    const travelers_list: Traveler[] = [
+      ...Array.from({ length: adults }, (_, i) => ({
+        id: `t-${i}`, name: i === 0 ? "Tú" : `Adulto ${i + 1}`,
+        emoji: TRAVELER_EMOJIS[i % TRAVELER_EMOJIS.length],
+        color: TRAVELER_COLORS[i % TRAVELER_COLORS.length],
+      })),
+      ...Array.from({ length: children }, (_, i) => ({
+        id: `c-${i}`, name: `Niño ${i + 1}`,
+        emoji: "🧒",
+        color: TRAVELER_COLORS[(adults + i) % TRAVELER_COLORS.length],
+      })),
+    ];
 
     const trip = {
       id: `trip-${Date.now()}`,
