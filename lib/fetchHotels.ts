@@ -175,7 +175,8 @@ async function scrapeCity(
   checkIn: string,
   checkOut: string,
   adults: number,
-  travelStyle: string
+  travelStyle: string,
+  children: number = 0,
 ): Promise<HotelRecommendation | null> {
   // Use neighborhood-aware query for better candidates
   const searchQuery = getSearchQuery(city, travelStyle);
@@ -257,7 +258,7 @@ async function scrapeCity(
     style: stars >= 5 ? "boutique" : stars >= 4 ? "business" : "hostal",
     pros,
     cons,
-    bookingSearchUrl: `https://www.google.com/travel/hotels/entity?q=${encodeURIComponent(winner.name + " " + city)}&checkin=${checkIn}&checkout=${checkOut}&adults=${adults}`,
+    bookingSearchUrl: `https://www.google.com/travel/hotels/entity?q=${encodeURIComponent(winner.name + " " + city)}&checkin=${checkIn}&checkout=${checkOut}&adults=${adults}${children > 0 ? `&children=${children}` : ""}`,
     selectionReason: reason || undefined,
   } satisfies HotelRecommendation;
 }
@@ -267,10 +268,11 @@ export async function fetchHotelsForCities(
   travelStyle: string,
   checkIn: string,
   checkOut: string,
-  adults: number
+  adults: number,
+  children: number = 0,
 ): Promise<Record<string, HotelRecommendation[]>> {
   const results = await Promise.all(
-    cities.map(city => scrapeCity(city, checkIn, checkOut, adults, travelStyle))
+    cities.map(city => scrapeCity(city, checkIn, checkOut, adults, travelStyle, children))
   );
   return Object.fromEntries(
     cities.map((city, i) => [city, results[i] ? [results[i]!] : []])

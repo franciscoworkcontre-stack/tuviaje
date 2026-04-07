@@ -126,19 +126,22 @@ export async function fetchLegFlights(
   toIata:      string,
   date:        string,
   adults:      number,
-  travelStyle: string = "comfort"
+  travelStyle: string = "comfort",
+  children:    number = 0,
 ): Promise<FlightOption[]> {
   if (!fromIata || !toIata || !date) return [];
 
-  const scraperResults = await fetchScraperFlights(fromIata, toIata, date, 1, "economy");
+  const totalPax = adults + children;
+  // Pass total passengers so scraper searches with the correct group size
+  const scraperResults = await fetchScraperFlights(fromIata, toIata, date, totalPax, "economy");
   if (!scraperResults.length) return [];
 
   const allPricesClp = scraperResults
-    .map(f => Math.round(f.price_usd * USD_TO_CLP * adults))
+    .map(f => Math.round(f.price_usd * USD_TO_CLP * totalPax))
     .filter(p => p > 0);
   if (!allPricesClp.length) return [];
 
-  const options = buildFlightOptions(scraperResults.slice(0, 6), fromIata, toIata, date, adults, allPricesClp)
+  const options = buildFlightOptions(scraperResults.slice(0, 6), fromIata, toIata, date, totalPax, allPricesClp)
     .filter(o => o.priceClp > 0);
   if (!options.length) return [];
 
@@ -147,7 +150,7 @@ export async function fetchLegFlights(
   if (options[0]) {
     const winner = options[0];
     const scoreUsd = Math.round(flightScore(winner.priceClp, winner.durationMin, travelStyle) / USD_TO_CLP);
-    const priceUsd = Math.round(winner.priceClp / USD_TO_CLP / adults);
+    const priceUsd = Math.round(winner.priceClp / USD_TO_CLP / totalPax);
     const durationH = Math.round(winner.durationMin / 60 * 10) / 10;
     const label = `⭐ Mejor valor — $${priceUsd} USD · ${durationH}h · score ${scoreUsd} USD`;
     options[0].pros = [label, ...options[0].pros];
@@ -190,14 +193,15 @@ export interface FlightLeg {
 export async function fetchFlightsForLegs(
   legs:        FlightLeg[],
   adults:      number,
-  travelStyle: string = "comfort"
+  travelStyle: string = "comfort",
+  children:    number = 0,
 ): Promise<Record<string, FlightOption[]>> {
   const results = await Promise.all(
     legs.map(async leg => {
       const key = `${leg.fromCity}-${leg.toCity}`;
       if (!leg.fromIata || !leg.toIata || !leg.date) return [key, [] as FlightOption[]] as const;
       try {
-        const opts = await fetchLegFlights(leg.fromIata, leg.toIata, leg.date, adults, travelStyle);
+        const opts = await fetchLegFlights(leg.fromIata, leg.toIata, leg.date, adults, travelStyle, children);
         return [key, opts] as const;
       } catch {
         return [key, [] as FlightOption[]] as const;

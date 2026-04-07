@@ -275,7 +275,7 @@ TRANSPORTE LOCAL (localTransportCostClp) — TOTAL PARA ${totalPax} PERSONA${tot
     }
 
     // ── Hoteles + vuelos en paralelo con días ────────────────────
-    const hotelsPromise = fetchHotelsForCities(allCities, travelStyle, startDate, endDate, adults)
+    const hotelsPromise = fetchHotelsForCities(allCities, travelStyle, startDate, endDate, adults, children)
       .then(recs => { lap("hoteles"); console.log("[itinerary] hotels ok:", Object.keys(recs)); return recs; })
       .catch(e => { console.error("[itinerary] hotels error:", e instanceof Error ? e.message : e); return {} as Record<string, HotelRecommendation[]>; });
 
@@ -305,7 +305,7 @@ TRANSPORTE LOCAL (localTransportCostClp) — TOTAL PARA ${totalPax} PERSONA${tot
       .filter(l => l.fromIata && l.toIata && l.date)
       .map(l => ({ fromCity: l.fromCity, toCity: l.toCity, fromIata: l.fromIata!, toIata: l.toIata!, date: l.date! }));
 
-    const strategyPromise = analyzeFlightStrategy(strategyLegs, adults, originCity, roundTrip, travelStyle)
+    const strategyPromise = analyzeFlightStrategy(strategyLegs, adults, originCity, roundTrip, travelStyle, children)
       .then(r => { lap("vuelos + estrategia"); console.log("[itinerary] strategy:", r.recommendation.type); return r; })
       .catch(e => {
         console.error("[itinerary] strategy error:", e instanceof Error ? e.message : e);
@@ -314,7 +314,7 @@ TRANSPORTE LOCAL (localTransportCostClp) — TOTAL PARA ${totalPax} PERSONA${tot
 
     // Also keep per-leg fallback for any legs not covered by strategy engine
     const flightsPromise = strategyPromise.then(s => s?.flightOptions ?? {})
-      .catch(() => fetchFlightsForLegs(legsForFlights, adults, travelStyle));
+      .catch(() => fetchFlightsForLegs(legsForFlights, adults, travelStyle, children));
 
     // ── Llamadas 2-N: ciudades en PARALELO, batches de 8 días (Haiku) ──
     const BATCH_SIZE = 8;
