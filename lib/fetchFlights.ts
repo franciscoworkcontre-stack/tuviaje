@@ -63,7 +63,7 @@ function buildFlightOptions(
   fromIata:       string,
   toIata:         string,
   date:           string,
-  adults:         number,
+  fareMultiplier: number,  // = groupFareMultiplier(adults, children, infants)
   allPricesClp:   number[]
 ): FlightOption[] {
   const minP = Math.min(...allPricesClp);
@@ -76,8 +76,8 @@ function buildFlightOptions(
     const arrival     = f.arrival_time;
     const durationMin = f.duration_minutes;
     const stops       = f.stops;
-    // Scraper returns per-person USD price; multiply by adults for total
-    const priceClp    = Math.round(f.price_usd * USD_TO_CLP * adults);
+    // price_usd is per-adult; apply fare multiplier for group total (children at 75%, infants at 10%)
+    const priceClp    = Math.round(f.price_usd * USD_TO_CLP * fareMultiplier);
 
     const pros: string[] = [];
     const cons: string[] = [];
@@ -115,12 +115,22 @@ function buildFlightOptions(
       priceClp,
       pros,
       cons,
-      bookingSearchUrl: airlineUrl(code, fromIata, toIata, date, adults),
+      bookingSearchUrl: airlineUrl(code, fromIata, toIata, date, Math.round(fareMultiplier)),
     } satisfies FlightOption;
   });
 }
 
 // ── Single leg via scraper ────────────────────────────────────────────────────
+// ── Fare multiplier helpers ───────────────────────────────────────────────────
+// IATA industry standard approximations:
+//   - Infants (0–1): lap infant, no seat needed. ~10% of adult fare on international,
+//     free on many domestic. We use 10% as a conservative estimate.
+//   - Children (2–12): 75% of adult fare (most carriers).
+//   - Adults: 100%.
+export function groupFareMultiplier(adults: number, children: number, infants: number): number {
+  return adults + children * 0.75 + infants * 0.10;
+}
+
 export async function fetchLegFlights(
   fromIata:    string,
   toIata:      string,
@@ -128,20 +138,24 @@ export async function fetchLegFlights(
   adults:      number,
   travelStyle: string = "comfort",
   children:    number = 0,
+  infants:     number = 0,
 ): Promise<FlightOption[]> {
   if (!fromIata || !toIata || !date) return [];
 
-  const totalPax = adults + children;
-  // Pass total passengers so scraper searches with the correct group size
-  const scraperResults = await fetchScraperFlights(fromIata, toIata, date, totalPax, "economy");
+  // Infants don't need seats — only pass adults + children to scraper
+  const seatedPax = Math.max(1, adults + children);
+  const fareMultiplier = groupFareMultiplier(adults, children, infants);
+
+  const scraperResults = await fetchScraperFlights(fromIata, toIata, date, seatedPax, "economy");
   if (!scraperResults.length) return [];
 
+  // price_usd from scraper is per-person (adult price). Apply fare multiplier for group total.
   const allPricesClp = scraperResults
-    .map(f => Math.round(f.price_usd * USD_TO_CLP * totalPax))
+    .map(f => Math.round(f.price_usd * USD_TO_CLP * fareMultiplier))
     .filter(p => p > 0);
   if (!allPricesClp.length) return [];
 
-  const options = buildFlightOptions(scraperResults.slice(0, 6), fromIata, toIata, date, totalPax, allPricesClp)
+  const options = buildFlightOptions(scraperResults.slice(0, 6), fromIata, toIata, date, fareMultiplier, allPricesClp)
     .filter(o => o.priceClp > 0);
   if (!options.length) return [];
 
@@ -150,7 +164,7 @@ export async function fetchLegFlights(
   if (options[0]) {
     const winner = options[0];
     const scoreUsd = Math.round(flightScore(winner.priceClp, winner.durationMin, travelStyle) / USD_TO_CLP);
-    const priceUsd = Math.round(winner.priceClp / USD_TO_CLP / totalPax);
+    const priceUsd = Math.round(winner.priceClp / USD_TO_CLP / Math.max(fareMultiplier, 1));
     const durationH = Math.round(winner.durationMin / 60 * 10) / 10;
     const label = `⭐ Mejor valor — $${priceUsd} USD · ${durationH}h · score ${scoreUsd} USD`;
     options[0].pros = [label, ...options[0].pros];
@@ -166,19 +180,24 @@ export async function fetchRoundTripBestPrice(
   outDate:    string,
   returnDate: string,
   adults:     number,
+  children:   number = 0,
+  infants:    number = 0,
 ): Promise<number | null> {
   if (!fromIata || !toIata || !outDate || !returnDate) return null;
 
+  const seatedPax = Math.max(1, adults + children);
+  const fareMultiplier = groupFareMultiplier(adults, children, infants);
+
   const [outbound, inbound] = await Promise.all([
-    fetchScraperFlights(fromIata, toIata, outDate, 1, "economy"),
-    fetchScraperFlights(toIata, fromIata, returnDate, 1, "economy"),
+    fetchScraperFlights(fromIata, toIata, outDate, seatedPax, "economy"),
+    fetchScraperFlights(toIata, fromIata, returnDate, seatedPax, "economy"),
   ]);
 
   const outMin = Math.min(...outbound.map(f => f.price_usd).filter(p => p > 0));
   const inMin  = Math.min(...inbound.map(f => f.price_usd).filter(p => p > 0));
 
   if (!isFinite(outMin) || !isFinite(inMin)) return null;
-  return Math.round((outMin + inMin) * USD_TO_CLP * adults);
+  return Math.round((outMin + inMin) * USD_TO_CLP * fareMultiplier);
 }
 
 // ── All legs in parallel ──────────────────────────────────────────────────────
@@ -195,13 +214,14 @@ export async function fetchFlightsForLegs(
   adults:      number,
   travelStyle: string = "comfort",
   children:    number = 0,
+  infants:     number = 0,
 ): Promise<Record<string, FlightOption[]>> {
   const results = await Promise.all(
     legs.map(async leg => {
       const key = `${leg.fromCity}-${leg.toCity}`;
       if (!leg.fromIata || !leg.toIata || !leg.date) return [key, [] as FlightOption[]] as const;
       try {
-        const opts = await fetchLegFlights(leg.fromIata, leg.toIata, leg.date, adults, travelStyle, children);
+        const opts = await fetchLegFlights(leg.fromIata, leg.toIata, leg.date, adults, travelStyle, children, infants);
         return [key, opts] as const;
       } catch {
         return [key, [] as FlightOption[]] as const;

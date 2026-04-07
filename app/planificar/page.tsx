@@ -70,6 +70,7 @@ export default function PlanificarPage() {
   const [departureDate, setDepartureDate] = useState("");
   const [adults, setAdults] = useState(2);
   const [children, setChildren] = useState(0);
+  const [infants, setInfants] = useState(0);
   const [style, setStyle] = useState<TravelStyle>("comfort");
   const [newCity, setNewCity] = useState("");
   const [roundTrip, setRoundTrip] = useState(true);
@@ -139,6 +140,7 @@ export default function PlanificarPage() {
       setOrigin(p.originCity ?? "");
       setAdults(p.adults ?? 2);
       setChildren(p.children ?? 0);
+      setInfants(p.infants ?? 0);
       setStyle(p.travelStyle ?? "comfort");
 
       // Needs clarification?
@@ -149,6 +151,7 @@ export default function PlanificarPage() {
         setCityRows(cities.map((name: string, i: number) => ({ name, days: days[i] ?? 4, firstTime: true })));
         setAdults(p.adults ?? 2);
         setChildren(p.children ?? 0);
+        setInfants(p.infants ?? 0);
         setStyle(p.travelStyle ?? "comfort");
         setParsing(false);
         setStep("clarify");
@@ -237,6 +240,7 @@ export default function PlanificarPage() {
       endDate: computedEndDate,
       adults,
       children,
+      infants,
       travelStyle: style,
       flexibleDates: false,
       roundTrip,
@@ -749,9 +753,9 @@ export default function PlanificarPage() {
                 </div>
               </div>
 
-              {/* Children */}
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-white/40 text-[12px]">Niños <span className="text-white/25">(menores de 12)</span></p>
+              {/* Children 2–12 */}
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-white/40 text-[12px]">Niños <span className="text-white/25">(2–12 años · 75% tarifa)</span></p>
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setChildren((c) => Math.max(0, c - 1))}
@@ -767,6 +771,27 @@ export default function PlanificarPage() {
                     <Plus size={13} />
                   </button>
                   <span className="text-white/35 text-[12px] w-[48px]">niños</span>
+                </div>
+              </div>
+
+              {/* Infants 0–1 */}
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-white/40 text-[12px]">Bebés <span className="text-white/25">(0–1 año · ~10% tarifa)</span></p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setInfants((c) => Math.max(0, c - 1))}
+                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                  >
+                    <Minus size={13} />
+                  </button>
+                  <span className="text-white font-bold text-[18px] w-6 text-center tabular-nums">{infants}</span>
+                  <button
+                    onClick={() => setInfants((c) => Math.min(adults, c + 1))}
+                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                  >
+                    <Plus size={13} />
+                  </button>
+                  <span className="text-white/35 text-[12px] w-[48px]">bebés</span>
                 </div>
               </div>
 

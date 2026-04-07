@@ -91,7 +91,8 @@ export async function POST(req: NextRequest) {
     const input: PlanningInput = await req.json();
     const { adults, travelStyle, originCity, destinationCities, startDate, endDate } = input;
     const children = input.children ?? 0;
-    const totalPax = adults + children;
+    const infants  = input.infants ?? 0;
+    const totalPax = adults + children + infants;
     const roundTrip = input.roundTrip !== false; // default true
     const firstTimeCities = input.firstTimeCities ?? {};
 
@@ -114,7 +115,7 @@ export async function POST(req: NextRequest) {
 
 Origen: ${originCity} → ${allCities.join(" → ")}
 Fechas: ${startDate} → ${endDate} (${totalDays} días)
-Viajeros: ${adults} adultos${children > 0 ? ` + ${children} niños` : ""} | Estilo: ${travelStyle}
+Viajeros: ${adults} adultos${children > 0 ? ` + ${children} niños (2-12)` : ""}${infants > 0 ? ` + ${infants} bebés (0-1)` : ""} | Estilo: ${travelStyle}
 Días por ciudad: ${allCities.map((c, i) => `${c}=${daysPerCity(i)}d`).join(", ")}
 
 Formato exacto:
@@ -205,7 +206,7 @@ CRÍTICO — EL ÚLTIMO DÍA (día ${batchOffset + batchDays}) ES EL DÍA DE REG
 isTravelDay=true, theme="Regreso a ${originCity}"` : "";
 
       return `Genera exactamente ${batchDays} días del itinerario en ${city}. Año 2026 — usa precios, lugares y referencias actuales.
-Estilo: ${travelStyle} | ${adults} adultos${children > 0 ? ` + ${children} niños` : ""} (${totalPax} personas) | ${firstTimeLine}
+Estilo: ${travelStyle} | ${adults} adultos${children > 0 ? ` + ${children} niños (2-12)` : ""}${infants > 0 ? ` + ${infants} bebés (0-1)` : ""} (${totalPax} personas total) | ${firstTimeLine}
 Origen vuelo: ${prevCity}→${city} | Fecha primer día del bloque: ${batchStartDate}
 SOLO JSON válido sin markdown.
 ${day1Block}${departureDayBlock}
@@ -305,7 +306,7 @@ TRANSPORTE LOCAL (localTransportCostClp) — TOTAL PARA ${totalPax} PERSONA${tot
       .filter(l => l.fromIata && l.toIata && l.date)
       .map(l => ({ fromCity: l.fromCity, toCity: l.toCity, fromIata: l.fromIata!, toIata: l.toIata!, date: l.date! }));
 
-    const strategyPromise = analyzeFlightStrategy(strategyLegs, adults, originCity, roundTrip, travelStyle, children)
+    const strategyPromise = analyzeFlightStrategy(strategyLegs, adults, originCity, roundTrip, travelStyle, children, infants)
       .then(r => { lap("vuelos + estrategia"); console.log("[itinerary] strategy:", r.recommendation.type); return r; })
       .catch(e => {
         console.error("[itinerary] strategy error:", e instanceof Error ? e.message : e);
@@ -314,7 +315,7 @@ TRANSPORTE LOCAL (localTransportCostClp) — TOTAL PARA ${totalPax} PERSONA${tot
 
     // Also keep per-leg fallback for any legs not covered by strategy engine
     const flightsPromise = strategyPromise.then(s => s?.flightOptions ?? {})
-      .catch(() => fetchFlightsForLegs(legsForFlights, adults, travelStyle, children));
+      .catch(() => fetchFlightsForLegs(legsForFlights, adults, travelStyle, children, infants));
 
     // ── Llamadas 2-N: ciudades en PARALELO, batches de 8 días (Haiku) ──
     const BATCH_SIZE = 8;
@@ -537,6 +538,11 @@ SOLO JSON: { "tips": ["tip1", "tip2", ...] } — sin límite de cantidad, todos 
         emoji: "🧒",
         color: TRAVELER_COLORS[(adults + i) % TRAVELER_COLORS.length],
       })),
+      ...Array.from({ length: infants }, (_, i) => ({
+        id: `b-${i}`, name: `Bebé ${i + 1}`,
+        emoji: "👶",
+        color: TRAVELER_COLORS[(adults + children + i) % TRAVELER_COLORS.length],
+      })),
     ];
 
     const trip = {
@@ -545,7 +551,7 @@ SOLO JSON: { "tips": ["tip1", "tip2", ...] } — sin límite de cantidad, todos 
       originCity,
       cities: allCities.map((name, i) => ({ name, country: "", days: daysPerCity(i), firstTime: true, interests: [] })),
       startDate, endDate, totalDays,
-      travelers: { adults, children: input.children ?? 0 },
+      travelers: { adults, children, infants },
       travelStyle, budgetMaxClp: input.budgetMaxClp,
       transportLegs: (() => {
         const outbound = allCities.map((city, i) => {

@@ -89,10 +89,12 @@ mi esposa/marido/pareja/pololo/novia y yo → adults: 2, children: 0
 en pareja / nosotros dos → adults: 2, children: 0
 luna de miel / honeymoon → adults: 2, children: 0, travelStyle: "premium"
 con mis papás / con mis padres → adults: 3 (o preguntar), children: 0
-somos N / vamos N / grupo de N → adults: N, children: 0
-familia / con N niños / con mis hijos → adults según contexto, children: N (si se especifica número)
-"2 adultos y 2 niños" → adults: 2, children: 2
-"somos 4, 2 niños" → adults: 2, children: 2
+somos N / vamos N / grupo de N → adults: N, children: 0, infants: 0
+familia / con N niños / con mis hijos → adults según contexto, children: N (si se especifica número), infants: 0
+"2 adultos y 2 niños" → adults: 2, children: 2, infants: 0
+"somos 4, 2 niños" → adults: 2, children: 2, infants: 0
+"con un bebé / con una beba" → infants: 1
+"2 adultos, 1 niño y 1 bebé" → adults: 2, children: 1, infants: 1
 
 ═══ ESTILO ═══
 mochilero / mochila / backpacker / económico / barato / hostales → "mochilero"
@@ -121,6 +123,7 @@ En estos casos pon la pregunta más corta posible en clarificationQuestion.
   "departureDate": null,
   "adults": 2,
   "children": 0,
+  "infants": 0,
   "travelStyle": "comfort",
   "flexible": true,
   "flexibleMonth": "julio",

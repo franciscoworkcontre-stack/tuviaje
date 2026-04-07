@@ -92,6 +92,7 @@ export async function analyzeFlightStrategy(
   roundTrip:   boolean,
   travelStyle: string = "comfort",
   children:    number = 0,
+  infants:     number = 0,
 ): Promise<StrategyResult> {
   if (!legs.length) {
     return { recommendation: noFlightsRec(), flightOptions: {} };
@@ -112,21 +113,21 @@ export async function analyzeFlightStrategy(
 
   // ── Simple round-trip (single destination) ─────────────────────────────────
   if (isRT && legs.length === 1) {
-    return analyzeSimpleRT(legs[0], adults, travelStyle, children);
+    return analyzeSimpleRT(legs[0], adults, travelStyle, children, infants);
   }
 
   // ── Hub + regionals ────────────────────────────────────────────────────────
   if (isHubPattern) {
-    return analyzeHubPattern(legs, adults, originCity, travelStyle, children);
+    return analyzeHubPattern(legs, adults, originCity, travelStyle, children, infants);
   }
 
   // ── Default: all one-ways (no special structure detected) ──────────────────
-  return analyzeAllOneWay(legs, adults, travelStyle, children);
+  return analyzeAllOneWay(legs, adults, travelStyle, children, infants);
 }
 
 // ── Strategy: all one-ways ───────────────────────────────────────────────────
-async function analyzeAllOneWay(legs: StrategyLeg[], adults: number, travelStyle: string, children = 0): Promise<StrategyResult> {
-  const flightOptions = await fetchAllLegsParallel(legs, adults, travelStyle, children);
+async function analyzeAllOneWay(legs: StrategyLeg[], adults: number, travelStyle: string, children = 0, infants = 0): Promise<StrategyResult> {
+  const flightOptions = await fetchAllLegsParallel(legs, adults, travelStyle, children, infants);
   const totalClp = sumBestPrices(flightOptions, legs);
 
   const rec: FlightStrategyRecommendation = {
@@ -147,14 +148,14 @@ async function analyzeAllOneWay(legs: StrategyLeg[], adults: number, travelStyle
 }
 
 // ── Strategy: simple round-trip ──────────────────────────────────────────────
-async function analyzeSimpleRT(leg: StrategyLeg, adults: number, travelStyle: string, children = 0): Promise<StrategyResult> {
+async function analyzeSimpleRT(leg: StrategyLeg, adults: number, travelStyle: string, children = 0, infants = 0): Promise<StrategyResult> {
   const returnDate = leg.date; // caller sets last leg date as return
 
   // Fetch RT price and two one-way prices in parallel
   const [rtBest, owOut, owReturn] = await Promise.all([
-    fetchRoundTripBestPrice(leg.fromIata, leg.toIata, leg.date, returnDate, adults),
-    fetchLegFlights(leg.fromIata, leg.toIata, leg.date, adults, travelStyle, children),
-    fetchRoundTripBestPrice(leg.toIata, leg.fromIata, returnDate, returnDate, adults),
+    fetchRoundTripBestPrice(leg.fromIata, leg.toIata, leg.date, returnDate, adults, children, infants),
+    fetchLegFlights(leg.fromIata, leg.toIata, leg.date, adults, travelStyle, children, infants),
+    fetchRoundTripBestPrice(leg.toIata, leg.fromIata, returnDate, returnDate, adults, children, infants),
   ]);
 
   const owOutPrice = owOut[0]?.priceClp ?? 0;
@@ -208,6 +209,7 @@ async function analyzeHubPattern(
   originCity:  string,
   travelStyle: string,
   children:    number = 0,
+  infants:     number = 0,
 ): Promise<StrategyResult> {
   const hubLeg       = legs[0];  // e.g. SCL → MAD
   const regionalLegs = legs.slice(1, -1); // e.g. MAD→ROM, ROM→BCN
@@ -240,8 +242,8 @@ async function analyzeHubPattern(
   ];
 
   const [rtHubPrice, allOWOptions] = await Promise.all([
-    fetchRoundTripBestPrice(hubLeg.fromIata, hubLeg.toIata, hubLeg.date, returnLeg.date, adults),
-    fetchAllLegsParallel(allLegsToFetch, adults, travelStyle, children),
+    fetchRoundTripBestPrice(hubLeg.fromIata, hubLeg.toIata, hubLeg.date, returnLeg.date, adults, children, infants),
+    fetchAllLegsParallel(allLegsToFetch, adults, travelStyle, children, infants),
   ]);
 
   // ── Strategy A costs ──────────────────────────────────────────────────────
@@ -348,12 +350,13 @@ async function fetchAllLegsParallel(
   adults:      number,
   travelStyle: string,
   children:    number = 0,
+  infants:     number = 0,
 ): Promise<Record<string, FlightOption[]>> {
   const entries = await Promise.all(
     legs.map(async l => {
       const key = `${l.fromCity}-${l.toCity}`;
       try {
-        const opts = await fetchLegFlights(l.fromIata, l.toIata, l.date, adults, travelStyle, children);
+        const opts = await fetchLegFlights(l.fromIata, l.toIata, l.date, adults, travelStyle, children, infants);
         return [key, opts] as const;
       } catch {
         return [key, [] as FlightOption[]] as const;

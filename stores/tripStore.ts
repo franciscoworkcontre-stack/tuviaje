@@ -70,6 +70,7 @@ const defaultPlanningInput: PlanningInput = {
   endDate: "",
   adults: 2,
   children: 0,
+  infants: 0,
   travelStyle: "comfort",
   flexibleDates: false,
   roundTrip: true,

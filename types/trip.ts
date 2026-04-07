@@ -215,7 +215,8 @@ export interface Trip {
   totalDays: number;
   travelers: {
     adults: number;
-    children: number;
+    children: number;  // 2–12 years, pay ~75% of adult fare
+    infants: number;   // 0–1 years, don't need a seat (~10% of adult fare on international)
   };
   travelStyle: TravelStyle;
   budgetMaxClp?: number;
@@ -243,7 +244,8 @@ export interface PlanningInput {
   startDate: string;
   endDate: string;
   adults: number;
-  children: number;
+  children: number;  // 2–12 years
+  infants: number;   // 0–1 years
   travelStyle: TravelStyle;
   budgetMaxClp?: number;
   flexibleDates: boolean;
