@@ -121,15 +121,8 @@ function buildFlightOptions(
 }
 
 // ── Single leg via scraper ────────────────────────────────────────────────────
-// ── Fare multiplier helpers ───────────────────────────────────────────────────
-// IATA industry standard approximations:
-//   - Infants (0–1): lap infant, no seat needed. ~10% of adult fare on international,
-//     free on many domestic. We use 10% as a conservative estimate.
-//   - Children (2–12): 75% of adult fare (most carriers).
-//   - Adults: 100%.
-export function groupFareMultiplier(adults: number, children: number, infants: number): number {
-  return adults + children * 0.75 + infants * 0.10;
-}
+// price_usd from the scraper is already the group total (Google calculates
+// infant/child discounts server-side). price_usd_per_adult is for display only.
 
 export async function fetchLegFlights(
   fromIata:    string,
