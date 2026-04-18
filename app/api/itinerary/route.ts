@@ -317,8 +317,10 @@ TRANSPORTE LOCAL (localTransportCostClp) — TOTAL PARA ${totalPax} PERSONA${tot
     const flightsPromise = strategyPromise.then(s => s?.flightOptions ?? {})
       .catch(() => fetchFlightsForLegs(legsForFlights, adults, travelStyle, children, infants));
 
-    // ── Llamadas 2-N: ciudades en PARALELO, batches de 8 días (Haiku) ──
-    const BATCH_SIZE = 8;
+    // ── Llamadas 2-N: ciudades en PARALELO, batches de 3 días (Haiku) ──
+    // 3 days ≈ 14K chars ≈ 3500 tokens — safe under the 8192 token output limit.
+    // 5 days in one batch was hitting ~24K chars and getting truncated mid-JSON.
+    const BATCH_SIZE = 3;
     console.log("[itinerary] step4: parallel cities with batching", allCities);
 
     const cityDayResults = await Promise.all(allCities.map(async (city, idx) => {
